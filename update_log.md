@@ -1,0 +1,11 @@
+- 2026-11-05 18:00: 73 series
+- 2026-11-06 09:41: 75 series
+- 2026-11-06 16:56: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-09 19:48: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-10 17:26: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-11 17:11: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-12 17:49: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-13 17:23: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-16 19:32: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-17 18:38: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
+- 2026-11-18 18:16: 75 series; errores: paro_reg (total): No module named 'pandas'; paro_reg_yoy (total): No module named 'pandas'
