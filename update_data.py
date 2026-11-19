@@ -9,7 +9,9 @@ Nothing is estimated. Transformations are limited to year-on-year rates computed
 levels, rolling 4-quarter / 12-month sums and simple ratios, each one stated in the
 series' metadata. Run:  python update_data.py data.json
 """
-import csv, datetime as dt, io, json, sys, zipfile, time
+import csv, datetime as dt, io, json, sys, zipfile, time, re, unicodedata
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
 import requests
 
 UA = {"User-Agent": "spain-macro-dashboard/1.0 (+github pages; public statistics)"}
@@ -50,9 +52,9 @@ CAT = [
     ("isa_ind", "mineco", "220000", "Indicador sintético de actividad · industria", "% a/a", "M", "coyuntura", {"transform": "yoy"}),
     ("isa_ser", "mineco", "240000", "Indicador sintético de actividad · servicios", "% a/a", "M", "coyuntura", {"transform": "yoy"}),
     ("isa_con", "mineco", "230090", "Indicador sintético de actividad · construcción", "% a/a", "M", "coyuntura", {"transform": "yoy"}),
-    ("esi", "mineco", "680024", "Indicador de sentimiento económico (CE)", "índice", "M", "coyuntura", {}),
-    ("conf_cons", "mineco", "684024", "Confianza del consumidor (CE)", "saldo", "M", "coyuntura", {}),
-    ("cli", "mineco", "689024", "Indicador adelantado compuesto OCDE (CLI)", "índice", "M", "coyuntura", {}),
+    ("esi", "ecfin", "ES.ESI", "Indicador de sentimiento económico (CE)", "índice", "M", "coyuntura", {}),
+    ("conf_cons", "ecfin", "ES.CONS", "Confianza del consumidor (CE)", "saldo", "M", "coyuntura", {}),
+    ("cli", "oecd", "ESP.M.LI...AA...H", "Indicador adelantado compuesto OCDE (CLI)", "índice", "M", "coyuntura", {}),
     ("matric", "mineco", "271300", "Matriculaciones de turismos", "% a/a", "M", "coyuntura", {"transform": "yoy"}),
     ("elec", "mineco", "255010", "Consumo eléctrico corregido de temperatura y calendario", "% a/a", "M", "coyuntura", {}),
     ("turistas", "ine", "FREG286", "Entrada de turistas internacionales (Frontur)", "% a/a", "M", "coyuntura", {"transform": "yoy"}),
@@ -72,6 +74,39 @@ CAT = [
     ("viv_tasado_yoy", "mineco", "449990", "Valor tasado de la vivienda libre", "% a/a", "Q", "vivienda", {"transform": "yoy", "source": "Ministerio de Vivienda y Agenda Urbana (BDSICE)"}),
     ("viv_coste", "mineco", "470111", "Coste de construcción residencial", "% a/a", "M", "vivienda", {"transform": "yoy", "source": "Ministerio de Vivienda y Agenda Urbana (BDSICE)"}),
     ("viv_credito", "bde:be0413", "D_MEE62100", "Crédito a hogares para adquisición de vivienda (saldo)", "% a/a", "Q", "vivienda", {"transform": "yoy", "note": "Variación del saldo vivo; no corrige saneamientos ni reclasificaciones."}),
+    # Crédito y nuevas operaciones: series originales del Banco de España
+    ('aux_cr_cons', 'bde:be0413', 'D_MEE62300', 'Crédito a hogares para consumo', 'miles €', 'Q', 'aux', {}),
+    ('aux_cr_prod', 'bde:be0413', 'D_MEE61000', 'Crédito para actividades productivas', 'miles €', 'Q', 'aux', {}),
+    ('aux_cr_viv', 'bde:be0413', 'D_MEE62100', 'Crédito a hogares para vivienda', 'miles €', 'Q', 'aux', {}),
+    ('aux_du_cons', 'bde:be0413', 'D_MEADU226', 'Dudosos: consumo', 'miles €', 'Q', 'aux', {}),
+    ('aux_du_prod', 'bde:be0413', 'D_MEADU100', 'Dudosos: actividades productivas', 'miles €', 'Q', 'aux', {}),
+    ('aux_du_viv', 'bde:be0413', 'D_MEADU210', 'Dudosos: vivienda', 'miles €', 'Q', 'aux', {}),
+    ('cred_cons_yoy', 'bde:be0413', 'D_MEE62300', 'Crédito a hogares para consumo (saldo)', '% a/a', 'Q', 'credito', {'transform': 'yoy', 'note': 'Variación del saldo vivo; no corrige saneamientos ni reclasificaciones.'}),
+    ('cred_prod_yoy', 'bde:be0413', 'D_MEE61000', 'Crédito para actividades productivas (saldo)', '% a/a', 'Q', 'credito', {'transform': 'yoy', 'note': 'Variación del saldo vivo; no corrige saneamientos ni reclasificaciones.'}),
+    ('nop_cons', 'bde:be1911', 'DN_1TI2TIE99', 'Nuevas operaciones de crédito al consumo (12 meses)', 'mm€', 'M', 'credito', {'transform': 'sum12'}),
+    ('nop_snf', 'bde:be1911', 'DN_1TI2TIE105', 'Nuevas operaciones de crédito a empresas (12 meses)', 'mm€', 'M', 'credito', {'transform': 'sum12'}),
+    ('nop_viv', 'bde:be1911', 'DN_1TI2TIE96', 'Nuevas operaciones de crédito a la vivienda (12 meses)', 'mm€', 'M', 'credito', {'transform': 'sum12'}),
+    ('nop_cons_yoy', 'bde:be1911', 'DN_1TI2TIE99', 'Nuevas operaciones de crédito al consumo (12 meses)', '% a/a', 'M', 'credito', {'transform': 'sum12yoy'}),
+    ('nop_snf_yoy', 'bde:be1911', 'DN_1TI2TIE105', 'Nuevas operaciones de crédito a empresas (12 meses)', '% a/a', 'M', 'credito', {'transform': 'sum12yoy'}),
+    ('nop_viv_yoy', 'bde:be1911', 'DN_1TI2TIE96', 'Nuevas operaciones de crédito a la vivienda (12 meses)', '% a/a', 'M', 'credito', {'transform': 'sum12yoy'}),
+    # Saldos, dudosidad y tipos: series originales del Banco de España
+    ('cred_dudosidad', 'bde:be0403', 'D_BEEA2020', 'Ratio de dudosidad del crédito a otros sectores residentes', '%', 'M', 'credito', {}),
+    ('cred_saldo', 'bde:be0403', 'D_BEEA1000', 'Crédito a otros sectores residentes (saldo)', 'mm€', 'M', 'credito', {'scale': 1e-06}),
+    ('dep_plazo_yoy', 'bde:be0405', 'D_BEEP1199', 'Depósitos a plazo y con preaviso de otros sectores residentes', '% a/a', 'M', 'credito', {'transform': 'yoy'}),
+    ('dep_saldo', 'bde:be0405', 'D_BEEP0000N', 'Depósitos de otros sectores residentes (saldo)', 'mm€', 'M', 'credito', {'scale': 1e-06}),
+    ('dep_vista_yoy', 'bde:be0405', 'D_BEEP1188', 'Depósitos a la vista de otros sectores residentes', '% a/a', 'M', 'credito', {'transform': 'yoy'}),
+    ('tipo_cons', 'bde:be1903', 'DN_1TI2T0138', 'Tipo nuevas operaciones de crédito al consumo (TEDR)', '%', 'M', 'credito', {}),
+    ('tipo_dep_hog', 'bde:be1907', 'DN_1TI2T0024', 'Tipo nuevos depósitos a plazo de hogares (TEDR)', '%', 'M', 'credito', {}),
+    ('tipo_dep_snf', 'bde:be1907', 'DN_1TI2T0029', 'Tipo nuevos depósitos a plazo de empresas (TEDR)', '%', 'M', 'credito', {}),
+    ('tipo_dep_vista', 'bde:be1907', 'DN_1TI1T0010', 'Tipo de los depósitos a la vista de hogares (TEDR)', '%', 'M', 'credito', {}),
+    ('tipo_snf', 'bde:be1903', 'DN_1TI2T0144', 'Tipo nuevas operaciones de crédito a empresas (TEDR)', '%', 'M', 'credito', {}),
+    ('tipo_viv_saldo', 'bde:be1908', 'DN_1TI1T0050', 'Tipo del saldo vivo de crédito a la vivienda (TEDR)', '%', 'M', 'credito', {}),
+    # Costes laborales ETCL: valores originales del INE, variación interanual
+    ('sal_ord', 'ine', 'ETCL66', 'Coste salarial ordinario por trabajador y mes (ETCL)', '% a/a', 'Q', 'precios', {'transform': 'yoy'}),
+    ('sal_etcl', 'ine', 'ETCL67', 'Coste salarial total por trabajador y mes (ETCL)', '% a/a', 'Q', 'precios', {'transform': 'yoy'}),
+    ('clab_etcl', 'ine', 'ETCL68', 'Coste laboral total por trabajador y mes (ETCL)', '% a/a', 'Q', 'precios', {'transform': 'yoy'}),
+    # Convenios colectivos: avance mensual del Ministerio de Trabajo
+    ("sal_conv", "cct", "CCT-2.1", "Incremento salarial pactado en convenios (acumulado en el año)", "%", "M", "precios", {"note": "Avance del Ministerio de Trabajo; años anteriores a 2025 conservados desde BDSICE. Cifras oficiales a dos decimales."}),
     # Mercado laboral
     ("paro_epa", "ine", "EPA423474", "Tasa de paro (EPA)", "%", "Q", "empleo", {}),
     ("ocup_epa", "ine", "EPA387796", "Ocupados (EPA)", "miles", "Q", "empleo", {}),
@@ -102,7 +137,7 @@ CAT = [
     # Financiero
     ("bono_es", "mineco", "867320q", "Rentabilidad bono 10 años · España", "%", "D", "financiero", {}),
     ("bono_de", "mineco", "867321q", "Rentabilidad bono 10 años · Alemania", "%", "D", "financiero", {}),
-    ("bce_dfr", "mineco", "867104q", "BCE · facilidad de depósito", "%", "D", "financiero", {}),
+    ("bce_dfr", "ecb", "FM.D.U2.EUR.4F.KR.DFR.LEV", "BCE · facilidad de depósito", "%", "D", "financiero", {}),
     ("euribor12", "bde:be1901", "D_1NBAF472", "Euríbor a 12 meses", "%", "M", "financiero", {}),
     ("euribor12_daily", "bde:ti_1_7", "D_DNBAF172", "Euríbor a 12 meses · diario", "%", "D", "financiero", {"note": "Observación diaria publicada por el Banco de España; puede estar disponible con retraso."}),
     ("tipo_viv", "bde:be1904", "DN_1TI2T0002", "Tipo nuevas hipotecas (TEDR)", "%", "M", "financiero", {}),
@@ -122,6 +157,152 @@ def get(url, tries=3, **kw):
             if k == tries - 1: raise
             time.sleep(3 * (k + 1))
 
+
+# ---------------------------------------------------------------- Fuentes originales: BCE y Comisión Europea
+ECB_DATA = "https://data-api.ecb.europa.eu/service/data/FM/D.U2.EUR.4F.KR.DFR.LEV?format=csvdata&startPeriod=2021-01-01"
+ECB_INFO = "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV"
+ECFIN_PAGE = "https://economy-finance.ec.europa.eu/economic-forecast-and-surveys/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en"
+_ECFIN = None
+
+class _MainIndicatorsLink(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.links = []
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "a":
+            href = dict(attrs).get("href", "")
+            if "main_indicators_sa_nace2.zip" in href.lower(): self.links.append(href)
+
+def ecb_series(code):
+    content = get(ECB_DATA).content.decode("utf-8-sig")
+    rows = csv.DictReader(io.StringIO(content)); out = []
+    if not {"KEY", "TIME_PERIOD", "OBS_VALUE"}.issubset(rows.fieldnames or []):
+        raise ValueError("BCE: formato CSV inesperado")
+    for row in rows:
+        if row.get("KEY") != code or not row.get("OBS_VALUE"): continue
+        try:
+            d = dt.date.fromisoformat(row["TIME_PERIOD"]).isoformat(); v = float(row["OBS_VALUE"])
+        except (ValueError, TypeError): continue
+        if not -10 <= v <= 30: raise ValueError("BCE: tipo fuera de límites plausibles")
+        out.append([d, v, 0])
+    out.sort()
+    if not out: raise ValueError("BCE: serie diaria vacía")
+    return "Facilidad de depósito del BCE, tipo diario", out
+
+def ecfin_series(code):
+    global _ECFIN
+    if _ECFIN is None:
+        import openpyxl
+        parser = _MainIndicatorsLink(); parser.feed(get(ECFIN_PAGE).content.decode("utf-8", "replace"))
+        urls = {urljoin(ECFIN_PAGE, href) for href in parser.links}
+        urls = {u for u in urls if urlparse(u).scheme == "https" and urlparse(u).hostname in {"ec.europa.eu", "economy-finance.ec.europa.eu"}}
+        if len(urls) != 1: raise ValueError("Comisión Europea: enlace al ZIP principal no identificado de forma única")
+        archive = zipfile.ZipFile(io.BytesIO(get(urls.pop()).content))
+        names = [n for n in archive.namelist() if n.lower().endswith(".xlsx") and not n.startswith("__MACOSX/")]
+        if len(names) != 1: raise ValueError("Comisión Europea: libro de indicadores no identificado de forma única")
+        book = openpyxl.load_workbook(io.BytesIO(archive.read(names[0])), read_only=True, data_only=True)
+        try:
+            sheet = book["MONTHLY"]; rows = sheet.iter_rows(values_only=True); header = next(rows)
+            indices = {c: header.index(c) for c in ("ES.ESI", "ES.CONS")}
+            parsed = {c: [] for c in indices}
+            for row in rows:
+                if not isinstance(row[0], (dt.date, dt.datetime)): continue
+                date = row[0].strftime("%Y-%m-01")
+                for key, ix in indices.items():
+                    value = row[ix] if ix < len(row) else None
+                    if isinstance(value, (int, float)) and not isinstance(value, bool):
+                        parsed[key].append([date, float(value), 0])
+            if not all(parsed.values()): raise ValueError("Comisión Europea: indicador español sin observaciones")
+            _ECFIN = parsed
+        finally: book.close()
+    return {"ES.ESI": "Economic Sentiment Indicator, España, ajustado estacionalmente", "ES.CONS": "Consumer confidence indicator, España, ajustado estacionalmente"}[code], _ECFIN[code]
+
+OECD_CLI_URL = "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES@DF_CLI,4.1/ESP.M.LI...AA...H?startPeriod=2005-01&dimensionAtObservation=AllDimensions&format=csvfilewithlabels"
+OECD_CLI_INFO = "https://www.oecd.org/en/data/datasets/oecd-composite-leading-indicators-clis.html"
+
+def oecd_cli_series(code):
+    if code != "ESP.M.LI...AA...H": raise ValueError("OCDE: código no reconocido")
+    rows = csv.DictReader(io.StringIO(get(OECD_CLI_URL).content.decode("utf-8-sig")))
+    dims = {"REF_AREA":"ESP", "FREQ":"M", "MEASURE":"LI", "UNIT_MEASURE":"IX", "ACTIVITY":"_Z", "ADJUSTMENT":"AA", "TRANSFORMATION":"IX", "TIME_HORIZ":"_Z", "METHODOLOGY":"H"}
+    if not set(dims).union({"TIME_PERIOD", "OBS_VALUE"}).issubset(rows.fieldnames or []):
+        raise ValueError("OCDE: formato CSV inesperado")
+    obs = {}
+    for row in rows:
+        if any(row.get(k) != v for k, v in dims.items()) or not row.get("OBS_VALUE"): continue
+        period = row["TIME_PERIOD"]
+        try:
+            date = dt.date.fromisoformat(period+"-01").isoformat()
+            value = float(row["OBS_VALUE"])
+        except (ValueError, TypeError): continue
+        if not __import__("math").isfinite(value): raise ValueError("OCDE: valor no finito")
+        if date in obs: raise ValueError("OCDE: más de una observación para un mes")
+        obs[date] = value
+    if not obs: raise ValueError("OCDE: indicador español mensual sin observaciones")
+    return "Indicador adelantado compuesto (CLI), España, ajustado por amplitud", [[d,v,0] for d,v in sorted(obs.items())]
+
+CCT_SEARCH = "https://cpage.mpr.gob.es/publicaciones/buscar/?q=estadistica+de+convenios+colectivos+de+trabajo+avance+mensual"
+CCT_SOURCE = "Ministerio de Trabajo y Economía Social (histórico BDSICE)"
+
+class _Links(HTMLParser):
+    def __init__(self): super().__init__(); self.links=[]
+    def handle_starttag(self, tag, attrs):
+        if tag.lower()=="a":
+            href=dict(attrs).get("href")
+            if href: self.links.append(href)
+
+def cct_series(code):
+    if code!="CCT-2.1": raise ValueError("Convenios: cuadro no reconocido")
+    import xlrd
+    parser=_Links(); parser.feed(get(CCT_SEARCH).content.decode("utf-8", "replace")); candidates={}
+    pattern=re.compile(r"/publicacion/estadistica-de-convenios-colectivos-de-trabajo-avance-mensual-(\d{4})-[0-9a-z]+-(\d{4})/?$", re.I)
+    for href in parser.links:
+        url=urljoin(CCT_SEARCH, href); parsed=urlparse(url); match=pattern.search(parsed.path)
+        if parsed.scheme=="https" and parsed.hostname=="cpage.mpr.gob.es" and match:
+            year,issue=map(int,match.groups())
+            if 2015 <= year <= dt.date.today().year: candidates[(year,issue)]=url
+    if not candidates: raise ValueError("Convenios: no se ha localizado una publicación mensual oficial")
+    publication=candidates[max(candidates)]; page=_Links();page.feed(get(publication).content.decode("utf-8", "replace"))
+    downloads={urljoin(publication,h) for h in page.links if "visordocumentosicopo.aspx" in h.lower()}
+    downloads={u for u in downloads if urlparse(u).scheme=="https" and urlparse(u).hostname=="servicios.mpr.es"}
+    if len(downloads)!=1: raise ValueError("Convenios: no se ha identificado un único XLS oficial")
+    book=xlrd.open_workbook(file_contents=get(next(iter(downloads))).content)
+    try:
+        sheet=book.sheet_by_name("CCT-2.1")
+        norm=lambda value: unicodedata.normalize("NFKD",str(value)).encode("ascii","ignore").decode("ascii").upper()
+        header=" ".join(norm(sheet.cell_value(0,c)) for c in range(sheet.ncols))
+        months_full={"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
+        match=re.search(r"REGISTRADOS HASTA\s+("+"|".join(months_full)+r")\s+(20\d{2})",header)
+        if not match: raise ValueError("Convenios: fecha de registro no identificada en el cuadro CCT-2.1")
+        target_year,target_month=int(match.group(2)),months_full[match.group(1)]
+        if target_year!=max(candidates)[0] or dt.date(target_year,target_month,1)>dt.date.today(): raise ValueError("Convenios: fecha del libro no coincide con la publicación")
+        short={k[:3]:v for k,v in months_full.items()}; year=None; obs={}
+        for r in range(sheet.nrows):
+            label=norm(sheet.cell_value(r,0)).strip()
+            year_match=re.match(r"^(20\d{2})\s*\(4\)", label)
+            if year_match: year=int(year_match.group(1)); continue
+            if year is None: continue
+            month=short.get(label[:3]); value=sheet.cell_value(r,4)
+            if month and isinstance(value,(int,float)) and not isinstance(value,bool):
+                date=f"{year:04d}-{month:02d}-01"
+                if date in obs: raise ValueError("Convenios: mes duplicado en CCT-2.1")
+                if not -20<=value<=50: raise ValueError("Convenios: variación salarial fuera de rango")
+                obs[date]=float(value)
+        expected=f"{target_year:04d}-{target_month:02d}-01"
+        if not obs or max(obs)!=expected: raise ValueError("Convenios: la última observación no coincide con el periodo de publicación")
+        return "Variación salarial pactada, avance mensual, total de convenios", [[d,v,1] for d,v in sorted(obs.items())], publication
+    finally: book.release_resources()
+
+def check_primary_transition(previous_series, observations, new_source, sid):
+    """Avoid silently changing the meaning of a series or downgrading its latest date."""
+    if not previous_series or not previous_series.get("data"): return
+    previous = {x[0]: x[1] for x in previous_series["data"] if len(x)>1 and isinstance(x[1], (int,float))}
+    new = {x[0]: x[1] for x in observations if len(x)>1 and isinstance(x[1], (int,float))}
+    if not new: raise ValueError(f"{sid}: fuente original sin datos numéricos")
+    if max(new) < max(previous): raise ValueError(f"{sid}: la fuente original está menos actualizada que los datos conservados")
+    if previous_series.get("source") == new_source: return
+    shared = sorted(set(previous) & set(new))[-120:]
+    if len(shared) < 12: raise ValueError(f"{sid}: solapamiento insuficiente para verificar la serie original")
+    match = sum(abs(previous[d]-new[d]) <= 0.051 for d in shared)
+    if match < 0.95*len(shared): raise ValueError(f"{sid}: discrepancias con la serie anterior; revisar metodología")
 
 # ---------------------------------------------------------------- INE
 def ine_series(code):
@@ -270,7 +451,7 @@ def ratio_pct(num, den):
 def q_of(d): return f"{d[:4]}-{(int(d[5:7]) - 1) // 3 * 3 + 1:02d}-01"
 
 
-END_OF_PERIOD = {"deficit_m", "cc_pib", "bys_pib", "tur_ing_12m"}   # 12-month sums and year-to-date balances
+END_OF_PERIOD = {"deficit_m", "cc_pib", "bys_pib", "tur_ing_12m", "cred_dudosidad", "cred_saldo", "dep_saldo", "sal_conv"}   # 12-month sums and year-to-date balances
 def agg_monthly(sid, obs, level, tr):
     """Annual and quarterly figures for monthly series (complete periods only):
        growth  - % change of the period average of the published level (rates computed from levels)
@@ -301,12 +482,16 @@ def main(path):
     import copy
     series = copy.deepcopy(previous)
     catalogue_ids = {entry[0] for entry in CAT}
-    derived_ids = {"deficit_4q", "cc_pib", "bys_pib", "tur_ing_12m", "prima"}
+    derived_ids = {"deficit_4q", "cc_pib", "bys_pib", "tur_ing_12m", "prima", "dud_cons", "dud_prod", "dud_viv"}
     preserved = sorted(set(previous) - catalogue_ids - derived_ids)
     if preserved: errors.append("Series conservadas sin actualización en este catálogo: " + ", ".join(preserved))
     for sid, src, code, label, unit, freq, block, extra in CAT:
         try:
-            if src == "ine": name, obs = ine_series(code); link = INE_LINK.format(c=code); sname = "INE"
+            if src == "cct": name, obs, link = cct_series(code); sname = CCT_SOURCE
+            elif src == "oecd": name, obs = oecd_cli_series(code); link = OECD_CLI_INFO; sname = "OCDE"
+            elif src == "ecb": name, obs = ecb_series(code); link = ECB_INFO; sname = "Banco Central Europeo"
+            elif src == "ecfin": name, obs = ecfin_series(code); link = ECFIN_PAGE; sname = "Comisión Europea (DG ECFIN)"
+            elif src == "ine": name, obs = ine_series(code); link = INE_LINK.format(c=code); sname = "INE"
             elif src.startswith("bde:"):
                 t = src.split(":")[1]; name, obs = bde_series(t, code); link = BDE.format(t=t); sname = "Banco de España"
             elif src == "ss": name, obs = ss_series(code); link = SS_LINK; sname = "Seguridad Social"
@@ -327,6 +512,16 @@ def main(path):
             if freq == "Q": obs = [[q_of(d), v, f] for d, v, f in obs]   # BdE dates quarters by their last month
             if not obs: raise ValueError("sin observaciones")
             if extra.get("source"): sname = extra["source"]
+            if src in ("ecb", "ecfin", "oecd"): check_primary_transition(previous.get(sid), obs, sname, sid)
+            if src == "cct":
+                check_primary_transition(previous.get(sid), obs, sname, sid)
+                if previous.get(sid) and previous[sid].get("data"):
+                    obs = [o for o in previous[sid]["data"] if o[0] < obs[0][0]] + obs
+            if sid in ("sal_ord", "sal_etcl", "clab_etcl") and previous.get(sid):
+                reference = dict(previous[sid], source="verificación ETCL pendiente")
+                check_primary_transition(reference, obs, sname, sid)
+            if sid in ('cred_dudosidad', 'cred_saldo', 'dep_plazo_yoy', 'dep_saldo', 'dep_vista_yoy', 'tipo_cons', 'tipo_dep_hog', 'tipo_dep_snf', 'tipo_dep_vista', 'tipo_snf', 'tipo_viv_saldo'): check_primary_transition(previous.get(sid), obs, sname, sid)
+            if sid in ('aux_cr_cons', 'aux_cr_prod', 'aux_cr_viv', 'aux_du_cons', 'aux_du_prod', 'aux_du_viv', 'cred_cons_yoy', 'cred_prod_yoy', 'nop_cons', 'nop_snf', 'nop_viv', 'nop_cons_yoy', 'nop_snf_yoy', 'nop_viv_yoy'): check_primary_transition(previous.get(sid), obs, sname, sid)
             series[sid] = dict(label=label, unit=unit, freq=freq, block=block, source=sname, code=code,
                                table=src.split(":")[1] if ":" in src else None, original_name=name, link=link,
                                transform=tr, note=extra.get("note"), data=obs)
@@ -345,7 +540,8 @@ def main(path):
            "vab_agr": "idx", "vab_ind": "idx", "vab_con": "idx", "vab_ser": "idx",
            "ap_dn": "meanq", "ap_de": "meanq", "paro_epa": "meanq", "ocup_epa": "meanq",
            "ocup_epa_yoy": ("growth_of", "ocup_epa"), "afil_q_yoy": "ss_nsa", "deuda": "q4", "deficit_4q": "q4",
-           "ipv": "meanq", "viv_tasado": "meanq", "viv_tasado_yoy": ("growth_of", "viv_tasado"), "viv_credito": "meanq"}
+           "ipv": "meanq", "viv_tasado": "meanq", "viv_tasado_yoy": ("growth_of", "viv_tasado"), "viv_credito": "meanq",
+           "cred_cons_yoy": "meanq", "cred_prod_yoy": "meanq", "sal_ord": "meanq", "sal_etcl": "meanq", "clab_etcl": "meanq"}
     def by_year(obs, n):
         g = {}
         for d, v, *_ in obs: g.setdefault(d[:4], []).append(v)
@@ -400,6 +596,20 @@ def main(path):
             "Banco de España vía Ministerio de Economía", "diferencia diaria × 100", "867320q − 867321q")
     except Exception as e:
         errors.append(f"derivadas: {e}"); print("ERR derived", e)
+    # Ratios de dudosidad calculados a partir de series originales trimestrales.
+    for sid, numerator, denominator in (("dud_cons", "aux_du_cons", "aux_cr_cons"), ("dud_prod", "aux_du_prod", "aux_cr_prod"), ("dud_viv", "aux_du_viv", "aux_cr_viv")):
+        try:
+            old = previous.get(sid)
+            if not old: raise ValueError("falta la definición previa del ratio")
+            values = ratio_pct(series[numerator]["data"], series[denominator]["data"])
+            if not values: raise ValueError("sin observaciones comunes")
+            check_primary_transition(old, values, "Banco de España", sid)
+            add(sid, old["label"], "%", "Q", "credito", values, "Banco de España", "dudosos / saldo de crédito", old["code"])
+            series[sid]["annual"] = {d[:4]: v for d,v,*_ in values if d[5:7] == "10" and d[:4] >= "2015"}
+            series[sid]["annual_how"] = "q4"
+        except Exception as e:
+            errors.append(f"{sid}: {e}"); print("ERR", sid, e)
+            if sid in previous: series[sid] = previous[sid]
     for sid in ("cc_pib", "bys_pib", "tur_ing_12m"):   # derived monthly series: annual and quarterly figures
         if sid in series: series[sid].update(agg_monthly(sid, series[sid]["data"], None, None))
     if "deficit_4q" in series:   # annual balance = fourth-quarter value of the 4-quarter sum
@@ -408,7 +618,7 @@ def main(path):
 
     now = dt.datetime.now(dt.timezone.utc).astimezone(dt.timezone(dt.timedelta(hours=1)))
     out = dict(meta=dict(title="Monitor macro · Economía española", refreshed=now.strftime("%Y-%m-%d %H:%M"),
-                         timezone="Europe/Madrid", sources=["INE", "Banco de España", "Ministerio de Economía, Comercio y Empresa (BDSICE)"],
+                         timezone="Europe/Madrid", sources=["INE", "Banco de España", "Banco Central Europeo", "Comisión Europea (DG ECFIN)", "OCDE", "Ministerio de Trabajo y Economía Social", "Ministerio de Economía, Comercio y Empresa (BDSICE)"],
                          errors=errors, n_series=len(series)), series=series)
     with open(path, "w", encoding="utf-8") as fh: json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
     with open("update_log.md", "a", encoding="utf-8") as fh:

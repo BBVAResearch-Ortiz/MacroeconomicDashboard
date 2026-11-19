@@ -2,7 +2,7 @@
 
 The finance chart and overview use `euribor12_daily`, Bank of Spain table `ti_1_7`, series `D_DNBAF172` (daily, percent). The monthly `euribor12` remains available for tables and other comparisons. Daily data may arrive with a delay and are not the official monthly mortgage reference.
 
-The supplied initial observation is 17 November 2026, 3.361%, from the provided official CSV. The update workflow fetches the table on its scheduled runs; on failure it keeps the previous daily observations and records an error.
+The initial daily observations come from the Bank of Spain CSV; the observation date shown for the series identifies the latest available value. The update workflow fetches the table on its scheduled runs; on failure it keeps the previous daily observations and records an error.
 
 `template.html` is reconstructed from the latest `index.html` so rebuilding preserves the Pizarra, heat map and gallery. The existing update catalogue is older than the 107-series data snapshot; series absent from that catalogue are preserved and flagged in `meta.errors`, but are not automatically refreshed until the current catalogue is supplied.
 
