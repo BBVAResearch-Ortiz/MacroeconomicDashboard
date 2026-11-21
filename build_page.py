@@ -10,6 +10,6 @@ if forecast.exists():
     data["forecasts"] = json.loads(forecast.read_text(encoding="utf-8"))
 encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 page = tpl.replace("__DATA__", encoded)
-Path("index.html").write_text(page, encoding="utf-8")
+Path("espana.html").write_text(page, encoding="utf-8")
 Path("artifact.html").write_text(page, encoding="utf-8")
-print("index.html and artifact.html regenerated")
+print("espana.html and artifact.html regenerated")
