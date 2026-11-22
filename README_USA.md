@@ -4,4 +4,12 @@ La página usa la última observación GDPNow disponible de la Fed de Atlanta. E
 
 update_gdpnow.py consulta la fuente oficial y valida trimestre, fecha y valor; si falla, conserva la última observación. El flujo de GitHub lo ejecuta junto con el resto de actualizaciones. El acceso directo desde GitHub Actions aún debe probarse. No exponga claves privadas en el repositorio.
 
-El simulador de la Fed está pendiente de confirmar el modelo y de integrar y probar el motor. No calcula ni representa escenarios todavía. GitHub Pages es estático: ejecutar PyFRB/US para un escenario interactivo requiere un servicio de cálculo o una adaptación contrastada para navegador.
+FRB/US presenta ocho escenarios precalculados por el usuario en PyFRB/US para 2040T1–2045T4. Los gráficos permiten seleccionar escenarios y visualizar trayectorias o diferencias. Cambiar la selección no ejecuta el modelo. La trayectoria pública LONGBASE es ilustrativa y no es una previsión oficial de la Fed. Los shocks de consumo y vivienda afectan residuos de ecuaciones; el shock de tipos de cuatro trimestres se aplica repetidamente a la ecuación de política.
+
+Para incorporar resultados nuevos, ejecute el modelo en un entorno compatible y desde esta carpeta use:
+
+```
+python actualizar_frbus.py /ruta/resultados.json
+```
+
+El actualizador valida la consistencia de la base y las diferencias y actualiza usa.html y frbus_resultados.json. Suba ambos archivos. GitHub Pages es estático: ejecutar PyFRB/US para un escenario arbitrario requiere un servicio de cálculo o una adaptación contrastada para navegador.
