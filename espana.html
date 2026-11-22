@@ -240,14 +240,14 @@ const EN = {
   "3 años, 4 trimestres y 3 últimos meses · las series trimestrales (precios y crédito) no tienen columnas mensuales · años y trimestres: sumas de 12 meses, último mes del periodo; tasas, sobre la media del periodo; índices y tipos, media": "3 years, 4 quarters and last 3 months · quarterly series (prices and credit) have no monthly columns · years and quarters: 12-month sums, last month of the period; rates, on the period average; indices and interest rates, average",
   "% a/a salvo indicación · 3 años, 4 trimestres y 3 últimos meses · * dato de avance · años y trimestres: tasas calculadas sobre la media del periodo o media de los meses (índices, saldos y niveles)": "% y/y unless stated · 3 years, 4 quarters and last 3 months · * flash estimate · years and quarters: rates computed on the period average, or average of the months (indices, balances and levels)",
   "3 años, 4 trimestres y 3 últimos meses · * dato de avance · años y trimestres: media de los meses; sumas de 12 meses y saldos acumulados, último mes del periodo": "3 years, 4 quarters and last 3 months · * flash estimate · years and quarters: average of the months; 12-month sums and year-to-date balances, last month of the period",
-  "% a/a salvo indicación · índices de volumen encadenados, corregidos de estacionalidad y calendario · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual; aportaciones, media de los trimestres": "% y/y unless stated · chain-linked volumes, seasonally and calendar adjusted · last 3 years and 8 quarters · annual: growth of the annual average; contributions, average of the quarters",
-  "Valor añadido bruto por ramas, % a/a · volumen, corregido de estacionalidad y calendario · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual": "Gross value added by sector, % y/y · volume, seasonally and calendar adjusted · last 3 years and 8 quarters · annual: growth of the annual average",
+  "% a/a salvo indicación · índices de volumen encadenados, CVEC · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual; aportaciones, media de los trimestres": "% y/y unless stated · chain-linked volumes, seasonally and calendar adjusted · last 3 years and 8 quarters · annual: growth of the annual average; contributions, average of the quarters",
+  "Valor añadido bruto por ramas, % a/a · volumen, CVEC · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual": "Gross value added by sector, % y/y · volume, seasonally and calendar adjusted · last 3 years and 8 quarters · annual: growth of the annual average",
   "Últimos 3 años y 8 trimestres · anual: media del año (paro, ocupados), crecimiento de la media anual (tasas) y cuarto trimestre (deuda y déficit)": "Last 3 years and 8 quarters · annual: year average (unemployment, employment), growth of the annual average (rates) and fourth quarter (debt and deficit)",
   // tables tab
   "PIB: demanda": "GDP: demand", "PIB: oferta": "GDP: supply", "Indicadores de vivienda": "Housing indicators", "Indicadores coyunturales": "Short-term indicators",
   "Precios, sector exterior y financiación": "Prices, external sector and financing", "Mercado laboral y sector público": "Labour market and public sector", "Mercados financieros": "Financial markets",
-  "% a/a salvo indicación · índices de volumen encadenados, corregidos de estacionalidad y calendario · últimos 8 trimestres": "% y/y unless stated · chain-linked volumes, seasonally and calendar adjusted · last 8 quarters",
-  "Valor añadido bruto por ramas, % a/a · volumen, corregido de estacionalidad y calendario · últimos 8 trimestres": "Gross value added by sector, % y/y · volume, seasonally and calendar adjusted · last 8 quarters",
+  "% a/a salvo indicación · índices de volumen encadenados, CVEC · últimos 8 trimestres": "% y/y unless stated · chain-linked volumes, seasonally and calendar adjusted · last 8 quarters",
+  "Valor añadido bruto por ramas, % a/a · volumen, CVEC · últimos 8 trimestres": "Gross value added by sector, % y/y · volume, seasonally and calendar adjusted · last 8 quarters",
   "Último dato, dato anterior y hace un año · frecuencias mensual y trimestral": "Latest, previous and a year earlier · monthly and quarterly frequencies",
   "% a/a salvo indicación · últimos 12 meses · * dato de avance": "% y/y unless stated · last 12 months · * flash estimate", "Últimos 12 meses · * dato de avance": "Last 12 months · * flash estimate",
   "Datos trimestrales · últimos 8 trimestres": "Quarterly data · last 8 quarters", "Copiar CSV pega en Excel con separador punto y coma.": "Copy CSV pastes into Excel with a semicolon separator.",
@@ -301,7 +301,7 @@ const EN = {
   "Intercambiar ejes": "Swap axes", "Opciones": "Options", "Unir puntos en orden temporal": "Join points in time order",
   "Observaciones": "Observations", "Correlación": "Correlation", "Pendiente (MCO)": "Slope (OLS)", "R²": "R²", "σ": "σ",
   "mensual": "monthly", "trimestral": "quarterly", "diaria": "daily", "% del PIB": "% of GDP", "millones de euros": "€ million",
-  "PIB": "GDP", "PIB a/a": "GDP y/y", "Variación trimestral (barras) e interanual (línea), % · corregido de estacionalidad y calendario": "Quarter-on-quarter (bars) and year-on-year (line) change, % · seasonally and calendar adjusted",
+  "PIB": "GDP", "PIB a/a": "GDP y/y", "Variación trimestral (barras) e interanual (línea), % · CVEC": "Quarter-on-quarter (bars) and year-on-year (line) change, % · seasonally and calendar adjusted",
   // titles, subtitles and sources of tables
   "Último dato publicado, dato anterior y hace un año": "Latest published figure, previous figure and a year earlier",
   "Fuente: INE, Banco de España y Ministerio de Economía (BDSICE)": "Source: INE, Bank of Spain and Ministry of Economy (BDSICE)",
@@ -400,14 +400,14 @@ const EN = {
   // figure titles, subtitles and legend names
   "PIB y aportaciones al crecimiento": "GDP and contributions to growth",
   "Variación interanual del PIB (línea) y aportaciones de la demanda nacional y externa (barras), pp. CVEC": "GDP year-on-year change (line) and contributions of domestic and external demand (bars), pp. SCA",
-  "Demanda externa": "External demand", "PIB, % a/a": "GDP, % y/y", "% t/t, datos corregidos de estacionalidad y calendario": "% q/q, seasonally and calendar adjusted",
+  "Demanda externa": "External demand", "PIB, % a/a": "GDP, % y/y", "% t/t, datos CVEC": "% q/q, seasonally and calendar adjusted",
   "PIB t/t": "GDP q/q", "Demanda interna": "Domestic demand", "% a/a, índices de volumen encadenados, CVEC": "% y/y, chain-linked volumes, SCA",
   "Consumo hogares": "Household consumption", "Hogares": "Households", "Consumo AAPP": "Government consumption", "AAPP": "Government",
   "Inversión (FBCF)": "Investment (GFCF)", "FBCF": "GFCF", "Comercio exterior (CNTR)": "Foreign trade (QNA)", "% a/a, volumen, CVEC": "% y/y, volume, SCA",
   "Valor añadido por ramas": "Value added by sector", "Agricultura": "Agriculture", "Industria": "Industry", "Servicios": "Services",
   "Indicadores sintéticos de actividad": "Synthetic activity indicators", "Ministerio de Economía, % a/a de los índices CVEC": "Ministry of Economy, % y/y of SCA indices",
   "Producción industrial y comercio minorista": "Industrial production and retail trade",
-  "% a/a. IPI corregido de estacionalidad y calendario; comercio a precios constantes": "% y/y. IPI seasonally and calendar adjusted; retail trade at constant prices",
+  "% a/a. IPI CVEC; comercio a precios constantes": "% y/y. IPI seasonally and calendar adjusted; retail trade at constant prices",
   "IPI": "IPI", "Comercio minorista": "Retail trade", "Comercio": "Retail", "Clima económico": "Economic climate",
   "Sentimiento económico (CE) e indicador adelantado OCDE; índices, 100 = media de largo plazo": "Economic sentiment (EC) and OECD leading indicator; indices, 100 = long-term average",
   "Sentimiento económico (CE)": "Economic sentiment (EC)", "CLI OCDE": "OECD CLI", "Confianza del consumidor": "Consumer confidence",
@@ -416,7 +416,7 @@ const EN = {
   "REE, corregido de temperatura y calendario, % a/a": "REE, temperature and calendar adjusted, % y/y", "ANFAC, % a/a": "ANFAC, % y/y",
   "Matriculaciones": "Registrations", "% de la población activa, datos originales": "% of labour force, unadjusted",
   "Ocupados": "Employed", "Afiliados a la Seguridad Social": "Social Security registrations",
-  "Miles, media mensual corregida de estacionalidad y calendario": "Thousands, monthly average, seasonally and calendar adjusted",
+  "Miles, media mensual CVEC": "Thousands, monthly average, seasonally and calendar adjusted",
   "Afiliados CVEC": "Registrations SCA", "Miles, CVEC": "Thousands, SCA", "Paro registrado CVEC": "Registered unemployment SCA",
   "Afiliación y paro registrado": "Social Security registrations and registered unemployment", "% a/a, series originales": "% y/y, unadjusted series",
   "Afiliados": "Registrations", "Inflación general y subyacente": "Headline and core inflation",
@@ -614,12 +614,12 @@ const FIGS = {
   actividad: [
     {t:'PIB y aportaciones al crecimiento', sub:'Variación interanual del PIB (línea) y aportaciones de la demanda nacional y externa (barras), pp. CVEC',
      bars:[{id:'ap_dn',name:'Demanda nacional',color:'--s1'},{id:'ap_de',name:'Demanda externa',color:'--s2'}], lines:[{id:'pib_yoy',name:'PIB, % a/a',color:'--s3'}], stack:true},
-    {t:'PIB · variación trimestral', sub:'% t/t, datos corregidos de estacionalidad y calendario', bars:[{id:'pib_qoq',name:'PIB t/t',color:'--s1'}]},
+    {t:'PIB · variación trimestral', sub:'% t/t, datos CVEC', bars:[{id:'pib_qoq',name:'PIB t/t',color:'--s1'}]},
     {t:'Demanda interna', sub:'% a/a, índices de volumen encadenados, CVEC', lines:[{id:'ch_yoy',name:'Consumo hogares',short:'Hogares',color:'--s1'},{id:'cp_yoy',name:'Consumo AAPP',short:'AAPP',color:'--s2'},{id:'fbcf_yoy',name:'Inversión (FBCF)',short:'FBCF',color:'--s3'}], endLabels:true},
     {t:'Comercio exterior (CNTR)', sub:'% a/a, volumen, CVEC', lines:[{id:'x_yoy',name:'Exportaciones',color:'--s1'},{id:'m_yoy',name:'Importaciones',color:'--s2'}], endLabels:true},
     {t:'Valor añadido por ramas', sub:'% a/a, volumen, CVEC', lines:[{id:'vab_agr',name:'Agricultura',color:'--s4'},{id:'vab_ind',name:'Industria',color:'--s1'},{id:'vab_con',name:'Construcción',color:'--s2'},{id:'vab_ser',name:'Servicios',color:'--s3'}], endLabels:true},
     {t:'Indicadores sintéticos de actividad', sub:'Ministerio de Economía, % a/a de los índices CVEC', lines:[{id:'isa_ind',name:'Industria',color:'--s1'},{id:'isa_ser',name:'Servicios',color:'--s3'},{id:'isa_con',name:'Construcción',color:'--s2'}], endLabels:true},
-    {t:'Producción industrial y comercio minorista', sub:'% a/a. IPI corregido de estacionalidad y calendario; comercio a precios constantes', lines:[{id:'ipi_yoy',name:'IPI',color:'--s1'},{id:'icm_yoy',name:'Comercio minorista',short:'Comercio',color:'--s2'}], endLabels:true},
+    {t:'Producción industrial y comercio minorista', sub:'% a/a. IPI CVEC; comercio a precios constantes', lines:[{id:'ipi_yoy',name:'IPI',color:'--s1'},{id:'icm_yoy',name:'Comercio minorista',short:'Comercio',color:'--s2'}], endLabels:true},
     {t:'Clima económico', sub:'Sentimiento económico (CE) e indicador adelantado OCDE; índices, 100 = media de largo plazo', lines:[{id:'esi',name:'Sentimiento económico (CE)',short:'ESI',color:'--s1'},{id:'cli',name:'CLI OCDE',short:'CLI',color:'--s3'}], endLabels:true},
     {t:'Confianza del consumidor', sub:'Comisión Europea, saldo de respuestas', lines:[{id:'conf_cons',name:'Confianza consumidor',color:'--s4'}]},
     {t:'Turismo internacional', sub:'Frontur y Egatur, % a/a', lines:[{id:'turistas',name:'Turistas',color:'--s1'},{id:'gasto_tur',name:'Gasto',color:'--s2'}], endLabels:true},
@@ -677,7 +677,7 @@ const FIGS = {
     {t:'Dudosidad por finalidad', sub:'Créditos dudosos sobre el saldo de cada finalidad, %, trimestral', lines:[{id:'dud_prod',name:'Actividades productivas',short:'Empresas',color:'--s1'},{id:'dud_viv',name:'Vivienda',color:'--s2'},{id:'dud_cons',name:'Consumo',color:'--s3'}], endLabels:true},
   ],
 };
-const TABS=[{k:'resumen',l:'Resumen'},{k:'explorador',l:'Blackboard'},{k:'actividad',l:'Actividad'},{k:'empleo',l:'Empleo'},{k:'precios',l:'Precios'},{k:'publico',l:'Sector público y exterior'},{k:'credito',l:'Créditos y depósitos'},{k:'vivienda',l:'Vivienda'},{k:'previsiones',l:'Previsiones BBVA Research'},{k:'tablas',l:'Tablas'},{k:'fuentes',l:'Fuentes y método'}];
+const TABS=[{k:'resumen',l:'Resumen'},{k:'explorador',l:'Blackboard'},{k:'actividad',l:'Actividad'},{k:'empleo',l:'Empleo'},{k:'precios',l:'Precios'},{k:'credito',l:'Créditos y depósitos'},{k:'vivienda',l:'Vivienda'},{k:'previsiones',l:'Previsiones BBVA Research'},{k:'tablas',l:'Tablas'},{k:'fuentes',l:'Fuentes y método'}];
 const TITLES={vivienda:'Vivienda',actividad:'Actividad y demanda',empleo:'Mercado laboral',precios:'Precios y salarios',publico:'Sector público y exterior',financiero:'Condiciones financieras',credito:'Créditos y depósitos'};
 
 /* KPI tiles: polarity +1 = up is favourable, -1 = up is unfavourable, 0 = no judgement */
@@ -753,7 +753,7 @@ function autoSub(s){ const adj=/CVEC|ajustados de estacionalidad|desestacionaliz
   if(isEN()){ const u={'% a/a':'% change on a year earlier','%':'%','% PIB':'% of GDP','pp':'percentage points','pb':'basis points','M€':'€ million','mm€':'€ billion','miles':'thousands','índice':'index','saldo':'balance of replies'}[s.unit]||s.unit;
     return [u, adj?'seasonally and calendar adjusted':null, {M:'monthly',Q:'quarterly',D:'daily'}[s.freq]].filter(Boolean).join(' · '); }
   const u={'% a/a':'% sobre un año antes','%':'%','% PIB':'% del PIB','pp':'puntos porcentuales','pb':'puntos básicos','M€':'millones de euros','mm€':'miles de millones de euros','miles':'miles','índice':'índice','saldo':'saldo de respuestas'}[s.unit]||s.unit;
-  return [u, adj?'corregido de estacionalidad y calendario':null, {M:'mensual',Q:'trimestral',D:'diario'}[s.freq]].filter(Boolean).join(' · '); }
+  return [u, adj?'CVEC':null, {M:'mensual',Q:'trimestral',D:'diario'}[s.freq]].filter(Boolean).join(' · '); }
 function tblBlock(title, sub, inner, src, actions=''){
   return `<figure class="fig tblfig" style="margin:0"><div class="tblhead2"><div><h3>${title}</h3><div class="sub">${sub}</div></div>${actions}</div>${inner}<figcaption class="src">${src}</figcaption></figure>`; }
 const SRC_ALL='Fuente: INE, Banco de España, Seguridad Social, SEPE y Ministerio de Economía (BDSICE)';
@@ -776,7 +776,7 @@ const useBars=(id,s)=>s.freq==='Q'&&!['paro_epa','deuda','ocup_epa'].includes(id
 function ovCard(id,i,attr,extra){ const s=S()[id]; if(!s) return ''; const Lx=latest(id), d=decimals(s), u=unitLabel(s.unit), pol=POL[id]??0;
   const gdp=isGDP(id), Q=gdp?latest('pib_qoq'):null;
   const title=gdp?'PIB':s.label;
-  const sub=gdp?'Variación trimestral (barras) e interanual (línea), % · corregido de estacionalidad y calendario':extra?autoSub(s)+' · '+(isEN()?'headline and core':'general y subyacente'):autoSub(s);
+  const sub=gdp?'Variación trimestral (barras) e interanual (línea), % · CVEC':extra?autoSub(s)+' · '+(isEN()?'headline and core':'general y subyacente'):autoSub(s);
   const big=gdp?`${fmtN(Lx[1],d)}<span style="font-size:15px"> % a/a</span><small>${fmtN(Q[1],1)} % t/t · ${fmtDate(Lx[0],s.freq)}</small>`:`${fmtN(Lx[1],d)}<span style="font-size:15px">${u?' '+esc(u):''}</span><small>${fmtDate(Lx[0],s.freq)}${Lx[2]?' · avance':''}</small>`;
   const lg=gdp?legendHTML([{name:'PIB t/t',color:'--qbar'},{name:'PIB a/a',color:'--s1'}],[{name:'PIB t/t',color:'--qbar'}]):extra?legendHTML([{name:s.label,color:'--s1'},{name:S()[extra].label,color:'--s2'}]):'';
   return `<figure class="fig gcard" style="margin:0"><div><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div></div>
@@ -836,9 +836,9 @@ function latestTable(spec){ let h=`<div class="tblwrap"><table class="fc2"><thea
     rows.push([L10(s.label)+' ('+L10(s.unit)+')',nCSV(L[1]),fmtDate(L[0],s.freq),P?nCSV(P[1]):'',Y?nCSV(Y[1]):'',L10(s.source)]); });
   return {html:h+'</tbody></table></div>', csv:csvOf(rows)}; }
 const TABLES=[
-  {k:'demanda',t:'PIB: demanda',sub:'% a/a salvo indicación · índices de volumen encadenados, corregidos de estacionalidad y calendario · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual; aportaciones, media de los trimestres',src:'Fuente: INE',
+  {k:'demanda',t:'PIB: demanda',sub:'% a/a salvo indicación · índices de volumen encadenados, CVEC · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual; aportaciones, media de los trimestres',src:'Fuente: INE',
    make:()=>periodTable('Q',8,['pib_qoq','pib_yoy','#Demanda nacional','dn_yoy',['ch_yoy',1],['cp_yoy',1],['fbcf_yoy',1],'#Sector exterior','x_yoy','m_yoy','#Aportaciones al crecimiento del PIB','ap_dn','ap_de'],3)},
-  {k:'oferta',t:'PIB: oferta',sub:'Valor añadido bruto por ramas, % a/a · volumen, corregido de estacionalidad y calendario · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual',src:'Fuente: INE',
+  {k:'oferta',t:'PIB: oferta',sub:'Valor añadido bruto por ramas, % a/a · volumen, CVEC · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual',src:'Fuente: INE',
    make:()=>periodTable('Q',8,['pib_yoy','#Valor añadido bruto',['vab_agr',1],['vab_ind',1],['vab_con',1],['vab_ser',1]],3)},
   {k:'credito',t:'Créditos y depósitos',sub:'3 años, 4 trimestres y 3 últimos meses · saldos y dudosidad: final del periodo; tasas, sobre la media del periodo; tipos de interés, media · crédito por finalidad y dudosidad por finalidad, trimestral',src:'Fuente: Banco de España',
    make:()=>periodTable('M',3,['#Saldos vivos','cred_saldo','credito_osr','dep_saldo','depositos_osr',['dep_vista_yoy',1],['dep_plazo_yoy',1],'#Crédito por finalidad (% a/a)','cred_prod_yoy','viv_credito','cred_cons_yoy','#Nuevas operaciones (12 meses)','nop_viv','nop_viv_yoy','nop_cons','nop_cons_yoy','nop_snf','nop_snf_yoy','#Tipos de interés (TEDR)','tipo_viv','tipo_viv_saldo','tipo_cons','tipo_snf','tipo_dep_hog','tipo_dep_snf','tipo_dep_vista','#Calidad del crédito','cred_dudosidad','dud_prod','dud_viv','dud_cons'],3,4)},
@@ -897,7 +897,7 @@ try{ const o=JSON.parse(localStorage.getItem('mme-ex')||'null'); if(o&&typeof o=
 if(!RANGES.includes(ex.range)) ex.range='4a'; if(!Array.isArray(ex.spicks)) ex.spicks=['ap_dn','ap_de']; if(ex.sline===undefined) ex.sline='pib_yoy'; if(!Array.isArray(ex.spicks2)) ex.spicks2=['ipc_ene','ipc_ali','ipc_ser']; if(ex.sline2===undefined) ex.sline2='ipc';
 if(!Array.isArray(ex.mpicks2)) ex.mpicks2=['afil_yoy','ocup_epa_yoy','paro_reg_yoy']; if(!ex.axis2||typeof ex.axis2!=='object') ex.axis2={};
 function saveEx(){ try{ localStorage.setItem('mme-ex',JSON.stringify(ex)); }catch(e){} }
-const EXVIEWS=[['pizarra','Blackboard'],['galeria','Galería'],['multi','Gráfico multiserie'],['scatter','Dispersión'],['stack','Barras apiladas']];
+const EXVIEWS=[['pizarra','Blackboard'],['galeria','Galería'],['multi','Gráfico multiserie'],['scatter','Scatterplot'],['stack','Barras apiladas']];
 const exIds=()=>Object.keys(S()).filter(k=>S()[k].block!=='aux');
 function seriesOptions(exclude=[], selected=null){ return Object.entries(BLOCKS).map(([b,l])=>{ const o=exIds().filter(k=>S()[k].block===b&&(!exclude.includes(k)||k===selected)); return o.length?`<optgroup label="${l}">${o.map(k=>`<option value="${k}" ${k===selected?'selected':''}>${esc(S()[k].label)} (${esc(S()[k].unit)})</option>`).join('')}</optgroup>`:''; }).join(''); }
 function withRange(fn){ const keep=state.range; state.range=ex.range; try{ fn(); } finally{ state.range=keep; } }
@@ -1089,7 +1089,7 @@ const bb={mode:'lines', tr:'level', picks:['pib_yoy','afil_yoy','ipc'], axis:{},
 try{ Object.assign(bb, JSON.parse(localStorage.getItem('mme-bb')||'{}')); }catch(e){}
 function saveBB(){ try{ localStorage.setItem('mme-bb',JSON.stringify({...bb,q:''})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
-const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Dispersión'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
+const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
 const BB_TR=[['level','Nivel'],['z','Estandarizado'],['b100','Base 100']];
 const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bb.mode==='multiples')?8:4);
 const bbAxis=(id,i)=>bb.axis[id]||(i===0?'L':'R');
@@ -1181,7 +1181,7 @@ function drawHeatBoard(host){
 function renderTabs(){ const t=document.getElementById('tabs'); t.innerHTML=TABS.map(x=>`<button type="button" role="tab" id="tab-${x.k}" aria-selected="${x.k===state.tab}" tabindex="${x.k===state.tab?0:-1}" data-k="${x.k}">${x.l}</button>`).join('');
   t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; all[j].focus(); go(all[j].dataset.k); }); });
   const sel=t.querySelector('[aria-selected="true"]'); if(sel) sel.scrollIntoView({block:'nearest',inline:'nearest'}); }
-function go(k){ if(k==='financiero'){k='explorador';ex.view='pizarra';} state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
+function go(k){ if(k==='financiero'||k==='publico'){k='explorador';ex.view='pizarra';} state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
 function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
   if(state.tab==='resumen') viewResumen(); else if(state.tab==='explorador') viewExplorer(); else if(state.tab==='tablas') viewTablas(); else if(state.tab==='previsiones') viewPrevisiones(); else if(state.tab==='fuentes') viewFuentes(); else viewBlock(state.tab);
   document.getElementById('stamp').textContent='Datos: '+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series';
@@ -1203,8 +1203,8 @@ document.getElementById('refreshBtn').addEventListener('click',()=>reload(true))
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; try{localStorage.setItem('mme-lang',LANG)}catch(e){} render(); }));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
 const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
-const h0=location.hash.slice(1); if(h0==='pizarra'||h0==='financiero'){state.tab='explorador';ex.view='pizarra';} else if(TABS.some(t=>t.k===h0)) state.tab=h0; else if(EXHASH[h0]){ state.tab='explorador'; ex.view=EXHASH[h0]; }
-window.addEventListener('hashchange',()=>{ const k=location.hash.slice(1); if(k==='pizarra'||k==='financiero'){state.tab='explorador';ex.view='pizarra';render();return;} if(TABS.some(t=>t.k===k)&&k!==state.tab){ state.tab=k; render(); } });
+const h0=location.hash.slice(1); if(h0==='pizarra'||h0==='financiero'||h0==='publico'){state.tab='explorador';ex.view='pizarra';} else if(TABS.some(t=>t.k===h0)) state.tab=h0; else if(EXHASH[h0]){ state.tab='explorador'; ex.view=EXHASH[h0]; }
+window.addEventListener('hashchange',()=>{ const k=location.hash.slice(1); if(k==='pizarra'||k==='financiero'||k==='publico'){state.tab='explorador';ex.view='pizarra';render();return;} if(TABS.some(t=>t.k===k)&&k!==state.tab){ state.tab=k; render(); } });
 render();
 if(location.protocol!=='file:'){ reload(false); setInterval(()=>reload(false),15*60*1000); }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
