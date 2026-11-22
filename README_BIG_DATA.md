@@ -1,6 +1,6 @@
 # Big Data · España
 
-El dashboard incluye una instantánea de las hojas ESP_Consumo, Inversion_España y España_Activ_Sectorial. Las 70 series se muestran tal como figuran en la hoja, sin transformar su escala. La fecha más reciente depende de cada serie. Compruebe las unidades y metodología de la fuente antes de interpretar o comparar indicadores.
+El dashboard incluye una instantánea de las hojas ESP_Consumo, Inversion_España y España_Activ_Sectorial. Las 70 series se guardan en la escala original de la hoja; el gráfico de líneas las muestra en porcentaje (multiplica por 100 solo para la presentación). La fecha más reciente depende de cada serie. Compruebe las unidades y metodología de la fuente antes de interpretar o comparar indicadores.
 
 La hoja original tiene acceso restringido. El paquete incluye los datos seleccionados en bigdata.json y en las páginas generadas; si se publica en GitHub Pages, esos datos serán públicos. No incluye el libro Excel completo.
 
