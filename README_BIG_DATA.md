@@ -9,6 +9,7 @@ La actualización de Big Data todavía es manual: exporte la hoja de Google Shee
 ```
 python -m pip install openpyxl
 python importar_bigdata.py /ruta/al/archivo.xlsx
+python generar_heatmap.py
 python build_page.py
 ```
 
@@ -24,4 +25,8 @@ Para actualizar los tres conjuntos territoriales, exporte los libros de comunida
 python importar_bigdata_territorial.py /ruta/ccaa.xlsx /ruta/provincias.xlsx /ruta/municipios.xlsx
 ```
 
-Después, suba la carpeta `bigdata_geo/` y las páginas del dashboard que hayan cambiado. La actualización es manual: GitHub Actions no tiene acceso automático a estas hojas restringidas. Los archivos territoriales seleccionados se publicarán si se suben al repositorio público.
+Después ejecute `python generar_heatmap.py` y suba `bigdata_heatmap.json` junto con la carpeta `bigdata_geo/` y las páginas del dashboard que hayan cambiado. La actualización es manual: GitHub Actions no tiene acceso automático a estas hojas restringidas. Los archivos territoriales seleccionados se publicarán si se suben al repositorio público.
+
+## Tabla de consumo
+
+El mapa de calor se genera a partir del dato real al cierre de cada mes y semana, multiplicando por 100 las fracciones de la hoja. Incluye consumo nacional, sus categorías y el total de consumo territorial. Los dos indicadores del INE proceden de data.json y conservan sus unidades. El proceso no vuelve a calcular la variación interanual ni la media móvil: utiliza las series publicadas.
