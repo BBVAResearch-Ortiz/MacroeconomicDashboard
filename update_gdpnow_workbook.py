@@ -24,7 +24,25 @@ def extract(source):
         points.sort(key=lambda x:x['date'])
         if not points or len({p['date'] for p in points}) != len(points):
             raise ValueError('Evolución vacía o fechas duplicadas')
-        return {'quarter': f'{quarter.group(1)}-Q{quarter.group(2)}', 'updated_at':points[-1]['date'], 'observations':points, 'source_url':URL}
+        def component_rows(sheet):
+            rows = list(sheet.iter_rows(values_only=True))
+            dates = {i: value.isoformat()[:10] for i, value in enumerate(rows[0]) if isinstance(value, (date, datetime))}
+            found = {}
+            for row in rows[2:]:
+                label = str(row[1] or '') if len(row) > 1 else ''
+                match = re.match(r'^([1-9]|1[0-9])-', label)
+                if not match:
+                    continue
+                code = int(match.group(1))
+                found[code] = {d: round(row[i], 6) for i, d in dates.items() if i < len(row) and isinstance(row[i], (int, float)) and not isinstance(row[i], bool)}
+            return found
+        growth = component_rows(history)
+        contrib = component_rows(book['ContribHistory'])
+        shared_dates = sorted(set(d for vals in growth.values() for d in vals) & set(d for vals in contrib.values() for d in vals))
+        if not all(i in growth and i in contrib for i in range(1, 20)) or not shared_dates or shared_dates[-1] != points[-1]['date']:
+            raise ValueError('Los componentes no están completos o no corresponden a la última estimación')
+        components = [{'id': i, 'growth': growth[i], 'contribution': contrib[i]} for i in range(1, 20)]
+        return {'quarter': f'{quarter.group(1)}-Q{quarter.group(2)}', 'updated_at':points[-1]['date'], 'observations':points, 'component_dates':shared_dates, 'components':components, 'source_url':URL}
     finally:
         book.close()
 
