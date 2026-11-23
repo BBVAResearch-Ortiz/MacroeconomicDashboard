@@ -1,6 +1,6 @@
 # Estados Unidos · Modelos
 
-La página usa la última observación GDPNow disponible de la Fed de Atlanta. Es una tasa anualizada de crecimiento trimestral del PIB real y no es una previsión oficial del FOMC. El archivo gdpnow.json inicial es una instantánea verificada; la fecha figura en la pantalla.
+En la sección Modelos, las tarjetas GDPNow y FRB/US abren sus vistas, con un botón para volver al menú. La página usa la última observación GDPNow disponible de la Fed de Atlanta. Es una tasa anualizada de crecimiento trimestral del PIB real y no es una previsión oficial del FOMC. El archivo gdpnow.json inicial es una instantánea verificada; la fecha figura en la pantalla.
 
 update_gdpnow.py consulta la fuente oficial y valida trimestre, fecha y valor; si falla, conserva la última observación. El flujo de GitHub lo ejecuta junto con el resto de actualizaciones. El acceso directo desde GitHub Actions aún debe probarse. No exponga claves privadas en el repositorio.
 
