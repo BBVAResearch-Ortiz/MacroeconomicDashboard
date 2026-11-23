@@ -1,38 +1,22 @@
-# Drive to GitHub sync
+# Ingesta de Drive en `drive_processing`
 
-`DriveToGitHubSync.gs` polls the supplied Big Data and high-frequency Drive folders every five minutes and optionally a Turkey folder. It pushes changed source files and manifests to `BBVAResearch-Ortiz/MacroeconomicDashboard`, branch `drive_processing`. It never pushes to `main`.
+El proyecto escribe en `BBVAResearch-Ortiz/MacroeconomicDashboard`, rama `drive_processing`. Agrupa los archivos y manifiestos que cambian en un solo commit. GitHub Actions procesa ese commit y genera el artefacto `drive-dashboard-preview`.
 
-## Drive inputs
+| Fuente | Datos | Ruta en la rama |
+| --- | --- | --- |
+| [Big Data](https://drive.google.com/drive/folders/1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H) | `Datos_informe.csv` para consumo diario y territorios, `Tabla_monitor.csv` para el mapa de calor | `drive_data/bigdata/` |
+| [Datos manuales](https://drive.google.com/drive/folders/1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2) | CSV de series y hoja `Alta Frecuencia - España` (consumo total real y nominal) | `manual_csv/` y `drive_data/manual/` |
+| Turquía | CSV de series de la carpeta indicada por `DRIVE_TURKEY_FOLDER_ID` (opcional) | `turkey_csv/` |
 
-- Big Data folder: `1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H`; required CSVs are `Datos_informe.csv` and `Tabla_monitor.csv`.
-- High-frequency folder: `1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2`; the configured native sheet `Alta Frecuencia - España` is exported to XLSX. Dated XLSX archives are ignored.
-- Turkey folder: optional Script Property `DRIVE_TURKEY_FOLDER_ID`, pending its final route. Use one CSV per series with `fecha/date`, `valor/value`, and optional unit/frequency metadata.
+Los CSV de series admiten columnas `fecha` y `valor` (o `date` y `value`), y los campos opcionales `unidad` y `frecuencia` (`D`, `M`, `Q`). Los datos sincronizados son visibles en la rama pública de GitHub.
 
-## Apps Script setup
+## Sustituir el código del proyecto existente
 
-1. Create a Google Apps Script project and paste in `DriveToGitHubSync.gs`.
-2. Enable the `appsscript.json` manifest view and copy `appsscript.json` into the project.
-3. Add `GITHUB_TOKEN` in Project Settings → Script properties. Use a fine-grained token with Contents read/write access to this repository and the `drive_processing` branch.
-4. Run `syncDriveToGitHub` once, approve Drive read and external-request permissions, then run `installDriveSyncTrigger` once.
-5. Enable GitHub Actions and confirm the workflow can write to the branch.
-6. Add `DRIVE_TURKEY_FOLDER_ID` later when the Turkey folder is ready.
+1. En **Configuración del proyecto → Propiedades de la secuencia de comandos**, añade `GITHUB_TOKEN_DRIVE_PROCESSING` con un token que tenga permiso **Contents: Read and write** sobre `BBVAResearch-Ortiz/MacroeconomicDashboard`. El token de la copia anterior puede seguir guardado en `GITHUB_TOKEN`.
+2. Sustituye en el editor el contenido del archivo que define `syncDriveToGitHub` por [DriveToGitHubSync.gs](DriveToGitHubSync.gs). La sincronización usa los permisos de Drive, peticiones externas y disparadores que figuran en [appsscript.json](appsscript.json).
+3. Ejecuta `syncDriveToGitHub` y comprueba el commit en `drive_processing`. Al repetir la ejecución sin cambios en las fuentes, el registro debe mostrar `GitHub sync: no changes.`.
+4. El disparador existente conserva el nombre `syncDriveToGitHub` y pasa a usar el código guardado. Si el proyecto no tiene disparador, ejecuta `installDriveSyncTrigger` para programarlo cada cinco minutos.
 
-The workflow runs after a source manifest changes. It imports the high-frequency workbook with `importar_bigdata.py`, builds territorial JSON from `Datos_informe.csv`, regenerates the heat map, and rebuilds `espana.html` / `artifact.html`.
+## Ver el resultado
 
-The branch is not configured as the live Pages source. This setup does not change `main` or publish a production deployment by itself.
-
-## Turkish CSV format
-
-Use one series per CSV:
-
-```csv
-fecha,valor,unidad,frecuencia
-2025-01-01,42.1,%,M
-2025-02-01,43.0,%,M
-```
-
-Accepted English column names are `date`, `value`, `unit`, and `frequency`. Supported frequencies are `D`, `M`, and `Q`. IDs receive the `turquia_` prefix and are grouped under manual data.
-
-## Public data
-
-This repository and its Pages output are public. Synced CSV and XLSX files become public on the branch. Only publish data approved for public access.
+Descarga y extrae `drive-dashboard-preview` desde la ejecución de **Build Drive dashboard preview** en GitHub Actions. Abre una terminal en la carpeta extraída, ejecuta `python -m http.server 8000 --bind 127.0.0.1` y visita `http://127.0.0.1:8000/espana.html`. El artefacto incluye los archivos que carga el dashboard en el navegador.
