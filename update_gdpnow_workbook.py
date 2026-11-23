@@ -42,7 +42,24 @@ def extract(source):
         if not all(i in growth and i in contrib for i in range(1, 20)) or not shared_dates or shared_dates[-1] != points[-1]['date']:
             raise ValueError('Los componentes no están completos o no corresponden a la última estimación')
         components = [{'id': i, 'growth': growth[i], 'contribution': contrib[i]} for i in range(1, 20)]
-        return {'quarter': f'{quarter.group(1)}-Q{quarter.group(2)}', 'updated_at':points[-1]['date'], 'observations':points, 'component_dates':shared_dates, 'components':components, 'source_url':URL}
+        cs = book['ContribHistory']
+        rows = list(cs.iter_rows(values_only=True))
+        datecols = {i: d.isoformat()[:10] for i, d in enumerate(rows[0]) if isinstance(d, (date, datetime))}
+        def special(prefix):
+            matches = [r for r in rows if len(r)>1 and str(r[1] or '').strip().lower().startswith(prefix)]
+            if len(matches)!=1:
+                raise ValueError('Fila de contribución no identificada: '+prefix)
+            row=matches[0]
+            return {d:round(row[i],6) for i,d in datecols.items() if i<len(row) and isinstance(row[i],(int,float)) and not isinstance(row[i],bool)}
+        breakdown = {'consumption':contrib[1], 'business':contrib[6], 'residential':contrib[10], 'inventories':special('change in inventory investment'), 'net_exports':special('change in net exports'), 'government':contrib[11]}
+        for d in shared_dates:
+            if not all(d in v for v in breakdown.values()):
+                raise ValueError('Desglose incompleto: '+d)
+        for point in points:
+            d=point['date']
+            if d in shared_dates and abs(sum(v[d] for v in breakdown.values())-point['value'])>0.03:
+                raise ValueError('Las contribuciones no coinciden con PIB: '+d)
+        return {'quarter': f'{quarter.group(1)}-Q{quarter.group(2)}', 'updated_at':points[-1]['date'], 'observations':points, 'component_dates':shared_dates, 'components':components, 'breakdown':breakdown, 'source_url':URL}
     finally:
         book.close()
 
