@@ -1,16 +1,22 @@
 /**
- * Sync CSV files from one Google Drive folder to the public manual_csv/ folder
- * in marcos-laserna/fow_alvaro. Store credentials in Script Properties only.
- *
- * Required Script Properties:
- *   DRIVE_FOLDER_ID  Google Drive folder ID containing CSV files
- *   GITHUB_TOKEN     Fine-grained token with Contents: Read and write
+ * Sync Big Data, high-frequency, and optional Turkey data to drive_processing.
+ * Store the GitHub credential only in Apps Script Project Properties.
+ * Required property: GITHUB_TOKEN
+ * Optional property: DRIVE_TURKEY_FOLDER_ID (configure when that folder exists)
  */
 const CONFIG = {
   owner: 'BBVAResearch-Ortiz',
   repo: 'MacroeconomicDashboard',
   branch: 'drive_processing',
-  githubFolder: 'manual_csv'
+  bigDataFolderId: '1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H',
+  highFrequencyFolderId: '1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2',
+  highFrequencySpreadsheetId: '1lqU0EbQHoDATmfNNOl7yodFTve6MYxCHLjCoRczsVy8',
+  bigDataRepoFolder: 'drive_data/bigdata',
+  highFrequencyRepoPath: 'drive_data/high_frequency/alta_frecuencia.xlsx',
+  turkeyRepoFolder: 'manual_csv',
+  turkeyFolderProperty: 'DRIVE_TURKEY_FOLDER_ID',
+  bigDataCsvNames: ['Tabla_monitor.csv', 'Datos_informe.csv'],
+  highFrequencySpreadsheetName: 'Alta Frecuencia - España'
 };
 
 function syncDriveToGitHub() {
@@ -18,52 +24,11 @@ function syncDriveToGitHub() {
   if (!lock.tryLock(1000)) return;
   try {
     const props = PropertiesService.getScriptProperties();
-    const folderId = props.getProperty('DRIVE_FOLDER_ID');
     const token = props.getProperty('GITHUB_TOKEN');
-    if (!folderId || !token) throw new Error('Set DRIVE_FOLDER_ID and GITHUB_TOKEN in Script Properties.');
-
-    const folder = DriveApp.getFolderById(folderId);
-    const iterator = folder.getFiles();
-    const manifestFiles = [];
-    const seenIds = {};
-    let latestDriveUpdate = null;
-
-    while (iterator.hasNext()) {
-      const driveFile = iterator.next();
-      const originalName = driveFile.getName();
-      if (!/\.csv$/i.test(originalName)) continue;
-
-      const csv = driveFile.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/, '');
-      const parsed = parseSeriesCsv_(csv, originalName);
-      if (seenIds[parsed.id]) throw new Error('Two Drive files produce the same series ID: ' + parsed.id);
-      seenIds[parsed.id] = true;
-
-      const githubName = parsed.id + '.csv';
-      const githubPath = CONFIG.githubFolder + '/' + githubName;
-      putGithubFile_(githubPath, csv, 'Sync Drive CSV: ' + parsed.id, token);
-
-      const updated = driveFile.getLastUpdated();
-      if (!latestDriveUpdate || updated.getTime() > latestDriveUpdate.getTime()) latestDriveUpdate = updated;
-      manifestFiles.push({
-        id: parsed.id,
-        file: githubName,
-        label: parsed.label,
-        unit: parsed.unit,
-        freq: parsed.freq,
-        block: parsed.block,
-        source: 'Google Drive · CSV',
-        updated_at: updated.toISOString()
-      });
-    }
-
-    manifestFiles.sort(function (a, b) { return a.id.localeCompare(b.id); });
-    const manifest = {
-      version: 1,
-      updated_at: latestDriveUpdate ? latestDriveUpdate.toISOString() : null,
-      files: manifestFiles
-    };
-    putGithubFile_(CONFIG.githubFolder + '/manifest.json', JSON.stringify(manifest, null, 2) + '\n', 'Update manual CSV manifest', token);
-    Logger.log('Manual CSV sync complete: ' + manifestFiles.length + ' series.');
+    if (!token) throw new Error('Set GITHUB_TOKEN in Apps Script Project Properties.');
+    syncBigDataFolder_(props, token);
+    syncHighFrequencyWorkbook_(props, token);
+    syncTurkeyFolder_(props, token);
   } finally {
     lock.releaseLock();
   }
@@ -75,6 +40,133 @@ function installDriveSyncTrigger() {
     if (trigger.getHandlerFunction() === 'syncDriveToGitHub') ScriptApp.deleteTrigger(trigger);
   });
   ScriptApp.newTrigger('syncDriveToGitHub').timeBased().everyMinutes(5).create();
+}
+
+function syncBigDataFolder_(props, token) {
+  const folder = DriveApp.getFolderById(CONFIG.bigDataFolderId);
+  const filesByName = {};
+  const iterator = folder.getFiles();
+  while (iterator.hasNext()) {
+    const file = iterator.next();
+    const key = file.getName().toLowerCase();
+    if (CONFIG.bigDataCsvNames.some(function (name) { return name.toLowerCase() === key; })) {
+      if (filesByName[key]) throw new Error('Duplicate Big Data source file: ' + file.getName());
+      filesByName[key] = file;
+    }
+  }
+  const missing = CONFIG.bigDataCsvNames.filter(function (name) { return !filesByName[name.toLowerCase()]; });
+  if (missing.length) throw new Error('Big Data folder is missing: ' + missing.join(', '));
+
+  const manifestFiles = [];
+  let latest = null;
+  CONFIG.bigDataCsvNames.forEach(function (name) {
+    const file = filesByName[name.toLowerCase()];
+    const csv = file.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/, '');
+    const path = CONFIG.bigDataRepoFolder + '/' + name;
+    uploadTextIfChanged_(file, path, csv, 'Sync Big Data source: ' + name, props, token);
+    const updated = file.getLastUpdated();
+    if (!latest || updated.getTime() > latest.getTime()) latest = updated;
+    manifestFiles.push({ file: name, updated_at: updated.toISOString(), size: file.getSize() });
+  });
+  const manifest = { version: 1, updated_at: latest ? latest.toISOString() : null, files: manifestFiles };
+  putGithubFile_(CONFIG.bigDataRepoFolder + '/manifest.json', JSON.stringify(manifest, null, 2) + '\n', 'Update Big Data Drive manifest', token);
+  Logger.log('Big Data Drive sync complete: ' + manifestFiles.length + ' CSV files.');
+}
+
+function syncHighFrequencyWorkbook_(props, token) {
+  const folder = DriveApp.getFolderById(CONFIG.highFrequencyFolderId);
+  const candidates = [];
+  const iterator = folder.getFiles();
+  while (iterator.hasNext()) {
+    const file = iterator.next();
+    if (file.getId() === CONFIG.highFrequencySpreadsheetId && file.getName() === CONFIG.highFrequencySpreadsheetName &&
+        file.getMimeType() === 'application/vnd.google-apps.spreadsheet') candidates.push(file);
+  }
+  if (!candidates.length) throw new Error('Could not find the configured Alta Frecuencia Google Sheet in its Drive folder.');
+  const file = candidates[0];
+  const updated = file.getLastUpdated();
+  const modifiedProperty = 'DRIVE_SYNC_MODIFIED_' + file.getId();
+  let size = Number(props.getProperty('DRIVE_SYNC_SIZE_' + file.getId()) || 0);
+  if (props.getProperty(modifiedProperty) !== String(updated.getTime())) {
+    const bytes = exportSpreadsheetXlsx_(file.getId());
+    uploadBytesIfChanged_(file, CONFIG.highFrequencyRepoPath, bytes, 'Sync high-frequency workbook', props, token);
+    size = bytes.length;
+    props.setProperty('DRIVE_SYNC_SIZE_' + file.getId(), String(size));
+    props.setProperty(modifiedProperty, String(updated.getTime()));
+  }
+  const manifest = {
+    version: 1,
+    updated_at: updated.toISOString(),
+    files: [{ file: 'alta_frecuencia.xlsx', source_title: file.getName(), source_updated_at: updated.toISOString(), size: size }]
+  };
+  putGithubFile_('drive_data/high_frequency/manifest.json', JSON.stringify(manifest, null, 2) + '\n', 'Update high-frequency Drive manifest', token);
+  Logger.log('High-frequency workbook sync complete.');
+}
+
+function syncTurkeyFolder_(props, token) {
+  const folderId = props.getProperty(CONFIG.turkeyFolderProperty);
+  if (!folderId) {
+    Logger.log('Turkey Drive folder is not configured yet; set ' + CONFIG.turkeyFolderProperty + ' when its route is ready.');
+    return;
+  }
+  const folder = DriveApp.getFolderById(folderId);
+  const iterator = folder.getFiles();
+  const manifestFiles = [];
+  const seenIds = {};
+  let latest = null;
+  while (iterator.hasNext()) {
+    const file = iterator.next();
+    const originalName = file.getName();
+    if (!/\.csv$/i.test(originalName)) continue;
+    const csv = file.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/, '');
+    const parsed = parseSeriesCsv_(csv, originalName);
+    const id = 'turquia_' + parsed.id.replace(/^turquia_/, '');
+    if (seenIds[id]) throw new Error('Two Turkey CSV files produce the same series ID: ' + id);
+    seenIds[id] = true;
+    const githubName = id + '.csv';
+    uploadTextIfChanged_(file, CONFIG.turkeyRepoFolder + '/' + githubName, csv, 'Sync Turkey CSV: ' + id, props, token);
+    const updated = file.getLastUpdated();
+    if (!latest || updated.getTime() > latest.getTime()) latest = updated;
+    manifestFiles.push({ id: id, file: githubName, label: parsed.label, unit: parsed.unit, freq: parsed.freq,
+      block: 'manual', source: 'Google Drive · Turquía CSV', updated_at: updated.toISOString() });
+  }
+  manifestFiles.sort(function (a, b) { return a.id.localeCompare(b.id); });
+  const manifest = { version: 1, updated_at: latest ? latest.toISOString() : null, files: manifestFiles };
+  putGithubFile_(CONFIG.turkeyRepoFolder + '/manifest.json', JSON.stringify(manifest, null, 2) + '\n', 'Update Turkey CSV manifest', token);
+  Logger.log('Turkey Drive sync complete: ' + manifestFiles.length + ' series.');
+}
+
+function exportSpreadsheetXlsx_(fileId) {
+  const url = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) +
+    '/export?mimeType=' + encodeURIComponent('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const response = UrlFetchApp.fetch(url, { method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
+    throw new Error('Could not export the high-frequency Google Sheet (HTTP ' + response.getResponseCode() + '): ' + response.getContentText().slice(0, 300));
+  }
+  return response.getContent();
+}
+
+function uploadTextIfChanged_(file, path, content, message, props, token) {
+  const digest = sha256Hex_(Utilities.newBlob(content, 'text/plain').getBytes());
+  const property = 'DRIVE_SYNC_SHA256_' + file.getId();
+  if (props.getProperty(property) === digest) return false;
+  putGithubFile_(path, content, message, token);
+  props.setProperty(property, digest);
+  return true;
+}
+
+function uploadBytesIfChanged_(file, path, bytes, message, props, token) {
+  const digest = sha256Hex_(bytes);
+  const property = 'DRIVE_SYNC_SHA256_' + file.getId();
+  if (props.getProperty(property) === digest) return false;
+  putGithubBytes_(path, bytes, message, token);
+  props.setProperty(property, digest);
+  return true;
+}
+
+function sha256Hex_(bytes) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes)
+    .map(function (value) { return ('0' + (value & 255).toString(16)).slice(-2); }).join('');
 }
 
 function parseSeriesCsv_(text, fileName) {
@@ -193,6 +285,23 @@ function putGithubFile_(path, text, message, token) {
   return true;
 }
 
+function putGithubBytes_(path, bytes, message, token) {
+  const existing = getGithubFile_(path, token);
+  const payload = {
+    message: message,
+    content: Utilities.base64Encode(bytes),
+    branch: CONFIG.branch
+  };
+  if (existing) payload.sha = existing.sha;
+  const response = UrlFetchApp.fetch(githubContentsUrl_(path), {
+    method: 'put', contentType: 'application/json',
+    headers: githubHeaders_(token), payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+  const status = response.getResponseCode();
+  if (status < 200 || status >= 300) throw new Error('GitHub could not update ' + path + ' (HTTP ' + status + '): ' + response.getContentText().slice(0, 300));
+  return true;
+}
+
 function getGithubFile_(path, token) {
   const response = UrlFetchApp.fetch(githubContentsUrl_(path) + '?ref=' + encodeURIComponent(CONFIG.branch), {
     method: 'get', headers: githubHeaders_(token), muteHttpExceptions: true
@@ -202,7 +311,7 @@ function getGithubFile_(path, token) {
   if (status < 200 || status >= 300) throw new Error('GitHub could not read ' + path + ' (HTTP ' + status + ').');
   const result = JSON.parse(response.getContentText());
   const encoded = String(result.content || '').replace(/\s/g, '');
-  const text = Utilities.newBlob(Utilities.base64Decode(encoded)).getDataAsString('UTF-8');
+  const text = encoded ? Utilities.newBlob(Utilities.base64Decode(encoded)).getDataAsString('UTF-8') : '';
   return { sha: result.sha, text: text };
 }
 

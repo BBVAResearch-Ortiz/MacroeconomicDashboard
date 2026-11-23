@@ -1,23 +1,15 @@
 # Manual CSV series
 
-This public folder is the handoff point between Google Drive, Apps Script, and the dashboard.
+This folder is the handoff point for manual series. Apps Script writes Turkey series here when `DRIVE_TURKEY_FOLDER_ID` is configured. The dashboard fetches `manifest.json` and each listed CSV.
 
-- `manifest.json` is maintained by `apps_script/DriveToGitHubSync.gs`.
-- Apps Script copies each CSV from the configured Drive folder here and updates the manifest.
-- the `espana.html` dashboard reads the manifest and CSV files and adds the series to the dashboard and Blackboard.
-
-## CSV format
-
-Use one CSV per series. Required columns are `fecha` (or `date`) and `valor` (or `value`). Optional metadata columns are `id`, `etiqueta`/`label`, `unidad`/`unit`, `frecuencia`/`frequency`, and `bloque`/`block`. The metadata can be filled on the first data row; Apps Script infers missing values from the filename and observations.
-
-Example:
+Use one CSV per series. Required columns: `fecha`/`date` and `valor`/`value`. Optional columns include `unidad`/`unit`, `frecuencia`/`frequency`, and `id`. Metadata can appear on the first data row. IDs receive a `turquia_` prefix and the series appears in the manual data group.
 
 ```csv
-fecha,valor,id,etiqueta,unidad,frecuencia,bloque
-2025-01-01,1.2,actividad_local,Actividad local,%,Q,actividad
-2025-04-01,1.4,actividad_local,Actividad local,%,Q,actividad
+fecha,valor,unidad,frecuencia
+2025-01-01,42.1,%,M
+2025-02-01,43.0,%,M
 ```
 
-Dates may use `YYYY-MM-DD`, `YYYY-MM`, `YYYY-Q1`…`YYYY-Q4`, or `DD/MM/YYYY`. Decimal comma is supported in semicolon-delimited CSVs. Supported frequencies are `D`, `M`, and `Q`. Supported dashboard blocks include `actividad`, `coyuntura`, `empleo`, `precios`, `vivienda`, `publico`, `exterior`, `financiero`, `credito`, and `manual`. For Turkey experiments, prefix IDs with `turquia_` and set `bloque=manual` unless a Spanish dashboard category is also appropriate.
+Dates may use `YYYY-MM-DD`, `YYYY-MM`, `YYYY-Q1` through `YYYY-Q4`, or `DD/MM/YYYY`. Supported frequencies are `D`, `M`, and `Q`.
 
-The repository and Pages site are public. Only place data here that is suitable for public access.
+The repository and Pages output are public. Only place data here that is approved for public access.

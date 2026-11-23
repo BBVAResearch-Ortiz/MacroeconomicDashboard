@@ -1,25 +1,38 @@
-# Drive to GitHub CSV sync
+# Drive to GitHub sync
 
-`DriveToGitHubSync.gs` polls one Drive folder every five minutes and copies its CSV files to `manual_csv/` in `BBVAResearch-Ortiz/MacroeconomicDashboard` on branch `drive_processing`. It also updates `manual_csv/manifest.json`. The `espana.html` dashboard reads that manifest and the CSVs directly; no GitHub credential is included in the public page.
+`DriveToGitHubSync.gs` polls the supplied Big Data and high-frequency Drive folders every five minutes and optionally a Turkey folder. It pushes changed source files and manifests to `BBVAResearch-Ortiz/MacroeconomicDashboard`, branch `drive_processing`. It never pushes to `main`.
 
-## One-time setup
+## Drive inputs
 
-1. Create a Drive folder for the CSVs and copy its folder ID from the URL.
-2. Create a Google Apps Script project and paste in `DriveToGitHubSync.gs`.
-3. Create a fine-grained GitHub token scoped to `BBVAResearch-Ortiz/MacroeconomicDashboard` on branch `drive_processing` with **Contents: Read and write**. Store it only in Apps Script **Project Settings → Script properties** as `GITHUB_TOKEN`; also add `DRIVE_FOLDER_ID` with the Drive folder ID.
-4. In the Apps Script editor, run `syncDriveToGitHub` once and approve its Drive and external-request permissions.
-5. Run `installDriveSyncTrigger` once. New or changed CSVs are copied to GitHub within about five minutes. This experimental branch is intended for review; publishing it to Pages depends on the repository Pages configuration. The importer refreshes the dashboard from this branch when deployed. The Apps Script pushes changes to `drive_processing`; it does not change the default branch.
+- Big Data folder: `1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H`; required CSVs are `Datos_informe.csv` and `Tabla_monitor.csv`.
+- High-frequency folder: `1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2`; the configured native sheet `Alta Frecuencia - España` is exported to XLSX. Dated XLSX archives are ignored.
+- Turkey folder: optional Script Property `DRIVE_TURKEY_FOLDER_ID`, pending its final route. Use one CSV per series with `fecha/date`, `valor/value`, and optional unit/frequency metadata.
 
-## CSV contract
+## Apps Script setup
 
-Put one CSV per series in the Drive folder. Required columns: `fecha`/`date` and `valor`/`value`. Optional metadata columns: `id`, `etiqueta`/`label`, `unidad`/`unit`, `frecuencia`/`frequency`, and `bloque`/`block`. If metadata is omitted, the script derives the series ID and label from the filename, infers D/M/Q frequency from the dates, and puts the series in the `manual` group.
+1. Create a Google Apps Script project and paste in `DriveToGitHubSync.gs`.
+2. Enable the `appsscript.json` manifest view and copy `appsscript.json` into the project.
+3. Add `GITHUB_TOKEN` in Project Settings → Script properties. Use a fine-grained token with Contents read/write access to this repository and the `drive_processing` branch.
+4. Run `syncDriveToGitHub` once, approve Drive read and external-request permissions, then run `installDriveSyncTrigger` once.
+5. Enable GitHub Actions and confirm the workflow can write to the branch.
+6. Add `DRIVE_TURKEY_FOLDER_ID` later when the Turkey folder is ready.
+
+The workflow runs after a source manifest changes. It imports the high-frequency workbook with `importar_bigdata.py`, builds territorial JSON from `Datos_informe.csv`, regenerates the heat map, and rebuilds `espana.html` / `artifact.html`.
+
+The branch is not configured as the live Pages source. This setup does not change `main` or publish a production deployment by itself.
+
+## Turkish CSV format
+
+Use one series per CSV:
 
 ```csv
-fecha,valor,id,etiqueta,unidad,frecuencia,bloque
-2025-01-01,1.2,actividad_local,Actividad local,%,Q,actividad
-2025-04-01,1.4,actividad_local,Actividad local,%,Q,actividad
+fecha,valor,unidad,frecuencia
+2025-01-01,42.1,%,M
+2025-02-01,43.0,%,M
 ```
 
-Supported frequencies are `D`, `M`, `Q`; supported blocks are `actividad`, `coyuntura`, `empleo`, `precios`, `vivienda`, `publico`, `exterior`, `financiero`, `credito`, and `manual`. Dates can be ISO (`YYYY-MM-DD`, `YYYY-MM`), quarters (`YYYY-Q1` through `YYYY-Q4`), or Spanish (`DD/MM/YYYY`).
+Accepted English column names are `date`, `value`, `unit`, and `frequency`. Supported frequencies are `D`, `M`, and `Q`. IDs receive the `turquia_` prefix and are grouped under manual data.
 
-The repository and Pages site are public, so only sync data that is suitable for public access. If a CSV is removed from Drive, it disappears from the dashboard manifest on the next sync; the old CSV file remains in GitHub until manually deleted.
+## Public data
+
+This repository and its Pages output are public. Synced CSV and XLSX files become public on the branch. Only publish data approved for public access.

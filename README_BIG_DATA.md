@@ -1,32 +1,17 @@
 # Big Data · España
 
-El dashboard incluye una instantánea de las hojas ESP_Consumo, Inversion_España y España_Activ_Sectorial. Las 70 series se guardan en la escala original de la hoja; el gráfico de líneas las muestra en porcentaje (multiplica por 100 solo para la presentación). La fecha más reciente depende de cada serie. Compruebe las unidades y metodología de la fuente antes de interpretar o comparar indicadores.
+El monitor combina series nacionales de alta frecuencia y datos territoriales de consumo. El flujo experimental que las actualiza está en la rama `drive_processing`; no modifica `main`.
 
-La hoja original tiene acceso restringido. El paquete incluye los datos seleccionados en bigdata.json y en las páginas generadas; si se publica en GitHub Pages, esos datos serán públicos. No incluye el libro Excel completo.
+## Fuentes de Drive
 
-La actualización de Big Data todavía es manual: exporte la hoja de Google Sheets como Excel (.xlsx) y ejecute desde la carpeta del dashboard:
+- La hoja nativa `Alta Frecuencia - España` (carpeta [Alta Frecuencia en Drive](https://drive.google.com/drive/folders/1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2)) se exporta a XLSX. Sus hojas alimentan las series nacionales de consumo, inversión y actividad sectorial en `bigdata.json`.
+- La carpeta [Big Data en Drive](https://drive.google.com/drive/folders/1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H) contiene `Datos_informe.csv`, con observaciones diarias por territorio, y `Tabla_monitor.csv`, con el reporte publicado. Ambos se versionan en `drive_data/bigdata/`; el primero alimenta los datos territoriales y el segundo queda como archivo fuente de referencia.
+- Las copias XLSX territoriales con fecha que aparecen junto a la hoja de alta frecuencia se ignoran. El CSV territorial anterior evita sincronizar varios XLSX grandes y repetidos.
 
-```
-python -m pip install openpyxl
-python importar_bigdata.py /ruta/al/archivo.xlsx
-python generar_heatmap.py
-python build_page.py
-```
+Apps Script sondea las dos carpetas cada cinco minutos. Un workflow de GitHub Actions importa el XLSX, convierte el CSV territorial a `bigdata_geo/`, ejecuta `generar_heatmap.py` y regenera `espana.html` y `artifact.html`. El mapa de calor presenta observaciones al cierre de mes y semana; transforma fracciones a porcentaje y combina series BBVA Research con los dos indicadores del INE de `data.json`.
 
-Tras comprobar el resultado, suba bigdata.json, espana.html y artifact.html al repositorio. No incluya credenciales. El flujo de actualización de las series macroeconómicas no descarga automáticamente esta hoja privada.
+Los detalles de instalación están en [`apps_script/README.md`](apps_script/README.md). La futura carpeta de Turquía se conectará con la propiedad opcional `DRIVE_TURKEY_FOLDER_ID`.
 
-## Datos territoriales
+## Publicación y privacidad
 
-Los datos de comunidades autónomas, provincias y municipios se guardan en `bigdata_geo/`, divididos por territorio y por tipo (nominal o real). En Big Data se elige primero el territorio y después la serie. Los datos aparecen en la escala original de los archivos; las etiquetas proceden de sus encabezados.
-
-Para actualizar los tres conjuntos territoriales, exporte los libros de comunidades, provincias y municipios como `.xlsx` y ejecute:
-
-```
-python importar_bigdata_territorial.py /ruta/ccaa.xlsx /ruta/provincias.xlsx /ruta/municipios.xlsx
-```
-
-Después ejecute `python generar_heatmap.py` y suba `bigdata_heatmap.json` junto con la carpeta `bigdata_geo/` y las páginas del dashboard que hayan cambiado. La actualización es manual: GitHub Actions no tiene acceso automático a estas hojas restringidas. Los archivos territoriales seleccionados se publicarán si se suben al repositorio público.
-
-## Tabla de consumo
-
-El mapa de calor se genera a partir del dato real al cierre de cada mes y semana, multiplicando por 100 las fracciones de la hoja. Incluye consumo nacional, sus categorías y el total de consumo territorial. Los dos indicadores del INE proceden de data.json y conservan sus unidades. El proceso no vuelve a calcular la variación interanual ni la media móvil: utiliza las series publicadas.
+`drive_processing` es una rama experimental. Pages de `main` no se modifica ni cambia con esta automatización; para publicar la rama hace falta configurar una publicación de prueba o integrar los cambios más adelante. El repositorio es público: los CSV, el XLSX exportado y los datos generados en la rama también serán públicos. No sincronices datos que no estén aprobados para publicarse.
