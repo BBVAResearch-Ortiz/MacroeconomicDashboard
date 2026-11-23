@@ -1,0 +1,62 @@
+{
+  "quarter": "2026-Q4",
+  "updated_at": "2026-11-18",
+  "observations": [
+    {
+      "date": "2026-10-29",
+      "value": 3.221724,
+      "release": "Initial GDPNow 26:Q4 forecast"
+    },
+    {
+      "date": "2026-11-02",
+      "value": 3.73831,
+      "release": "ISM Manufact., Construction spending"
+    },
+    {
+      "date": "2026-11-03",
+      "value": 3.721307,
+      "release": "M3-2 Manufacturing (Full report)"
+    },
+    {
+      "date": "2026-11-04",
+      "value": 3.440839,
+      "release": "International trade (Full report), ISM Services, Auto sales"
+    },
+    {
+      "date": "2026-11-06",
+      "value": 3.549338,
+      "release": "Employment situation"
+    },
+    {
+      "date": "2026-11-09",
+      "value": 3.480965,
+      "release": "Wholesale trade"
+    },
+    {
+      "date": "2026-11-10",
+      "value": 3.486242,
+      "release": "Consumer Price Index"
+    },
+    {
+      "date": "2026-11-12",
+      "value": 3.409814,
+      "release": "Monthly Treasury Statement, \nExisting-home sales"
+    },
+    {
+      "date": "2026-11-13",
+      "value": 3.413037,
+      "release": "Producer Price Index"
+    },
+    {
+      "date": "2026-11-17",
+      "value": 3.384179,
+      "release": "Retail sales, Import and export prices, Industrial production"
+    },
+    {
+      "date": "2026-11-18",
+      "value": 3.209263,
+      "release": "Housing starts"
+    }
+  ],
+  "source_url": "https://www.atlantafed.org/-/media/Project/Atlanta/FRBA/Documents/research-and-data/data/gdpnow/GDPTrackingModelDataAndForecasts.xlsx"
+}
