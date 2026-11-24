@@ -1,0 +1,38 @@
+name: Build Drive dashboard preview
+
+on:
+  push:
+    branches: [drive_processing]
+    paths:
+      - 'drive_ingestion/snapshots/spain.json'
+      - 'drive_ingestion/spain_dashboard.py'
+      - '.github/workflows/drive-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-dashboard-preview
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build dashboard
+        id: build
+        run: |
+          if [ -f drive_ingestion/snapshots/spain.json ]; then
+            python drive_ingestion/spain_dashboard.py drive_ingestion/snapshots/spain.json "$RUNNER_TEMP/drive-site"
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.build.outputs.built == 'true'
+        with:
+          name: drive-dashboard-preview
+          path: ${{ runner.temp }}/drive-site
+          if-no-files-found: error

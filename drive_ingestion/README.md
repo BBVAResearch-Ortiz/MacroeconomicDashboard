@@ -18,3 +18,5 @@ python drive_ingestion/sync.py drive_ingestion/local-data --site drive_ingestion
 El comando consulta Drive cada 15 minutos mientras está en ejecución. Para ejecutarlo desde un planificador externo, omite `--interval` y programa ese mismo comando. Solo se descarga y procesa una versión nueva de cada libro.
 
 La primera ruta recibe las instantáneas `global.json`, `turkey.json` y `spain.json` cuando hay datos. La opción `--site` genera una copia del dashboard con las series de España añadidas al Blackboard bajo IDs `drive_es_*`. Sírvela con `python -m http.server 8000 --bind 127.0.0.1 --directory drive_ingestion/local-site` y abre [España](http://127.0.0.1:8000/espana.html#explorador). El Excel y las instantáneas de Global y Turquía quedan fuera de la copia del dashboard.
+
+La ejecución online se configura en [Upload to Dashboard](apps_script/README.md).

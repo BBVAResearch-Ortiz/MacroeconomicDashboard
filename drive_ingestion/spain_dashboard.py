@@ -1,5 +1,6 @@
 """Build a copy of the dashboard with Spain's Drive series in the Blackboard."""
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -71,3 +72,11 @@ def build_site(snapshot, destination):
             (staging / name).replace(destination / name)
     finally:
         shutil.rmtree(staging)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('snapshot', type=Path)
+    parser.add_argument('destination', type=Path)
+    args = parser.parse_args()
+    build_site(args.snapshot, args.destination)
