@@ -491,7 +491,8 @@ const L10=x=>isEN()?toEN(x):x;
 function tr(root){ if(!root) return; const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|CODE)$/.test(n.parentNode.nodeName)?2:1});
   let n; while((n=w.nextNode())){ if(n._es===undefined) n._es=n.data; const v=isEN()?toEN(n._es):n._es; if(n.data!==v) n.data=v; }
   root.querySelectorAll?.('[aria-label],[title],optgroup[label]').forEach(el=>{ el._esA=el._esA||{}; ['aria-label','title','label'].forEach(a=>{ if(!el.hasAttribute(a)) return; if(el._esA[a]===undefined) el._esA[a]=el.getAttribute(a); el.setAttribute(a, isEN()?toEN(el._esA[a]):el._esA[a]); }); }); }
-let DATA = JSON.parse(document.getElementById('embedded-data').textContent);
+let dashboardBase = JSON.parse(document.getElementById('embedded-data').textContent);
+let DATA = { ...dashboardBase, series: { ...dashboardBase.series } };
 let SOURCE_NOTE = 'datos incrustados en la página';
 const S = () => DATA.series;
 const state = {tab:'resumen', range:'4a'};
@@ -1213,14 +1214,84 @@ function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+sta
   document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===LANG)));
   tr(document.body); }
 
+let driveSpain = { version: null, series: {} };
+let reloadSequence = 0;
+
+async function fetchDashboardBase(){
+  const response = await fetch('data.json', { cache: 'no-store' });
+  if(!response.ok) throw new Error('HTTP '+response.status);
+  const data = await response.json();
+  if(!data.series || typeof data.meta?.refreshed !== 'string') throw new Error('formato');
+  return data;
+}
+
+async function fetchDriveSpain(previousVersion){
+  const response = await fetch('drive_ingestion/snapshots/spain.json', { cache: 'no-store' });
+  if(response.status === 404) return null;
+  if(!response.ok) throw new Error('HTTP '+response.status);
+  const etag = response.headers.get('etag');
+  if(etag && etag === previousVersion) return null;
+  const snapshot = await response.json();
+  if(!snapshot.series || typeof snapshot.series !== 'object' || Array.isArray(snapshot.series)){
+    throw new Error('Formato de series de Drive');
+  }
+  const version = etag || JSON.stringify(snapshot.series);
+  if(version === previousVersion) return null;
+  const frequencies = { Diaria: 'D', Mensual: 'M', Trimestral: 'Q', D: 'D', M: 'M', Q: 'Q' };
+  const blocks = {
+    actividad_empresarial: 'coyuntura', industria: 'coyuntura', 'encuestas_opinión': 'coyuntura',
+    consumo: 'coyuntura', sector_exterior: 'exterior'
+  };
+  const series = {};
+  for(const [id, entry] of Object.entries(snapshot.series)){
+    const frequency = frequencies[entry.frecuencia];
+    if(!/^[A-Za-z0-9_-]+$/.test(id) || !['D','M','Q'].includes(frequency) ||
+       !Array.isArray(entry.observaciones) || !entry.observaciones.length){
+      throw new Error('Serie de Drive inválida: '+id);
+    }
+    series['drive_es_'+id] = {
+      label: entry.titulo_serie,
+      unit: entry.unidad,
+      freq: frequency,
+      block: Object.hasOwn(blocks, entry['área']) ? blocks[entry['área']] : 'actividad',
+      source: (entry.fuente || 'Google Drive').split(' | Archivo interno:')[0],
+      code: id,
+      original_name: entry.subtitulo_descripcion,
+      transform: entry.transformacion_y_calculo,
+      data: entry.observaciones.map(([day, value])=>[day, value, 0])
+    };
+  }
+  return { version, series };
+}
+
 async function reload(manual){
-  const msg=document.getElementById('liveMsg'); const before=DATA.meta.refreshed;
-  if(manual) msg.textContent=isEN()?'Checking data.json…':'Comprobando data.json…';
-  try{ const r=await fetch('data.json',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); const u=await r.json(); if(!u.series||!u.meta) throw new Error('formato');
-    if(u.meta.refreshed>=before){ if(!u.forecasts && DATA.forecasts) u.forecasts=DATA.forecasts; DATA=u; SOURCE_NOTE='data.json de este sitio'; }
-    const hh=new Date().toLocaleTimeString(isEN()?'en-GB':'es-ES',{hour:'2-digit',minute:'2-digit'}); msg.textContent=isEN()?(DATA.meta.refreshed!==before?'New data loaded':'No new data')+' · checked at '+hh:(DATA.meta.refreshed!==before?'Datos nuevos cargados':'Sin datos nuevos')+' · comprobado a las '+hh;
-    if(DATA.meta.refreshed!==before) render();
-  }catch(e){ if(manual) msg.textContent=isEN()?'Could not read data.json ('+e.message+'). Showing the embedded data from '+DATA.meta.refreshed+'.':'No se pudo leer data.json ('+e.message+'). Se muestran los datos incrustados del '+DATA.meta.refreshed+'.'; }
+  const request = ++reloadSequence;
+  const msg = document.getElementById('liveMsg');
+  const before = dashboardBase.meta.refreshed;
+  if(manual) msg.textContent = isEN() ? 'Checking data…' : 'Comprobando datos…';
+  const [base, drive] = await Promise.allSettled([fetchDashboardBase(), fetchDriveSpain(driveSpain.version)]);
+  if(request !== reloadSequence) return;
+  const acceptedBase = base.status === 'fulfilled' && base.value.meta.refreshed >= before;
+  const updatedDrive = drive.status === 'fulfilled' && drive.value;
+  if(acceptedBase){
+    dashboardBase = { ...base.value, forecasts: base.value.forecasts || dashboardBase.forecasts };
+    SOURCE_NOTE = 'data.json de este sitio';
+  }
+  if(updatedDrive) driveSpain = drive.value;
+  if(acceptedBase || updatedDrive){
+    const series = { ...dashboardBase.series, ...driveSpain.series };
+    DATA = { ...dashboardBase, series, meta: { ...dashboardBase.meta, n_series: Object.keys(series).length } };
+  }
+  const changed = dashboardBase.meta.refreshed !== before || updatedDrive;
+  if(changed) render();
+  const time = new Date().toLocaleTimeString(isEN() ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' });
+  if(manual && base.status === 'rejected' && !changed){
+    msg.textContent = isEN() ? 'Could not refresh the dashboard data.' : 'No se pudieron actualizar los datos del dashboard.';
+  }else{
+    msg.textContent = isEN()
+      ? (changed ? 'New data loaded' : 'No new data')+' · checked at '+time
+      : (changed ? 'Datos nuevos cargados' : 'Sin datos nuevos')+' · comprobado a las '+time;
+  }
 }
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; try{localStorage.setItem('mme-lang',LANG)}catch(e){} render(); }));
