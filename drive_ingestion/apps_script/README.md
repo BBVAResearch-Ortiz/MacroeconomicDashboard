@@ -28,6 +28,6 @@ Añade [UploadBigData.gs](UploadBigData.gs) al mismo proyecto y actualiza [Uploa
 
 1. Ejecuta `previewDashboardBigData` y comprueba que el registro muestre series nacionales, territorios y filas del mapa de calor. La prueba solo lee las fuentes.
 2. Confirma que los datos procesados se pueden publicar en el repositorio público y ejecuta una vez `syncDashboardBigData`.
-3. Verifica la pestaña Big Data de España en Pages y ejecuta una vez `installDashboardBigDataTrigger` para comprobar cambios cada 15 minutos. Este disparador es independiente del que alimenta el Blackboard.
+3. Verifica la pestaña Big Data de España en Pages y ejecuta una vez `installDashboardBigDataTrigger` para comprobar cambios cada miércoles alrededor de las 18:00, hora peninsular (`Europe/Madrid`). Google puede variar la ejecución hasta 15 minutos. Si ya instalaste un disparador de Big Data, vuelve a ejecutar esta función con la misma cuenta para sustituirlo. El disparador del Blackboard sigue cada 15 minutos.
 
 Los archivos de origen quedan en Drive. El script guarda solo las series, el índice territorial y el mapa de calor procesados en `drive_ingestion/snapshots/bigdata/`. La página consulta esa salida en cada carga y usa sus datos de respaldo hasta que esté disponible.

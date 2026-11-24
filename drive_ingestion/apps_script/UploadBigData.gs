@@ -28,10 +28,17 @@ function installDashboardBigDataTrigger() {
   if (!properties.getProperty(DASHBOARD_UPLOAD.tokenProperty)) {
     throw new Error('Falta FOW_DASHBOARD_GITHUB_TOKEN.');
   }
-  ScriptApp.getProjectTriggers()
-    .filter(trigger => trigger.getHandlerFunction() === 'syncDashboardBigData')
-    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
-  ScriptApp.newTrigger('syncDashboardBigData').timeBased().everyMinutes(15).create();
+  const previous = ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === 'syncDashboardBigData');
+  ScriptApp.newTrigger('syncDashboardBigData')
+    .timeBased()
+    .everyWeeks(1)
+    .onWeekDay(ScriptApp.WeekDay.WEDNESDAY)
+    .atHour(18)
+    .nearMinute(0)
+    .inTimezone('Europe/Madrid')
+    .create();
+  previous.forEach(trigger => ScriptApp.deleteTrigger(trigger));
 }
 
 function runDashboardBigData_(publish) {
