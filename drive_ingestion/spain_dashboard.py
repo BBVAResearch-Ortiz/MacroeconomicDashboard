@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -42,7 +43,8 @@ def merge_series(base, imported):
             'unit': entry['unidad'],
             'freq': frequency,
             'block': BLOCKS.get(entry['área'], 'actividad'),
-            'source': (entry['fuente'] or 'Google Drive').split(' | Archivo interno:', 1)[0],
+            'source': re.split(r' \| (?:Archivo interno|Internal file):',
+                               entry['fuente'] or 'Google Drive', maxsplit=1)[0],
             'code': source_id,
             'original_name': entry['subtitulo_descripcion'],
             'transform': entry['transformacion_y_calculo'],

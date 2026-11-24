@@ -27,6 +27,19 @@ METADATA_FIELDS = (
     'frecuencia_y_cobertura_temporal', 'tipo_grafico', 'bloque', 'área',
     'frecuencia', 'unidad',
 )
+ENGLISH_HEADERS = {
+    'series_id': 'id_serie', 'series_title': 'titulo_serie',
+    'subtitle_description': 'subtitulo_descripcion',
+    'transformation_and_calculation': 'transformacion_y_calculo', 'source': 'fuente',
+    'frequency_and_coverage': 'frecuencia_y_cobertura_temporal', 'chart_type': 'tipo_grafico',
+    'block': 'bloque', 'area': 'área', 'frequency': 'frecuencia', 'unit': 'unidad',
+    'date': 'fecha', 'value': 'valor',
+}
+ENGLISH_FREQUENCIES = {'Daily': 'Diaria', 'Monthly': 'Mensual', 'Quarterly': 'Trimestral'}
+ENGLISH_AREAS = {
+    'consumption': 'consumo', 'industry': 'industria', 'opinion_surveys': 'encuestas_opinión',
+    'business_activity': 'actividad_empresarial', 'external_sector': 'sector_exterior',
+}
 
 
 class Drive:
@@ -67,9 +80,11 @@ def worksheet_rows(workbook, name, required):
     if name not in workbook:
         raise ValueError(f'Missing worksheet {name}')
     rows = workbook[name].values
-    headers = next(rows, ())
+    headers = tuple(ENGLISH_HEADERS.get(field, field) for field in next(rows, ()))
     if missing := set(required) - set(headers):
         raise ValueError(f'{name}: missing columns {", ".join(sorted(missing))}')
+    if duplicates := [field for field in required if headers.count(field) > 1]:
+        raise ValueError(f'{name}: duplicate columns {", ".join(duplicates)}')
     for line, values in enumerate(rows, start=2):
         if any(value is not None for value in values):
             yield line, dict(zip(headers, values))
@@ -78,34 +93,38 @@ def worksheet_rows(workbook, name, required):
 def parse_workbook(workbook_bytes):
     workbook = load_workbook(BytesIO(workbook_bytes), read_only=True, data_only=True)
     try:
+        dictionary_name = 'DICTIONARY' if 'DICTIONARY' in workbook else 'DICCIONARIO'
+        observations_name = 'LONG_DATA' if 'LONG_DATA' in workbook else 'DATOS_LARGO'
         series = {}
-        for line, row in worksheet_rows(workbook, 'DICCIONARIO', ('id_serie', *METADATA_FIELDS)):
+        for line, row in worksheet_rows(workbook, dictionary_name, ('id_serie', *METADATA_FIELDS)):
             series_id = row['id_serie']
             if not isinstance(series_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', series_id) or series_id in series:
-                raise ValueError(f'DICCIONARIO:{line}: invalid or duplicate series ID')
+                raise ValueError(f'{dictionary_name}:{line}: invalid or duplicate series ID')
             for field in ('titulo_serie', 'frecuencia', 'unidad'):
                 if not isinstance(row[field], str) or not row[field].strip():
-                    raise ValueError(f'DICCIONARIO:{line}: missing {field}')
+                    raise ValueError(f'{dictionary_name}:{line}: missing {field}')
+            row['frecuencia'] = ENGLISH_FREQUENCIES.get(row['frecuencia'], row['frecuencia'])
+            row['área'] = ENGLISH_AREAS.get(row['área'], row['área'])
             series[series_id] = {field: row[field] for field in METADATA_FIELDS}
             series[series_id]['observaciones'] = {}
 
-        for line, row in worksheet_rows(workbook, 'DATOS_LARGO', ('id_serie', 'fecha', 'valor')):
+        for line, row in worksheet_rows(workbook, observations_name, ('id_serie', 'fecha', 'valor')):
             series_id, day, value = row['id_serie'], row['fecha'], row['valor']
             if series_id not in series:
-                raise ValueError(f'DATOS_LARGO:{line}: unknown series ID {series_id!r}')
+                raise ValueError(f'{observations_name}:{line}: unknown series ID {series_id!r}')
             try:
                 if isinstance(day, datetime):
                     day = day.date()
                 if not isinstance(day, date):
                     day = date.fromisoformat(str(day))
             except ValueError as error:
-                raise ValueError(f'DATOS_LARGO:{line}: invalid date') from error
+                raise ValueError(f'{observations_name}:{line}: invalid date') from error
             if type(value) not in (int, float) or not math.isfinite(value):
-                raise ValueError(f'DATOS_LARGO:{line}: invalid number')
+                raise ValueError(f'{observations_name}:{line}: invalid number')
             observations = series[series_id]['observaciones']
             day = day.isoformat()
             if day in observations:
-                raise ValueError(f'DATOS_LARGO:{line}: duplicate date for {series_id!r}')
+                raise ValueError(f'{observations_name}:{line}: duplicate date for {series_id!r}')
             observations[day] = value
     finally:
         workbook.close()

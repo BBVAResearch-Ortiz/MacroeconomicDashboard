@@ -2,8 +2,9 @@
 
 La ingesta lee las subcarpetas `Global Scenarios`, `Turkiye` y `Spain` de [FoW: Monitoring external information](https://drive.google.com/drive/folders/1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr). Cada una admite un fichero `.xlsx` con el formato de `excel_madre.xlsx`.
 
-- `DATOS_LARGO` contiene una fila por observación con `id_serie`, `fecha` y `valor`.
-- `DICCIONARIO` contiene los metadatos por `id_serie`, incluidos título, descripción, transformación, fuente, frecuencia, cobertura, gráfico, bloque, área y unidad.
+- `LONG_DATA` contiene una fila por observación con `series_id`, `date` y `value`.
+- `DICTIONARY` contiene los metadatos por `series_id`, incluidos título, descripción, transformación, fuente, frecuencia, cobertura, gráfico, bloque, área y unidad.
+- Los libros anteriores con las hojas `DATOS_LARGO` y `DICCIONARIO` siguen siendo compatibles.
 - Una carpeta vacía conserva su última salida, si existe. Una exportación incompleta o inválida deja disponible la última salida válida de esa carpeta.
 
 ## Ejecutar

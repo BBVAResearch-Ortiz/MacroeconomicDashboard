@@ -13,6 +13,21 @@ const DASHBOARD_UPLOAD = {
   ]
 };
 
+const DASHBOARD_ENGLISH_HEADERS = {
+  id_serie: 'series_id', titulo_serie: 'series_title', subtitulo_descripcion: 'subtitle_description',
+  transformacion_y_calculo: 'transformation_and_calculation', fuente: 'source',
+  frecuencia_y_cobertura_temporal: 'frequency_and_coverage', tipo_grafico: 'chart_type',
+  bloque: 'block', 'área': 'area', frecuencia: 'frequency', unidad: 'unit',
+  fecha: 'date', valor: 'value'
+};
+const DASHBOARD_ENGLISH_FREQUENCIES = new Map([
+  ['Daily', 'Diaria'], ['Monthly', 'Mensual'], ['Quarterly', 'Trimestral']
+]);
+const DASHBOARD_ENGLISH_AREAS = new Map([
+  ['consumption', 'consumo'], ['industry', 'industria'], ['opinion_surveys', 'encuestas_opinión'],
+  ['business_activity', 'actividad_empresarial'], ['external_sector', 'sector_exterior']
+]);
+
 function previewDashboardUpload() {
   runDashboardUpload_(false);
 }
@@ -134,8 +149,8 @@ function readDashboardWorkbook_(book) {
   try {
     const workbook = SpreadsheetApp.openById(temporary.id);
     return parseDashboardSheets_(
-      dashboardWorkbookRows_(workbook, 'DICCIONARIO'),
-      dashboardWorkbookRows_(workbook, 'DATOS_LARGO'),
+      dashboardWorkbookRows_(workbook, workbook.getSheetByName('DICTIONARY') ? 'DICTIONARY' : 'DICCIONARIO'),
+      dashboardWorkbookRows_(workbook, workbook.getSheetByName('LONG_DATA') ? 'LONG_DATA' : 'DATOS_LARGO'),
       workbook.getSpreadsheetTimeZone()
     );
   } finally {
@@ -147,11 +162,12 @@ function dashboardColumns_(rows, expected, name) {
   const headers = rows[0] || [];
   const columns = Object.create(null);
   for (const field of expected) {
-    const index = headers.indexOf(field);
-    if (index < 0 || index !== headers.lastIndexOf(field)) {
+    const alternatives = [field, DASHBOARD_ENGLISH_HEADERS[field]].filter(Boolean);
+    const indexes = headers.flatMap((header, index) => alternatives.includes(header) ? [index] : []);
+    if (indexes.length !== 1) {
       throw new Error(name + ': falta la columna ' + field + ' o está duplicada.');
     }
-    columns[field] = index;
+    columns[field] = indexes[0];
   }
   return columns;
 }
@@ -188,7 +204,9 @@ function parseDashboardSheets_(dictionary, observations, timezone) {
       }
     }
     const entry = Object.fromEntries(fields.map(field => [field, row[metadata[field]]]));
-    entry.fuente = String(entry.fuente || '').split(' | Archivo interno:')[0];
+    entry.fuente = String(entry.fuente || '').split(/ \| (?:Archivo interno|Internal file):/)[0];
+    entry.frecuencia = DASHBOARD_ENGLISH_FREQUENCIES.get(entry.frecuencia) || entry.frecuencia;
+    entry['área'] = DASHBOARD_ENGLISH_AREAS.get(entry['área']) || entry['área'];
     seriesMetadata[id] = entry;
     seriesData[id] = new Map();
   }
