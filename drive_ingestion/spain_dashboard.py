@@ -70,8 +70,12 @@ def build_site(snapshot, destination):
             encoding='utf-8',
         )
         subprocess.run([sys.executable, str(ROOT / 'build_page.py')], cwd=staging, check=True)
-        for name in (*SITE_FILES, 'data.json', 'espana.html', 'artifact.html'):
+        for name in (*SITE_FILES, 'data.json', 'espana.html', 'artifact.html', 'turquia.html'):
             (staging / name).replace(destination / name)
+        turkey_snapshot = Path('drive_ingestion/snapshots/turkey.json')
+        if (ROOT / turkey_snapshot).is_file():
+            (destination / turkey_snapshot).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / turkey_snapshot, destination / turkey_snapshot)
     finally:
         shutil.rmtree(staging)
 

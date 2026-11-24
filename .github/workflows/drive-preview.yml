@@ -5,8 +5,12 @@ on:
     branches: [main]
     paths:
       - 'drive_ingestion/snapshots/spain.json'
+      - 'drive_ingestion/snapshots/turkey.json'
       - 'drive_ingestion/snapshots/bigdata/**'
       - 'drive_ingestion/spain_dashboard.py'
+      - 'template.html'
+      - 'build_page.py'
+      - 'turquia.html'
       - '.github/workflows/drive-preview.yml'
 
 permissions:
