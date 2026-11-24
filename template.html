@@ -903,13 +903,37 @@ const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por 
   PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',other:'Otras series'};
 Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producción':'GDP by production',
   'Actividad de alta frecuencia':'High-frequency activity','Mercado laboral':'Labour market',
-  'PMI y utilización de capacidad':'PMI and capacity utilisation',Confianza:'Confidence','Otras series':'Other series'});
+  'PMI y utilización de capacidad':'PMI and capacity utilisation',Confianza:'Confidence','Otras series':'Other series',
+  'Consumo, gasto público e inversión':'Consumption, government spending and investment',
+  'Agricultura, industria y construcción':'Agriculture, industry and construction',
+  'Exportaciones e importaciones':'Exports and imports'});
 const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:{actividad:'Actividad',coyuntura:'Coyuntura',empleo:'Empleo',precios:'Precios',vivienda:'Vivienda',publico:'Sector público',exterior:'Sector exterior',financiero:'Financiero',credito:'Créditos y depósitos'};
-const ex={view:'pizarra', picks:['pib_yoy','paro_epa','afil_yoy','ipc','deuda','prima'], mpicks:['ipc','ipc_sub','ipc_ser'], mpicks2:['pib_yoy','prima'], axis2:{}, mode:'pub', sx:'paro_epa', sy:'ipc_sub', trail:false, range:'4a'};
-try{ const o=JSON.parse(localStorage.getItem('mme-ex')||'null'); if(o&&typeof o==='object') Object.assign(ex,o); }catch(e){}
-if(!RANGES.includes(ex.range)) ex.range='4a'; if(!Array.isArray(ex.spicks)) ex.spicks=['ap_dn','ap_de']; if(ex.sline===undefined) ex.sline='pib_yoy'; if(!Array.isArray(ex.spicks2)) ex.spicks2=['ipc_ene','ipc_ali','ipc_ser']; if(ex.sline2===undefined) ex.sline2='ipc';
-if(!Array.isArray(ex.mpicks2)) ex.mpicks2=['afil_yoy','ocup_epa_yoy','paro_reg_yoy']; if(!ex.axis2||typeof ex.axis2!=='object') ex.axis2={};
-function saveEx(){ try{ localStorage.setItem('mme-ex',JSON.stringify(ex)); }catch(e){} }
+const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
+const turkeyStackPresets={
+  spending:{label:'Consumo, gasto público e inversión',bars:turkeyIds('Q_EXP_RAW_C','Q_EXP_RAW_G','Q_EXP_RAW_I'),line:''},
+  production:{label:'Agricultura, industria y construcción',bars:turkeyIds('Q_PROD_RAW_AGRICULTURE','Q_PROD_RAW_INDUSTRY','Q_PROD_RAW_CONSTRUCTION'),line:''},
+  trade:{label:'Exportaciones e importaciones',bars:turkeyIds('Q_EXP_RAW_X','Q_EXP_RAW_M'),line:''}
+};
+const explorerDefaults=IS_TURKEY?{
+  picks:turkeyIds('Q_EXP_SCA_GDP','M_SCA_IP','M_SCA_RETAIL_SALES','M_SA_UNEMPLOYMENT_RATE','M_SA_PMI','M_SCA_ECONOMIC_CONFIDENCE_INDEX'),
+  mpicks:turkeyIds('M_SCA_IP','M_SCA_RETAIL_SALES','M_SCA_SERVICES_PRODUCTION'),
+  mpicks2:turkeyIds('M_SCA_IP','M_SA_UNEMPLOYMENT_RATE'),
+  spicks:turkeyStackPresets.spending.bars, sline:'', spicks2:turkeyStackPresets.production.bars, sline2:'',
+  sx:turkeyIds('M_SCA_IP')[0], sy:turkeyIds('M_SA_CAPACITY_UTILIZATION_RATE')[0]
+}:{
+  picks:['pib_yoy','paro_epa','afil_yoy','ipc','deuda','prima'], mpicks:['ipc','ipc_sub','ipc_ser'],
+  mpicks2:['pib_yoy','prima'], spicks:['ap_dn','ap_de'], sline:'pib_yoy',
+  spicks2:['ipc_ene','ipc_ali','ipc_ser'], sline2:'ipc', sx:'paro_epa', sy:'ipc_sub'
+};
+const explorerKey=IS_TURKEY?'mme-ex-turkey':'mme-ex';
+const ex={...explorerDefaults, view:'pizarra', axis2:{}, mode:'pub', trail:false, range:'4a'};
+try{ const saved=JSON.parse(localStorage.getItem(explorerKey)||'null'); if(saved&&typeof saved==='object') Object.assign(ex,saved); }catch(e){}
+if(!RANGES.includes(ex.range)) ex.range='4a';
+for(const key of ['picks','mpicks','mpicks2','spicks','spicks2']){
+  if(!Array.isArray(ex[key])) ex[key]=explorerDefaults[key].slice();
+}
+if(!ex.axis2||typeof ex.axis2!=='object') ex.axis2={};
+function saveEx(){ try{ localStorage.setItem(explorerKey,JSON.stringify(ex)); }catch(e){} }
 const EXVIEWS=[['pizarra','Blackboard'],['galeria','Galería'],['multi','Gráfico multiserie'],['scatter','Scatterplot'],['stack','Barras apiladas']];
 const exIds=()=>Object.keys(S()).filter(k=>S()[k].block!=='aux');
 function seriesOptions(exclude=[], selected=null){ return Object.entries(BLOCKS).map(([b,l])=>{ const o=exIds().filter(k=>S()[k].block===b&&(!exclude.includes(k)||k===selected)); return o.length?`<optgroup label="${l}">${o.map(k=>`<option value="${k}" ${k===selected?'selected':''}>${esc(S()[k].label)} (${esc(S()[k].unit)})</option>`).join('')}</optgroup>`:''; }).join(''); }
@@ -929,7 +953,7 @@ function zSeries(id){ const c0=cutoff(), s=S()[id]; const d=s.data.filter(o=>inR
 
 function exHeader(){ return `<div class="sechead"><h2>Blackboard</h2>
    ${ex.view==='pizarra'?(bb.mode==='scatter'?'':rangeCtl()):ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
-  ${IS_TURKEY?'':`<div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>`}`; }
+  <div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>`; }
 const axisOf=(id,i)=>ex.axis2[id]||(i===0?'L':'R');
 function pickRow(list,key,max){ const col=i=>COLORS[i%4]; const mkey=key==='mpicks'?'mode':null;
   const full=list.length>=max, word={4:'cuatro',6:'seis'}[max]||max;
@@ -940,8 +964,11 @@ function pickRow(list,key,max){ const col=i=>COLORS[i%4]; const mkey=key==='mpic
 function bindExplorerViews(){ panel.querySelectorAll('[data-ev]').forEach(b=>b.addEventListener('click',()=>{ex.view=b.dataset.ev; saveEx(); viewExplorer();})); }
 function viewExplorer(){
   if(ex.view==='pizarra'){viewBoard(); return;}
+  const ids=exIds();
+  if(ex.view==='scatter'&&ids.length<2){ex.view='pizarra';viewBoard();return;}
   ex.picks=ex.picks.filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,6); ['mpicks','mpicks2','spicks','spicks2'].forEach(k=>ex[k]=ex[k].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,4)); ['sline','sline2'].forEach(k=>{ if(ex[k]&&!S()[ex[k]]) ex[k]=''; });
-  if(!S()[ex.sx]) ex.sx='paro_epa'; if(!S()[ex.sy]) ex.sy='ipc_sub';
+  if(!ids.includes(ex.sx)) ex.sx=ids.includes(explorerDefaults.sx)?explorerDefaults.sx:ids[0];
+  if(!ids.includes(ex.sy)) ex.sy=ids.includes(explorerDefaults.sy)?explorerDefaults.sy:ids.find(id=>id!==ex.sx);
   const body = ex.view==='multi'? exMulti() : ex.view==='scatter'? exScatter() : ex.view==='stack'? exStack() : exGallery();
   panel.innerHTML = exHeader() + body;
   panel.querySelectorAll('[data-er]').forEach(b=>b.addEventListener('click',()=>{ex.range=b.dataset.er; saveEx(); viewExplorer();}));
@@ -994,7 +1021,7 @@ function drawMulti(){ withRange(()=>{
     drawChart(h2,{lines:L,rlines:R,aria:'multi',height:280}); tr(document.getElementById('mlg2')); } }); }
 
 /* ---- stacked bars: components stacked by period, optional total as a line */
-const STACK_PRESETS={
+const STACK_PRESETS=IS_TURKEY?turkeyStackPresets:{
   pib:{label:'Aportaciones al crecimiento del PIB',bars:['ap_dn','ap_de'],line:'pib_yoy'},
   ipc:{label:'Componentes del IPC (tasas, no aportaciones)',bars:['ipc_ene','ipc_ali','ipc_ser'],line:'ipc'},
   ext:{label:'Saldo exterior: bienes y servicios y cuenta corriente',bars:['bys_pib'],line:'cc_pib'}};
@@ -1006,7 +1033,7 @@ function stackParts(sfx){ const n=sfx||'', picks=ex['spicks'+sfx], line=ex['slin
   const units=[...new Set(all.map(id=>S()[id].unit))];
   const fN=C?{M:'mensual',Q:'trimestral',D:'diaria'}[C.f]:''; const conv=C&&all.some(id=>S()[id].freq!==C.f)?` · las series de mayor frecuencia se promedian a ${fN}`:'';
   const lineOpts=`<option value="" ${!line?'selected':''}>Ninguna</option>`+seriesOptions([],line||null);
-  const pick=`<div class="mcol"><div class="pickrow"><div class="picks"><label class="picklab" for="sel-preset${n}">Ejemplos</label><select id="sel-preset${n}" class="axsel"><option value="">Elige un ejemplo…</option>${Object.entries(STACK_PRESETS).map(([k,P])=>`<option value="${k}">${P.label}</option>`).join('')}</select></div>
+  const pick=`<div class="mcol"><div class="pickrow"><div class="picks"><label class="picklab" for="sel-preset${n}">Ejemplos</label><select id="sel-preset${n}" class="axsel"><option value="">Elige un ejemplo…</option>${Object.entries(STACK_PRESETS).filter(([,P])=>P.bars.every(id=>S()[id])&&(!P.line||S()[P.line])).map(([k,P])=>`<option value="${k}">${P.label}</option>`).join('')}</select></div>
      <div class="picks"><label class="picklab" for="sel-sline${n}">Línea (total)</label><select id="sel-sline${n}" class="axsel">${lineOpts}</select></div></div>
    ${pickRow(picks,'spicks'+sfx,4)}</div>`;
   const fig=C&&picks.length?`<figure class="fig" style="margin:0"><div><h3>${esc(picks.map(id=>S()[id].label).join(' / '))}${line?' / '+esc(S()[line].label):''}</h3><div class="sub">${esc(`Barras apiladas${line?' y línea':''} · ${units.map(u=>UNIT_ES[u]||u).join(' · ')} · ${fN}${conv}`)}</div></div>
@@ -1099,8 +1126,12 @@ function drawScatter(host,pts,f,X,Y,fit){
 
 /* ---- Pizarra de series: one large chart; left panel with chart modes and two tabs (all series / selected) */
 const boardKey=IS_TURKEY?'mme-bb-turkey':'mme-bb';
-const bb={mode:'lines', tr:'level', picks:IS_TURKEY?['drive_tr_TR_Q_EXP_SCA_GDP']:['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', q:'', fit:'lin', listOpen:IS_TURKEY};
-try{ Object.assign(bb, JSON.parse(localStorage.getItem(boardKey)||'{}')); }catch(e){}
+const bb={mode:'lines', tr:'level', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', q:'', fit:'lin', listOpen:false};
+try{
+  const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
+  if(IS_TURKEY&&!saved.catalogPreference) delete saved.listOpen;
+  Object.assign(bb,saved);
+}catch(e){}
 function saveBB(){ try{ localStorage.setItem(boardKey,JSON.stringify({...bb,q:''})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
 const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
@@ -1164,7 +1195,7 @@ function viewBoard(){
      ${bb.picks.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(bb.picks)}${(bb.mode==='lines'&&bb.tr==='level'||bb.mode==='bars'||bb.mode==='stack')&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
   bindRange(); bindExplorerViews();
   const rerender=()=>{ saveBB(); viewBoard(); };
-  const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;saveBB();});
+  const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_TURKEY)bb.catalogPreference=true;saveBB();});
   const search=document.getElementById('bbsearch'), list=document.getElementById('bblist');
   if(search&&list){search.addEventListener('input',()=>{bb.q=search.value;list.innerHTML=bbList();tr(list);});list.addEventListener('change',e=>{const input=e.target;if(!input.matches('[data-bbp]'))return;const id=input.dataset.bbp;if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax())bb.picks.push(id);else if(!input.checked)bb.picks=bb.picks.filter(x=>x!==id);rerender();});}
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
@@ -1238,7 +1269,7 @@ function renderTabs(){ const t=document.getElementById('tabs'); const buttons=it
 function go(k){ if(k==='financiero'){k='explorador';ex.view='pizarra';} state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
 function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
   if(IS_TURKEY){
-    if(DATA.meta.n_series) viewBoard();
+    if(DATA.meta.n_series) viewExplorer();
     else panel.innerHTML=`<p class="note">${turkeyLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'Data unavailable.':'Datos no disponibles.')}</p>`;
     const title=isEN()?'BBVA Research Türkiye Macro Monitor':'BBVA Research Monitor Macro Turquía';
     document.title=title;
@@ -1350,7 +1381,7 @@ document.getElementById('refreshBtn').addEventListener('click',()=>reload(true))
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; try{localStorage.setItem('mme-lang',LANG)}catch(e){} render(); }));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
 const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
-const h0=location.hash.slice(1); if(IS_TURKEY||h0==='pizarra'||h0==='financiero'){state.tab='explorador';ex.view='pizarra';} else if(TABS.some(t=>t.k===h0)) state.tab=h0; else if(EXHASH[h0]){ state.tab='explorador'; ex.view=EXHASH[h0]; }
+const h0=location.hash.slice(1); if(h0==='pizarra'||h0==='financiero'){state.tab='explorador';ex.view='pizarra';} else if(TABS.some(t=>t.k===h0)) state.tab=h0; else if(EXHASH[h0]){ state.tab='explorador'; ex.view=EXHASH[h0]; }
 window.addEventListener('hashchange',()=>{ const k=location.hash.slice(1); if(k==='pizarra'||k==='financiero'){state.tab='explorador';ex.view='pizarra';render();return;} if(TABS.some(t=>t.k===k)&&k!==state.tab){ state.tab=k; render(); } });
 render();
 if(location.protocol!=='file:'){ reload(false); setInterval(()=>reload(false),15*60*1000); }
