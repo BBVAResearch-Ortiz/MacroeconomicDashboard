@@ -9,9 +9,11 @@ Primero compara la revisión de cada Excel en Drive. Si cambió, convierte una c
 1. Abre **Upload to Dashboard** y añade [UploadToDashboard.gs](UploadToDashboard.gs) como archivo de secuencia de comandos. Conserva los archivos existentes. Activa el servicio avanzado **Drive API v3** y, si el manifiesto declara permisos explícitos, incorpora los de [appsscript.json](appsscript.json).
 2. Ejecuta `previewDashboardUpload`. La prueba no escribe en GitHub. Comprueba que se registran 145 series y 58.916 observaciones para la versión inicial de España. Revisa la duración de la primera ejecución con el Excel real.
 
+Si mantienes una lista explícita de permisos, usa `https://www.googleapis.com/auth/spreadsheets` para `SpreadsheetApp.openById`. El permiso `spreadsheets.readonly` es insuficiente para ese método. Guarda el manifiesto y vuelve a ejecutar la prueba para autorizar el cambio.
+
 ## Activación
 
-La rama remota `drive_processing` debe contener el workflow `drive-preview.yml`. Cuando las series estén autorizadas para el repositorio de destino, configura la propiedad de proyecto `FOW_DASHBOARD_GITHUB_TOKEN` con un token que tenga permiso **Contents: read and write** en `BBVAResearch-Ortiz/MacroeconomicDashboard`. Ejecuta `syncDashboardFromDrive`, revisa la primera salida y después ejecuta `installDashboardUploadTrigger` con la cuenta que mantendrá la automatización.
+La rama remota `main` debe contener el workflow `drive-preview.yml`. Esta integración de código se puede hacer antes de configurar el token. Cuando las series estén autorizadas para el repositorio de destino, configura la propiedad de proyecto `FOW_DASHBOARD_GITHUB_TOKEN` con un token que tenga permiso **Contents: read and write** en `BBVAResearch-Ortiz/MacroeconomicDashboard`. Ejecuta `syncDashboardFromDrive`, revisa la primera salida y después ejecuta `installDashboardUploadTrigger` con la cuenta que mantendrá la automatización.
 
 Revisa los disparadores existentes del proyecto antes de activar el nuevo para evitar que dos sincronizaciones procesen la misma fuente.
 

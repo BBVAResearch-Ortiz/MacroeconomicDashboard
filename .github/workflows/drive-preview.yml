@@ -2,7 +2,7 @@ name: Build Drive dashboard preview
 
 on:
   push:
-    branches: [drive_processing]
+    branches: [main]
     paths:
       - 'drive_ingestion/snapshots/spain.json'
       - 'drive_ingestion/spain_dashboard.py'

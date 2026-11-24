@@ -5,7 +5,7 @@ const DASHBOARD_UPLOAD = {
   folder: 'application/vnd.google-apps.folder',
   spreadsheet: 'application/vnd.google-apps.spreadsheet',
   repository: 'BBVAResearch-Ortiz/MacroeconomicDashboard',
-  branch: 'drive_processing',
+  branch: 'main',
   tokenProperty: 'FOW_DASHBOARD_GITHUB_TOKEN',
   metadata: [
     'titulo_serie', 'subtitulo_descripcion', 'transformacion_y_calculo', 'fuente',
@@ -92,7 +92,7 @@ function syncDashboardArea_(area, folder, properties, token) {
   }
   if (books.length !== 1) throw new Error('Se esperaba un Excel. Encontrados: ' + books.length);
   const book = books[0];
-  const key = 'FOW_UPLOAD_V1_' + area;
+  const key = 'FOW_UPLOAD_V1_' + DASHBOARD_UPLOAD.branch + '_' + area;
   const previous = JSON.parse(properties.getProperty(key) || '{}');
   const revision = book.id + ':' + (book.md5Checksum || book.version);
   if (token && revision === previous.revision) {
