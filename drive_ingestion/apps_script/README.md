@@ -17,4 +17,17 @@ La rama remota `main` debe contener el workflow `drive-preview.yml`. Esta integr
 
 Revisa los disparadores existentes del proyecto antes de activar el nuevo para evitar que dos sincronizaciones procesen la misma fuente.
 
-El script sube los JSON procesados a `drive_ingestion/snapshots/`. GitHub Actions genera la vista previa de España con los datos actuales y los importados. El workflow entrega el artefacto `drive-dashboard-preview`. La configuración de Pages requiere un despliegue separado.
+El script sube los JSON procesados a `drive_ingestion/snapshots/`. El Blackboard de España en Pages consulta `spain.json` al abrir o actualizar la página. GitHub Actions también genera el artefacto descargable `drive-dashboard-preview`.
+
+## Big Data de España
+
+Añade [UploadBigData.gs](UploadBigData.gs) al mismo proyecto y actualiza [UploadToDashboard.gs](UploadToDashboard.gs) con la versión de `main`. Usa los permisos y el token ya configurados para el Blackboard.
+
+- [Carpeta de exportaciones](https://drive.google.com/drive/folders/1thGWH7iyzwmC3YDjMHf1J_vwmPfNpm8H). `Datos_informe.csv` actualiza consumo real nacional y territorial y `Tabla_monitor.csv` alimenta el mapa de calor.
+- [Carpeta de Alta Frecuencia](https://drive.google.com/drive/folders/1U8giN5bJ4tJLAtVf_rjlxLu9s6qGr3u2). El script lee las pestañas `ESP_Consumo`, `Inversion_España` y `España_Activ_Sectorial` de `Alta Frecuencia - España`. Las copias territoriales con fecha quedan como histórico en Drive.
+
+1. Ejecuta `previewDashboardBigData` y comprueba que el registro muestre series nacionales, territorios y filas del mapa de calor. La prueba solo lee las fuentes.
+2. Confirma que los datos procesados se pueden publicar en el repositorio público y ejecuta una vez `syncDashboardBigData`.
+3. Verifica la pestaña Big Data de España en Pages y ejecuta una vez `installDashboardBigDataTrigger` para comprobar cambios cada 15 minutos. Este disparador es independiente del que alimenta el Blackboard.
+
+Los archivos de origen quedan en Drive. El script guarda solo las series, el índice territorial y el mapa de calor procesados en `drive_ingestion/snapshots/bigdata/`. La página consulta esa salida en cada carga y usa sus datos de respaldo hasta que esté disponible.

@@ -222,21 +222,29 @@ function parseDashboardSheets_(dictionary, observations, timezone) {
 }
 
 function commitDashboardSnapshot_(area, content, token) {
+  commitDashboardFiles_([{ path: 'drive_ingestion/snapshots/' + area + '.json', content }],
+    'Update Drive data for ' + area, token);
+}
+
+function commitDashboardFiles_(files, message, token) {
   const config = DASHBOARD_UPLOAD;
   const ref = '/heads/' + encodeURIComponent(config.branch);
   const head = dashboardGithub_('/git/ref' + ref, 'get', null, token).object.sha;
   dashboardGithub_('/contents/.github/workflows/drive-preview.yml?ref=' + head, 'get', null, token);
-  const blob = Utilities.newBlob(content, 'application/json');
-  const sha = dashboardGithub_('/git/blobs', 'post', {
-    content: Utilities.base64Encode(blob.getBytes()), encoding: 'base64'
-  }, token).sha;
   const base = dashboardGithub_('/git/commits/' + head, 'get', null, token).tree.sha;
-  const tree = dashboardGithub_('/git/trees', 'post', { base_tree: base, tree: [
-    { path: 'drive_ingestion/snapshots/' + area + '.json', mode: '100644', type: 'blob', sha }
-  ] }, token).sha;
+  const entries = files.map(({ path, content }) => {
+    const entry = { path, mode: '100644', type: 'blob' };
+    if (content.length < 65536) return { ...entry, content };
+    const blob = Utilities.newBlob(content, 'application/json');
+    const { sha } = dashboardGithub_('/git/blobs', 'post', {
+      content: Utilities.base64Encode(blob.getBytes()), encoding: 'base64'
+    }, token);
+    return { ...entry, sha };
+  });
+  const tree = dashboardGithub_('/git/trees', 'post', { base_tree: base, tree: entries }, token).sha;
   if (base === tree) return;
   const commit = dashboardGithub_('/git/commits', 'post', {
-    message: 'Update Drive data for ' + area, tree, parents: [head]
+    message, tree, parents: [head]
   }, token);
   dashboardGithub_('/git/refs' + ref, 'patch', { sha: commit.sha, force: false }, token);
 }

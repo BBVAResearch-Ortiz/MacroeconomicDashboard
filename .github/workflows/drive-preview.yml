@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'drive_ingestion/snapshots/spain.json'
+      - 'drive_ingestion/snapshots/bigdata/**'
       - 'drive_ingestion/spain_dashboard.py'
       - '.github/workflows/drive-preview.yml'
 
@@ -28,6 +29,10 @@ jobs:
         run: |
           if [ -f drive_ingestion/snapshots/spain.json ]; then
             python drive_ingestion/spain_dashboard.py drive_ingestion/snapshots/spain.json "$RUNNER_TEMP/drive-site"
+            if [ -d drive_ingestion/snapshots/bigdata ]; then
+              mkdir -p "$RUNNER_TEMP/drive-site/drive_ingestion/snapshots"
+              cp -r drive_ingestion/snapshots/bigdata "$RUNNER_TEMP/drive-site/drive_ingestion/snapshots/"
+            fi
             echo "built=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/upload-artifact@v4

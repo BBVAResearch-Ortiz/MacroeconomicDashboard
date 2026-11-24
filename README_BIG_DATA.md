@@ -4,7 +4,7 @@ El dashboard incluye una instantánea de las hojas ESP_Consumo, Inversion_Españ
 
 La hoja original tiene acceso restringido. El paquete incluye los datos seleccionados en bigdata.json y en las páginas generadas; si se publica en GitHub Pages, esos datos serán públicos. No incluye el libro Excel completo.
 
-La actualización de Big Data todavía es manual: exporte la hoja de Google Sheets como Excel (.xlsx) y ejecute desde la carpeta del dashboard:
+La [ingesta desde Drive](drive_ingestion/apps_script/README.md#big-data-de-españa) prepara las series nacionales, el consumo real territorial y el mapa de calor. Como alternativa, para actualizar la instantánea de respaldo, exporte la hoja de Google Sheets como Excel (.xlsx) y ejecute desde la carpeta del dashboard:
 
 ```
 python -m pip install openpyxl
@@ -25,7 +25,7 @@ Para actualizar los tres conjuntos territoriales, exporte los libros de comunida
 python importar_bigdata_territorial.py /ruta/ccaa.xlsx /ruta/provincias.xlsx /ruta/municipios.xlsx
 ```
 
-Después ejecute `python generar_heatmap.py` y suba `bigdata_heatmap.json` junto con la carpeta `bigdata_geo/` y las páginas del dashboard que hayan cambiado. La actualización es manual: GitHub Actions no tiene acceso automático a estas hojas restringidas. Los archivos territoriales seleccionados se publicarán si se suben al repositorio público.
+Después ejecute `python generar_heatmap.py` y suba `bigdata_heatmap.json` junto con la carpeta `bigdata_geo/` y las páginas del dashboard que hayan cambiado. Este procedimiento cubre los libros territoriales detallados. La ingesta periódica usa los datos de consumo real publicados en `Datos_informe.csv`. Los archivos territoriales seleccionados se publicarán si se suben al repositorio público.
 
 ## Tabla de consumo
 
