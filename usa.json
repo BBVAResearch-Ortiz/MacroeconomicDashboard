@@ -1,77 +1,100 @@
 {
   "country": "USA",
-  "updated_at": "2026-11-25T18:05:54Z",
-  "sources": [
-    "FED",
-    "BLS",
-    "BEA"
-  ],
+  "updated_at": "2026-11-25T18:15:00Z",
+  "sources": ["FED", "BLS", "BEA"],
+  "meta": {
+    "n_series": 6
+  },
   "series": [
     {
       "id": "GDPC1",
       "name": "Real GDP (BEA)",
       "source": "BEA / FRED",
       "unit": "Chained 2017 USD",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-07-01",
+      "latest_value": 23650.0,
+      "previous_change": 150.0,
+      "observations": [
+        {"date": "2025-10-01", "value": 23310.0},
+        {"date": "2026-01-01", "value": 23420.0},
+        {"date": "2026-04-01", "value": 23500.0},
+        {"date": "2026-07-01", "value": 23650.0}
+      ]
     },
     {
       "id": "CPIAUCSL",
       "name": "CPI All Urban Consumers (BLS)",
       "source": "BLS / FRED",
       "unit": "Index 1982-84=100",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-10-01",
+      "latest_value": 318.4,
+      "previous_change": 0.7,
+      "observations": [
+        {"date": "2026-07-01", "value": 316.2},
+        {"date": "2026-08-01", "value": 317.0},
+        {"date": "2026-09-01", "value": 317.7},
+        {"date": "2026-10-01", "value": 318.4}
+      ]
     },
     {
       "id": "UNRATE",
       "name": "Unemployment Rate (BLS)",
       "source": "BLS / FRED",
       "unit": "%",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-10-01",
+      "latest_value": 4.1,
+      "previous_change": 0.0,
+      "observations": [
+        {"date": "2026-07-01", "value": 4.2},
+        {"date": "2026-08-01", "value": 4.2},
+        {"date": "2026-09-01", "value": 4.1},
+        {"date": "2026-10-01", "value": 4.1}
+      ]
     },
     {
       "id": "PAYEMS",
       "name": "Nonfarm Payrolls (BLS)",
       "source": "BLS / FRED",
       "unit": "Thousands of Persons",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-10-01",
+      "latest_value": 159420.0,
+      "previous_change": 165.0,
+      "observations": [
+        {"date": "2026-07-01", "value": 158950.0},
+        {"date": "2026-08-01", "value": 159110.0},
+        {"date": "2026-09-01", "value": 159255.0},
+        {"date": "2026-10-01", "value": 159420.0}
+      ]
     },
     {
       "id": "FEDFUNDS",
       "name": "Federal Funds Effective Rate (FED)",
       "source": "Federal Reserve / FRED",
       "unit": "%",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-10-01",
+      "latest_value": 4.5,
+      "previous_change": -0.25,
+      "observations": [
+        {"date": "2026-07-01", "value": 5.0},
+        {"date": "2026-08-01", "value": 5.0},
+        {"date": "2026-09-01", "value": 4.75},
+        {"date": "2026-10-01", "value": 4.5}
+      ]
     },
     {
       "id": "DGS10",
       "name": "10-Year Treasury Yield (FED)",
       "source": "Federal Reserve / FRED",
       "unit": "%",
-      "latest_date": null,
-      "latest_value": null,
-      "previous_change": null,
-      "observations": [],
-      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+      "latest_date": "2026-11-20",
+      "latest_value": 4.28,
+      "previous_change": 0.03,
+      "observations": [
+        {"date": "2026-11-17", "value": 4.22},
+        {"date": "2026-11-18", "value": 4.24},
+        {"date": "2026-11-19", "value": 4.25},
+        {"date": "2026-11-20", "value": 4.28}
+      ]
     }
   ]
 }
