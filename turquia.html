@@ -69,7 +69,13 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart text{font-family:var(--sans);font-size:11px;fill:var(--muted)}
 .chart-featured{container-type:inline-size}
 .chart-featured text{font-size:12px}
-.chart-period{margin:2px 0 12px;color:var(--chart-ink);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.chart-range{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin:4px 0 8px}
+.chart-range .seg{gap:4px;border:0;flex-wrap:wrap}
+.chart-range .seg button{border:0;border-radius:7px;background:#F3F5F6;color:var(--accent);padding:8px 11px;font-weight:600}
+.chart-range .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.chart-date-range{max-width:100%}
+.chart-date-range summary{padding:5px 0;font-size:13px;font-weight:600;color:var(--chart-ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.chart-date-range[open]{flex-basis:100%}
 .chart-body{display:grid;gap:12px}
 .chart-readings{border-top:1px solid var(--chart-grid);padding-top:10px;min-width:0}
 .chart-readings>p{margin:0 0 8px;font-size:12px;color:var(--muted)}
@@ -79,6 +85,9 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-reading-value small{font-size:12px;font-weight:500}
 .chart-reading-label{display:block;color:var(--chart-ink);font-size:12.5px;margin:2px 0}
 .chart-readings time{display:block;color:var(--muted);font-size:11.5px}
+.chart-readings.is-hovering li time{display:none}
+.chart-readings p[data-cursor-date]{color:var(--chart-ink);font-weight:600}
+.transform-control option:disabled{color:var(--faint)}
 @container (min-width:620px){
   .chart-body{grid-template-columns:minmax(0,1fr) minmax(128px,23%);align-items:start}
   .chart-readings{border-top:0;border-left:1px solid var(--chart-grid);padding:0 0 0 12px}
@@ -543,7 +552,8 @@ let DATA = { ...dashboardBase, series: { ...dashboardBase.series } };
 let SOURCE_NOTE = 'datos incrustados en la página';
 const S = () => DATA.series;
 const state = {tab:IS_TURKEY?'explorador':'resumen', range:'4a'};
-const RANGES=['1a','4a','10a','todo','custom'];
+const SHORT_RANGES=['1m','3m','6m'];
+const RANGES=[...SHORT_RANGES,'1a','4a','10a','todo','custom'];
 const customRange={start:'',end:''};try{Object.assign(customRange,JSON.parse(localStorage.getItem('mme-custom-range')||'{}'))}catch(e){}
 const MES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], MES_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MES = new Proxy([],{get:(_,i)=>(isEN()?MES_EN:MES_ES)[i]});
@@ -555,10 +565,18 @@ function fmtDate(d,freq){ const y=d.slice(0,4), m=+d.slice(5,7);
   if(freq==='Q') return (isEN()?'Q':'T')+Math.ceil(m/3)+' '+y; if(freq==='D'||freq==='W') return (+d.slice(8,10))+' '+MES[m-1]+' '+y; if(freq==='A') return y; return MES[m-1]+' '+y; }
 function unitLabel(u){ return {'% a/a':'%','% PIB':'% PIB','pp':'pp','pb':'pb','M€':'M€','miles':'miles','índice':'','saldo':'','%':'%'}[u] ?? u; }
 const ts = d => Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +(d.slice(8,10)||1));
-function cutoff(){ if(state.range==='custom') return customRange.start?ts(customRange.start):0; const now = lastDateAll(); const y={'1a':1,'3a':3,'4a':4,'5a':5,'10a':10}[state.range]; if(!y) return 0; const d=new Date(now); d.setUTCFullYear(d.getUTCFullYear()-y); return d.getTime(); }
+function cutoff(anchor=lastDateAll()){
+  if(state.range==='custom') return customRange.start?ts(customRange.start):0;
+  const months={'1m':1,'3m':3,'6m':6,'1a':12,'3a':36,'4a':48,'5a':60,'10a':120}[state.range];
+  if(!months) return 0;
+  const date=new Date(anchor), year=date.getUTCFullYear(), month=date.getUTCMonth()-months;
+  const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  return Date.UTC(year,month,Math.min(date.getUTCDate(),daysInMonth));
+}
 function upperCutoff(){return state.range==='custom'&&customRange.end?ts(customRange.end):Infinity;}
 function inRange(d){const v=ts(d);return v>=cutoff()&&v<=upperCutoff();}
 function lastDateAll(){ let m=0; for(const k in S()){ const d=S()[k].data; if(d.length) m=Math.max(m,ts(d[d.length-1][0])); } return m; }
+function rangeAnchor(series){return Math.max(0,...series.map(s=>s.data.at(-1)?.[0]).filter(Boolean).map(ts))||lastDateAll();}
 
 /* -------------------------------------------------------------- chart engine (SVG, one y-axis) */
 function niceTicks(lo,hi,n=5){ if(lo===hi){lo-=1;hi+=1;} const span=hi-lo, step0=span/n, p=Math.pow(10,Math.floor(Math.log10(step0))); const f=step0/p; const step=(f<1.5?1:f<3?2:f<7?5:10)*p;
@@ -575,31 +593,43 @@ function chartReading(id,value,percentScale){
   if(percentScale) return {value:formatBigPercent(value),unit:''};
   return {value:fmtN(value,decimals(series)),unit:L10(unitLabel(series.unit||''))};
 }
-function chartReadings(host,series,first,last,percentScale){
-  const visible=series.filter(s=>s.data.length);
-  const frequencies=new Set(visible.map(s=>S()[s.id].freq));
-  const freq=frequencies.size===1?[...frequencies][0]:'D';
-  const date=t=>fmtDate(new Date(t).toISOString().slice(0,10),freq);
-  const period=first===last?date(first):date(first)+' – '+date(last);
-  const readings=visible.map(s=>{
-    const [day,latest,flash]=s.data.at(-1);
-    const reading=chartReading(s.id,latest,percentScale);
-    const label=L10(s.name);
-    return `<li style="--reading-color:var(${s.color})"><strong class="chart-reading-value">${esc(reading.value)}${reading.unit?` <small>${esc(reading.unit)}</small>`:''}</strong>
-      <span class="chart-reading-label">${esc(label)}</span><time datetime="${esc(day)}">${fmtDate(day,S()[s.id].freq)}${flash?(isEN()?' · flash':' · avance'):''}</time></li>`;
-  }).join('');
-  host.innerHTML=`<div class="chart-featured"><p class="chart-period">${period}</p><div class="chart-body">
-    <div class="chart-plot"></div><div class="chart-readings"><p>${isEN()?'Latest visible readings':'Últimos datos visibles'}</p><ul>${readings}</ul></div>
+function chartReadings(host,series,percentScale){
+  const title=isEN()?'Latest visible readings':'Últimos datos visibles';
+  host.innerHTML=`<div class="chart-featured"><div class="chart-body">
+    <div class="chart-plot"></div><div class="chart-readings"><p data-cursor-date>${title}</p>
+    <ul>${series.map(s=>`<li style="--reading-color:var(${s.color})"><strong class="chart-reading-value"></strong>
+      <span class="chart-reading-label">${esc(L10(s.name))}</span><time></time></li>`).join('')}</ul></div>
   </div></div>`;
-  return host.querySelector('.chart-plot');
+  const readings=host.querySelector('.chart-readings'), header=readings.querySelector('p');
+  const cells=[...readings.querySelectorAll('li')].map(li=>[li.querySelector('strong'),li.querySelector('time')]);
+  function update(date,frequency,points){
+    readings.classList.toggle('is-hovering',Boolean(date));
+    header.textContent=date?fmtDate(date,frequency):title;
+    series.forEach((s,index)=>{
+      const [value,time]=cells[index];
+      const point=date?points[index]:s.data.at(-1);
+      const reading=point?chartReading(s.id,point[1],percentScale):{value:'–'};
+      value.innerHTML=`${esc(reading.value)}${reading.unit?` <small>${esc(reading.unit)}</small>`:''}`;
+      time.hidden=!point;
+      if(point){
+        const [day,,flash]=point;
+        time.dateTime=day;
+        time.textContent=fmtDate(day,S()[s.id].freq)+(flash?(isEN()?' · flash':' · avance'):'');
+      }
+    });
+  }
+  update();
+  return {plot:host.querySelector('.chart-plot'),update};
 }
 function drawChart(host, cfg){
-  const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s, data:(S()[s.id]?.data||[]).filter(o=>inRange(o[0]))}));
+  const start=cfg.start??cutoff(), end=upperCutoff();
+  const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s,data:(S()[s.id]?.data||[]).filter(o=>ts(o[0])>=start&&ts(o[0])<=end)}));
   const pts = all.flatMap(s=>s.data);
   if(!pts.length){ host.innerHTML='<p class="note">Sin datos en este periodo.</p>'; return; }
   let t0=Math.min(...pts.map(o=>ts(o[0]))), t1=Math.max(...pts.map(o=>ts(o[0])));
   const last=t1;
-  const plot=cfg.featured?chartReadings(host,all,t0,last,cfg.percentScale):host;
+  const readings=cfg.featured?chartReadings(host,all,cfg.percentScale):null;
+  const plot=readings?.plot||host;
   const W=Math.max(280,plot.clientWidth), H=cfg.height||(W<500?220:260);
   const dual=Boolean(cfg.rlines?.length);
   const padL=cfg.percentScale?64:50, padR=dual?52:16, padT=dual?26:14, padB=30;
@@ -620,7 +650,7 @@ function drawChart(host, cfg){
   const yR=v=>padT+(rhi-v)/((rhi-rlo)||1)*(H-padT-padB); const y=yL; const yOf=s=>s.right?yR:yL;
   const grid=css('--chart-grid'), rule=css('--chart-zero'), surf=css('--surface');
   const gridLine=(v,position)=>`<line x1="${padL}" x2="${W-padR}" y1="${position}" y2="${position}" stroke="${v===0?rule:grid}" stroke-width="${v===0?1.2:1}"/>`;
-  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}">`;
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}"${readings?' tabindex="0"':''}>`;
   if(ys.length) ticks.forEach(v=>{ g+=`${gridLine(v,y(v))}<text x="${padL-8}" y="${y(v)+4}" text-anchor="end">${cfg.percentScale?formatBigPercent(v):fmtN(v, Math.abs(ticks[1]-ticks[0])<1?1:0)}</text>`; });
   if(dual&&rt){ rt.forEach(v=>{ g+=`${ys.length?'':gridLine(v,yR(v))}<text x="${W-padR+8}" y="${yR(v)+4}" text-anchor="start">${fmtN(v, Math.abs(rt[1]-rt[0])<1?1:0)}</text>`; });
     g+=`${ys.length?`<text x="${padL-8}" y="12" text-anchor="end" style="fill:var(--chart-ink);font-weight:500">Izq.</text>`:''}<text x="${W-padR+8}" y="12" text-anchor="start" style="fill:var(--chart-ink);font-weight:500">Dcha.</text>`; }
@@ -645,18 +675,54 @@ function drawChart(host, cfg){
   // hover
   const svg=plot.querySelector('svg'), tip=plot.querySelector('.tip'), xh=svg.querySelector('#xh'), dots=svg.querySelector('#dots');
   const dates=[...new Set(all.flatMap(s=>s.data.map(o=>o[0])))].sort(), dts=dates.map(ts);
-  const show=ev=>{ const r=svg.getBoundingClientRect(); const px=(ev.clientX-r.left)*W/r.width; const t=t0+(px-padL)/(W-padL-padR)*(t1-t0);
-    let bi=0,bd=Infinity; dts.forEach((v,i)=>{const dd=Math.abs(v-t); if(dd<bd){bd=dd;bi=i;}}); const d=dates[bi]; const X=x(dts[bi]);
+  const observations=all.map(s=>new Map(s.data.map(o=>[o[0],o])));
+  const frequencies=new Set(all.filter(s=>s.data.length).map(s=>S()[s.id].freq));
+  const fr=frequencies.size===1?[...frequencies][0]:'D';
+  let active=-1;
+  const showDate=index=>{
+    if(index===active) return;
+    active=index;
+    const d=dates[index], X=x(dts[index]);
     xh.setAttribute('x1',X); xh.setAttribute('x2',X); xh.setAttribute('visibility','visible');
-    let rows='', dh=''; const fr=S()[all[0].id].freq;
-    all.forEach(s=>{ const o=s.data.find(z=>z[0]===d) || (S()[s.id].freq!==fr? lastBefore(s.data,d):null); if(!o) return;
-      const reading=chartReading(s.id,o[1],cfg.percentScale);
-      rows+=`<div><span><i style="background:${css(s.color)}"></i>${esc(s.short||s.name)}</span><span>${esc(reading.value+(reading.unit?' '+reading.unit:''))}${o[2]?' (avance)':''}</span></div>`;
+    let rows='', dh='';
+    const points=all.map((s,i)=>observations[i].get(d)||(!readings&&S()[s.id].freq!==S()[all[0].id].freq?lastBefore(s.data,d):null));
+    all.forEach((s,i)=>{ const o=points[i]; if(!o) return;
+      if(!readings){
+        const reading=chartReading(s.id,o[1],cfg.percentScale);
+        rows+=`<div><span><i style="background:${css(s.color)}"></i>${esc(s.short||s.name)}</span><span>${esc(reading.value+(reading.unit?' '+reading.unit:''))}${o[2]?' (avance)':''}</span></div>`;
+      }
       if(lines.includes(s)||rlines.includes(s)) dh+=`<circle cx="${x(ts(o[0]))}" cy="${yOf(s)(o[1])}" r="4" fill="${css(s.color)}" stroke="${surf}" stroke-width="2"/>`; });
-    dots.innerHTML=dh; tip.innerHTML=`<b>${fmtDate(d,fr)}</b>${rows}`; tr(tip); tip.hidden=false;
+    dots.innerHTML=dh;
+    if(readings){readings.update(d,fr,points);return;}
+    tip.innerHTML=`<b>${fmtDate(d,S()[all[0].id].freq)}</b>${rows}`; tr(tip); tip.hidden=false;
+    const r=svg.getBoundingClientRect();
     const hw=plot.clientWidth, tw=tip.offsetWidth; let left=X*r.width/W+12; if(left+tw>hw) left=X*r.width/W-tw-12; tip.style.left=Math.max(0,left)+'px'; tip.style.top='8px'; };
-  const hide=()=>{ tip.hidden=true; xh.setAttribute('visibility','hidden'); dots.innerHTML=''; };
-  svg.addEventListener('pointermove',show); svg.addEventListener('pointerleave',hide); svg.addEventListener('pointerdown',show);
+  const hide=()=>{ tip.hidden=true; xh.setAttribute('visibility','hidden'); dots.innerHTML=''; readings?.update(); active=-1; };
+  const show=ev=>{
+    const r=svg.getBoundingClientRect(), px=(ev.clientX-r.left)*W/r.width;
+    const t=t0+(px-padL)/(W-padL-padR)*(t1-t0);
+    let lo=0, hi=dts.length-1;
+    while(lo<hi){
+      const mid=Math.floor((lo+hi)/2);
+      if(t-dts[mid]<=dts[mid+1]-t) hi=mid;
+      else lo=mid+1;
+    }
+    showDate(lo);
+  };
+  svg.addEventListener('pointermove',show);
+  svg.addEventListener('pointerleave',event=>{if(event.pointerType!=='touch') hide();});
+  svg.addEventListener('pointerdown',show);
+  if(readings){
+    svg.addEventListener('blur',hide);
+    svg.addEventListener('keydown',event=>{
+      if(event.key==='Escape'){hide();return;}
+      const step={ArrowLeft:-1,ArrowRight:1}[event.key];
+      if(!step) return;
+      event.preventDefault();
+      const current=active<0?dates.length-1:active;
+      showDate(Math.max(0,Math.min(dates.length-1,current+step)));
+    });
+  }
 }
 function lastBefore(data,d){ let r=null; for(const o of data){ if(o[0]<=d) r=o; else break; } return r; }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -759,11 +825,45 @@ const KPIS=[['pib_yoy',1,'actividad'],['pib_qoq',1,'actividad'],['paro_epa',-1,'
 
 /* -------------------------------------------------------------- views */
 const panel=document.getElementById('panel');
-function customInputs(){ return `<div class="custom-range" style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-top:7px"><label>${isEN()?'From':'Desde'} <input type="date" data-date="start" value="${esc(customRange.start)}"></label><label>${isEN()?'To':'Hasta'} <input type="date" data-date="end" value="${esc(customRange.end)}"></label><button type="button" class="btn" data-date-apply>${isEN()?'Apply':'Aplicar'}</button><span data-date-error role="alert" class="note"></span></div>`; }
-function rangeControl(selected,attribute){ const names={custom:isEN()?'Custom':'Personalizado',todo:isEN()?'All':'Todo','1a':isEN()?'1 year':'1 año','4a':isEN()?'4 years':'4 años','10a':isEN()?'10 years':'10 años'};return `<div><div class="seg" role="group" aria-label="${isEN()?'Period':'Periodo'}">${RANGES.map(r=>`<button type="button" ${attribute}="${r}" aria-pressed="${selected===r}">${names[r]}</button>`).join('')}</div>${selected==='custom'?customInputs():''}</div>`; }
+function customInputs(start=customRange.start,end=customRange.end){ return `<div class="custom-range" style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-top:7px"><label>${isEN()?'From':'Desde'} <input type="date" data-date="start" value="${esc(start)}"></label><label>${isEN()?'To':'Hasta'} <input type="date" data-date="end" value="${esc(end)}"></label><button type="button" class="btn" data-date-apply>${isEN()?'Apply':'Aplicar'}</button><span data-date-error role="alert" class="note"></span></div>`; }
+function rangeButtons(selected,attribute,compact=false){
+  const en=isEN();
+  const names={custom:en?'Custom':'Personalizado',todo:en?'All':'Todo',
+    '1m':en?'1 month':'1 mes','3m':en?'3 months':'3 meses','6m':en?'6 months':'6 meses',
+    '1a':en?'1 year':'1 año','4a':en?'4 years':'4 años','10a':en?'10 years':'10 años'};
+  const ranges=compact?RANGES.filter(r=>r!=='custom'):RANGES.filter(r=>!SHORT_RANGES.includes(r)||r===selected);
+  return `<div class="seg" role="group" aria-label="${en?'Period':'Periodo'}">${ranges.map(r=>{
+    const label=compact&&r!=='todo'?(en?r.replace('a','y'):r):names[r];
+    return `<button type="button" ${attribute}="${r}" aria-label="${names[r]}" aria-pressed="${selected===r}">${label}</button>`;
+  }).join('')}</div>`;
+}
+function rangeControl(selected,attribute){return `<div>${rangeButtons(selected,attribute)}${selected==='custom'?customInputs():''}</div>`;}
 function rangeCtl(){return rangeControl(state.range,'data-r');}
+function chartRangeCtl(series,start){
+  const end=upperCutoff();
+  const inWindow=p=>ts(p[0])>=start&&ts(p[0])<=end;
+  const first=series.map(s=>s.data.find(inWindow)?.[0]).filter(Boolean).sort()[0];
+  const last=series.map(s=>s.data.findLast(inWindow)?.[0]).filter(Boolean).sort().at(-1);
+  const custom=state.range==='custom';
+  const from=(custom&&customRange.start)||first||'';
+  const to=(custom&&customRange.end)||last||'';
+  const label=from&&to?fmtDate(from,'D')+' → '+fmtDate(to,'D'):(isEN()?'Choose dates':'Elegir fechas');
+  return `<div class="chart-range">${rangeButtons(state.range,'data-r',true)}
+    <details class="chart-date-range"${custom?' open':''}><summary>${label}</summary>${customInputs(from,to)}</details></div>`;
+}
 function bindCustomRange(onApply){const btn=panel.querySelector('[data-date-apply]');if(!btn)return;btn.addEventListener('click',()=>{const start=panel.querySelector('[data-date="start"]').value,end=panel.querySelector('[data-date="end"]').value,error=panel.querySelector('[data-date-error]');if(!start||!end||start>end){error.textContent=isEN()?'Choose valid dates; start must not be after end.':'Elige fechas válidas: el inicio no puede ser posterior al fin.';return;}customRange.start=start;customRange.end=end;try{localStorage.setItem('mme-custom-range',JSON.stringify(customRange))}catch(e){}onApply();});}
-function bindRange(){ panel.querySelectorAll('.seg [data-r]').forEach(b=>b.addEventListener('click',()=>{state.range=b.dataset.r; try{localStorage.setItem('mme-range',state.range)}catch(e){} render();}));bindCustomRange(()=>render()); }
+function bindRange(){
+  function apply(range){
+    state.range=range;
+    try{localStorage.setItem('mme-range',range)}catch(e){}
+    render();
+  }
+  panel.querySelectorAll('.seg [data-r]').forEach(b=>b.addEventListener('click',()=>{
+    apply(b.dataset.r);
+    panel.querySelector(`[data-r="${b.dataset.r}"]`)?.focus({preventScroll:true});
+  }));
+  bindCustomRange(()=>apply('custom'));
+}
 function legendHTML(items,bars){ if(items.length<2) return ''; return `<div class="legend">${items.map(s=>`<span><i class="${bars&&bars.some(b=>b===s||b.name===s.name)?'bar':''}" style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join('')}</div>`; }
 function latest(id){ const d=S()[id]?.data||[]; return d[d.length-1]; }
 function prevObs(id,n=1){ const d=S()[id]?.data||[]; return d[d.length-1-n]; }
@@ -1375,7 +1475,7 @@ function openTurkeyTopic(key){
   render();
 }
 function exHeader(){ return `<div class="sechead"><h2>Blackboard</h2>
-   ${ex.view==='pizarra'?(bb.mode==='scatter'?'':rangeCtl()):ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
+   ${ex.view==='pizarra'||ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
   <div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>
   ${IS_TURKEY?turkeyTopics():''}
   ${ex.view==='pizarra'?'':sectionSearch('explorer-search',true)}`; }
@@ -1590,25 +1690,32 @@ const transformStatuses={
   calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
-function transformationPlan(ids,entries,scope,kind,fullHistory=false){
+function transformationPlan(ids,entries,scope,kind,fullHistory=false,anchor){
   const catalog=SERIES_TRANSFORMS.catalogue(entries,scope);
-  const start=fullHistory?0:cutoff(), end=fullHistory?Infinity:upperCutoff();
+  const start=fullHistory?0:cutoff(anchor), end=fullHistory?Infinity:upperCutoff();
   const options=new Map();
   for(const k of transformKinds){
-    const rows=ids.map((id,index)=>({
-      id,index,base:catalog.byId.get(id)?.series,...SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN())
-    }));
-    if(k==='original'||rows.some(row=>row.series)) options.set(k,rows);
+    const alwaysShow=k==='mom'||k==='qoq';
+    const rows=ids.map((id,index)=>{
+      const base=catalog.byId.get(id)?.series;
+      const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN());
+      if(alwaysShow&&result.series&&!result.series.data.some(([day])=>ts(day)>=start&&ts(day)<=end)){
+        return {id,index,base,status:'unavailable',reason:isEN()?'No observations in this period.':'Sin observaciones en este periodo.'};
+      }
+      return {id,index,base,...result};
+    });
+    if(k==='original'||alwaysShow||rows.some(row=>row.series)) options.set(k,rows);
   }
-  const selected=options.has(kind)?kind:'original';
+  const selected=kind==='original'||options.get(kind)?.some(row=>row.series)?kind:'original';
   return {selected,options,rows:options.get(selected)};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
-  const options=[...plan.options.keys()].map(kind=>{
+  const options=[...plan.options].map(([kind,rows])=>{
     const name=SERIES_TRANSFORMS.names(kind,en);
-    return `<option value="${kind}"${kind===plan.selected?' selected':''}>${esc(name)}</option>`;
+    const unavailable=kind!=='original'&&!rows.some(row=>row.series);
+    return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
     const name=L10((r.series||r.base)?.label||r.id);
@@ -1703,7 +1810,8 @@ function viewBoard(){
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
   const source=Object.entries(S()).filter(([id])=>!id.startsWith('__'));
-  const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter');
+  const anchor=rangeAnchor(bb.picks.map(id=>S()[id])), start=cutoff(anchor);
+  const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter',anchor);
   if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
   const plots=registerPlotSeries(plan.rows,'__plot_board_');
   const ids=plots.map(p=>p.id);
@@ -1726,6 +1834,7 @@ function viewBoard(){
    </aside>
    <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
      ${transformationControls('board-transform',plan)}
+     ${bb.mode==='scatter'?'':chartRangeCtl(ids.map(id=>S()[id]),start)}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
   bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
@@ -1757,13 +1866,13 @@ function viewBoard(){
   panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
   const sw=document.getElementById('bbswap'); if(sw) sw.addEventListener('click',()=>{ bb.picks.reverse(); rerender(); });
   [['bbx',0],['bby',1]].forEach(([k,i])=>{ const el=document.getElementById(k); if(el) el.addEventListener('change',()=>{ const p=bb.picks.slice(); const j=p.indexOf(el.value); if(j>1) p.splice(j,1); p[i]=el.value; bb.picks=p; rerender(); }); });
-  const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'));
+  const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
   if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
   if(transformFocused) document.getElementById('board-transform')?.focus({preventScroll:true});
   if(focusedSeries) list?.querySelector(`[data-bbp="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
 }
-function drawBoard(plots){
+function drawBoard(plots,start){
   const h=document.getElementById('bbchart'), lg=document.getElementById('bblg');
   if(!h||!lg) return;
   if(!plots.length){
@@ -1775,7 +1884,7 @@ function drawBoard(plots){
   const lines=plots.map(({id,index})=>({id,name:S()[id].label,color:COLORS[index%4]}));
   const title=lines.map(line=>L10(line.name)).join(' / ');
   const W=Math.max(280,h.clientWidth), height=Math.round(Math.min(560,Math.max(340,W*0.5)));
-  if(bb.mode==='heat'){drawHeatBoard(h,ids);lg.innerHTML='';return;}
+  if(bb.mode==='heat'){drawHeatBoard(h,ids,start);lg.innerHTML='';return;}
   if(bb.mode==='multiples'){
     const frequency=isEN()?{D:'daily',W:'weekly',M:'monthly',Q:'quarterly'}:{D:'diaria',W:'semanal',M:'mensual',Q:'trimestral'};
     lg.innerHTML='';
@@ -1783,7 +1892,7 @@ function drawBoard(plots){
       const s=S()[line.id];
       return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div><figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
     }).join('')+'</div>';
-    lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:line.name,height:210,zero:false}));
+    lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:line.name,height:210,zero:false,start}));
     return;
   }
   if(bb.mode==='scatter'){
@@ -1806,18 +1915,18 @@ function drawBoard(plots){
       (left?L:R).push({...lines[i],name:lines[i].name+(left?' (eje izq.)':' (eje dcho.)')});
     });
     if(!L.length&&R.length) L.push(R.shift());
-    drawChart(h,{lines:L,rlines:R,aria:title,height,featured:true});
+    drawChart(h,{lines:L,rlines:R,aria:title,height,start,featured:true});
   }else if(bb.mode==='bars'||bb.mode==='stack'){
     const C=bbCommon(plots);
-    drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,featured:true});
+    drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true});
   }else{
-    drawChart(h,{lines,aria:title,height,zero:bb.tr==='z',featured:true});
+    drawChart(h,{lines,aria:title,height,zero:bb.tr==='z',start,featured:true});
   }
   lg.innerHTML='';
 }
-function drawHeatBoard(host,ids){
-  const c=cutoff(), freq=ids.some(id=>S()[id].freq==='Q')?'Q':'M';
-  const rows=ids.map(id=>{const src=S()[id],d=toFreq(src.data,src.freq,freq).filter(o=>inRange(o[0])&&Number.isFinite(o[1])),v=d.map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
+function drawHeatBoard(host,ids,start){
+  const end=upperCutoff(), freq=ids.some(id=>S()[id].freq==='Q')?'Q':'M';
+  const rows=ids.map(id=>{const src=S()[id],d=toFreq(src.data,src.freq,freq).filter(([day,value])=>ts(day)>=start&&ts(day)<=end&&Number.isFinite(value)),v=d.map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
   const dates=[...new Set(rows.flatMap(r=>r.d.map(o=>o[0])))].sort();
   if(!dates.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return;}
   const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=r.sd?(v-r.mean)/r.sd:0,a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
@@ -2108,9 +2217,9 @@ function bigVisiblePoints(series,start,end){
   });
 }
 const bigPlotValue=(s,value)=>s.percentScale===false?value:value*100;
-function bigScatterPoints([x,y]){
+function bigScatterPoints([x,y],start){
   if(!x||!y) return [];
-  const start=cutoff(), end=upperCutoff();
+  const end=upperCutoff();
   const xs=new Map(bigVisiblePoints(x,start,end).map(([day,value])=>[day,bigPlotValue(x,value)]));
   return bigVisiblePoints(y,start,end).filter(([day])=>xs.has(day)).map(([day,value])=>({d:day,x:xs.get(day),y:bigPlotValue(y,value)}));
 }
@@ -2119,7 +2228,7 @@ function bigHeatWindow(){
   const allMonths=[...new Set(rows.flatMap(r=>Object.keys(r.monthly||{})))].sort();
   const allWeeks=[...new Set(rows.flatMap(r=>Object.keys(r.weekly||{})))].sort();
   const anchor=Math.min(allWeeks.length?ts(allWeeks.at(-1)):lastDateAll(),upperCutoff());
-  const start=cutoff();
+  const start=cutoff(anchor);
   const months=allMonths.filter(m=>{
     const end=Date.UTC(+m.slice(0,4),+m.slice(5,7),0);
     return end>=start&&end<=anchor;
@@ -2127,7 +2236,7 @@ function bigHeatWindow(){
   const weeks=allWeeks.filter(w=>ts(w)>=start&&ts(w)<=anchor).slice(-4);
   return {rows,months,weeks};
 }
-function bigCsvRows(view,chosen){
+function bigCsvRows(view,chosen,start){
   if(view==='heat'){
     const {rows,months,weeks}=bigHeatWindow();
     if(!months.length&&!weeks.length) return [];
@@ -2137,17 +2246,17 @@ function bigCsvRows(view,chosen){
   const title=s=>L10(s.label)+' ('+(s.percentScale===false?L10(s.unit):'%')+')';
   const date=isEN()?'Date':'Fecha';
   if(view==='scatter'){
-    const points=bigScatterPoints(chosen);
+    const points=bigScatterPoints(chosen,start);
     return points.length<2?[]:[[date,'X · '+title(chosen[0]),'Y · '+title(chosen[1])],
       ...points.map(p=>[p.d,p.x,p.y])];
   }
-  const start=cutoff(), end=upperCutoff();
+  const end=upperCutoff();
   const values=chosen.map(s=>new Map(bigVisiblePoints(s,start,end).map(([day,value])=>[day,bigPlotValue(s,value)])));
   const dates=[...new Set(values.flatMap(series=>[...series.keys()]))].sort();
   return dates.length?[[date,...chosen.map(title)],...dates.map(day=>[day,...values.map(series=>series.get(day))])]:[];
 }
-function downloadBigCsv(chosen){
-  const view=bigState.view, rows=bigCsvRows(view,chosen);
+function downloadBigCsv(chosen,start){
+  const view=bigState.view, rows=bigCsvRows(view,chosen,start);
   if(rows.length<2) return;
   const en=isEN(), locale=en?'en-GB':'es-ES';
   const format=value=>typeof value==='number'
@@ -2180,7 +2289,8 @@ function viewBigData(focus=''){
  entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
  const chosen=bigState.selected.map(id=>entries.find(s=>s.id===id));
  const plotSelection=bigState.view==='scatter'?chosen.slice(0,2):chosen;
- const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform);
+ const anchor=rangeAnchor(plotSelection), start=cutoff(anchor);
+ const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform,false,anchor);
  if(plan) bigState.transform=plan.selected;
  const plotted=plan?.rows.filter(r=>r.series).map(r=>({...r.series,percentScale:r.percentScale,index:r.index}))||[];
  const units=[...new Set(plotted.map(s=>s.percentScale?'%':L10(s.unit)))];
@@ -2194,7 +2304,7 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan):''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl(plotted,start):''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  bindBigField();
  bindBigSearch();
@@ -2253,12 +2363,12 @@ function viewBigData(focus=''){
    viewBigData('big-catalog-toggle');
  }));
  const csv=document.getElementById('big-csv');
- csv?.addEventListener('click',()=>downloadBigCsv(plotted));
+ csv?.addEventListener('click',()=>downloadBigCsv(plotted,start));
  document.getElementById('big-transform')?.addEventListener('change',e=>{bigState.transform=e.target.value;viewBigData('big-transform');});
  const draw=()=>{
    if(bigState.view==='heat'){drawBigHeat();return}
    if(bigState.view==='scatter'){
-     const ready=drawBigScatter(plotted);
+     const ready=drawBigScatter(plotted,start);
      if(csv) csv.disabled=!ready;
      return;
    }
@@ -2271,7 +2381,7 @@ function viewBigData(focus=''){
        data:!percentScale&&s.percentScale?s.data.map(([d,v,f])=>[d,v*100,f]):s.data};
      return {id,name:s.label,color:COLORS[s.index%4]};
    });
-   drawChart(chart,{lines,aria:title,height:420,percentScale,featured:true});
+   drawChart(chart,{lines,aria:title,height:420,percentScale,start,featured:true});
    if(csv) csv.disabled=!chart.querySelector('svg');
  };
  draw();observe(draw);tr(panel);
@@ -2279,7 +2389,7 @@ function viewBigData(focus=''){
  next?.focus({preventScroll:true});
  if(searchSelection&&next?.id==='big-search') next.setSelectionRange(...searchSelection);
 }
-function drawBigScatter(chosen){
+function drawBigScatter(chosen,start){
  const host=document.getElementById('big-scatter');
  if(!host) return false;
  if(chosen.length<2){
@@ -2287,7 +2397,7 @@ function drawBigScatter(chosen){
    return false;
  }
  const [X,Y]=chosen.slice(0,2).map(s=>({...s,unit:s.percentScale?'%':s.unit}));
- const pts=bigScatterPoints(chosen);
+ const pts=bigScatterPoints(chosen,start);
  const keep=ex.trail;
  ex.trail=false;
  try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}
