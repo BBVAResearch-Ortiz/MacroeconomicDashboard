@@ -15,7 +15,10 @@ for fname,group in zip(sys.argv[1:],['CCAA','Provincial','Urbano']):
    values=bucket.get(j,{})
    if values:series.append({'id':'geo_'+token+'_'+str(j),'label':f'{group} · {name} · {lab} · {typ}','group':group,'unit':'valor original de la hoja','freq':'D','source':'BBVA Research','data':[[d,v,0] for d,v in sorted(values.items())]})
   (out/filename).write_text(json.dumps({'series':series},ensure_ascii=False,separators=(',',':')),encoding='utf8')
-  item=areas.setdefault(code,{'id':code,'label':name,'files':[]});item['files'].append(filename);bucket={}
+  item=areas.setdefault(code,{'id':code,'label':name,'files':[],'series':[]})
+  item['files'].append(filename)
+  item['series'].extend({'id':s['id'],'label':s['label']} for s in series)
+  bucket={}
  for row in rows:
   if len(row)<5 or not row[1] or not row[2]:continue
   typ=str(row[0] or '').strip();code=str(row[1]).strip();name=str(row[4] or row[3] or code).strip()

@@ -171,6 +171,14 @@ table.fc td.f{font-weight:600}
 .bbtabs button{font:600 13px/1 var(--sans);padding:10px 6px;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer}
 .bbtabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);box-shadow:none}
 .bbsearch{width:100%;font:400 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)}
+.series-search{display:grid;gap:6px}
+.series-search.wide{max-width:460px;margin:12px 0}
+.series-search-results{display:grid;gap:6px}
+.series-search-results ul{list-style:none;margin:0;padding:3px;max-height:235px;overflow:auto;border:1px solid var(--rule);border-radius:6px}
+.series-search-results button{display:block;width:100%;text-align:left;font:inherit;font-size:13px;padding:6px 8px;border:0;border-radius:4px;color:var(--ink);background:var(--surface);cursor:pointer}
+.series-search-results button:not(:disabled):is(:hover,:focus-visible){background:var(--surface-2);color:var(--accent);outline:2px solid var(--accent);outline-offset:-2px}
+.series-search-results button:disabled{color:var(--muted);cursor:default}
+.series-search-results small{display:block;color:var(--muted)}
 .bblist{max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
 .bblist .bbh{font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 0;cursor:pointer}
 .bblist details details{margin-left:12px}
@@ -1065,6 +1073,125 @@ function explorerGroups(exclude=[]){
   }));
   return seriesTree(items,explorerPath);
 }
+const searchQueries=new Map();
+const normalizeSearch=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+  .replace(/ı/g,'i').replace(/[^a-z0-9]+/g,' ').trim();
+function sectionSearch(id,wide=false){
+  const label=isEN()?'Search all series':'Buscar en todas las series';
+  return `<div class="series-search${wide?' wide':''}">
+    <label class="picklab" for="${id}">${label}</label>
+    <input id="${id}" class="bbsearch" type="search" value="${esc(searchQueries.get(id)||'')}"
+      placeholder="${isEN()?'Name, category or code…':'Nombre, categoría o código…'}" aria-controls="${id}-results">
+    <div id="${id}-results" class="series-search-results" hidden></div>
+  </div>`;
+}
+function bindSectionSearch(id,{entries,picks,limit,axes=false,destination='',onQuery,loading,choose,redraw}){
+  const input=document.getElementById(id), results=document.getElementById(id+'-results');
+  if(!input||!results) return;
+  const selected=new Set(picks);
+  const replaceRequired=!axes&&picks.length>=limit;
+  let slot=axes?0:null, busy=false, error=false, matches=[];
+  const message=(es,en)=>isEN()?en:es;
+  function update(){
+    const words=normalizeSearch(input.value).split(' ').filter(Boolean);
+    results.hidden=!words.length;
+    if(!words.length){ results.replaceChildren();return; }
+    const isLoading=loading?.();
+    const catalogue=entries();
+    matches=catalogue.filter(item=>{
+      const haystack=normalizeSearch([item.label,L10(item.label),item.detail,...(item.terms||[])].join(' '));
+      return words.every(word=>haystack.includes(word));
+    }).sort((a,b)=>L10(a.label).localeCompare(L10(b.label),isEN()?'en':'es'));
+    const selector=axes||replaceRequired?`<label class="picklab" for="${id}-slot">${axes?message('Eje','Axis'):message('Sustituir serie','Replace series')}</label>
+      <select id="${id}-slot" class="axsel"${busy?' disabled':''}>
+      ${axes?'':`<option value="">${message('Elige la serie que quieres sustituir…','Choose the series to replace…')}</option>`}
+      ${picks.map((key,i)=>`<option value="${i}"${slot===i?' selected':''}>${axes?(i?'Y':'X'):esc(L10(catalogue.find(s=>s.id===key)?.label||key))}</option>`).join('')}
+      </select>`:'';
+    const status=busy?message('Cargando serie…','Loading series…'):
+      error?message('No se pudo añadir la serie. Inténtalo de nuevo.','Could not add this series. Try again.'):
+      isLoading?message('Cargando catálogo territorial…','Loading territorial catalogue…'):
+      !matches.length?message('No hay series que coincidan.','No matching series.'):'';
+    results.innerHTML=`${destination&&matches.length?`<span class="note">${esc(destination)}</span>`:''}
+      ${matches.length?selector:''}${status?`<p class="note" role="status">${status}</p>`:''}
+      ${matches.length?`<ul>${matches.map(s=>{
+        const already=selected.has(s.id);
+        return `<li><button type="button" data-search-pick="${esc(s.id)}"${busy||already||replaceRequired&&slot===null?' disabled':''}>
+          ${esc(L10(s.label))}<small>${esc([s.detail,already?message('Seleccionada','Selected'):''].filter(Boolean).join(' · '))}</small>
+        </button></li>`;
+      }).join('')}</ul>`:''}`;
+  }
+  function search(){
+    searchQueries.set(id,input.value);
+    error=false;
+    if(input.value.trim()) onQuery?.();
+    update();
+  }
+  input.addEventListener('input',search);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&input.value){ e.preventDefault();input.value='';search();return; }
+    if(!['ArrowDown','Enter'].includes(e.key)||results.hidden) return;
+    const first=results.querySelector('[data-search-pick]:not(:disabled)');
+    if(!first) return;
+    e.preventDefault();
+    if(e.key==='ArrowDown') first.focus();
+    else first.click();
+  });
+  results.addEventListener('change',e=>{
+    if(e.target.id!==id+'-slot') return;
+    slot=e.target.value===''?null:Number(e.target.value);
+    update();
+    document.getElementById(id+'-slot')?.focus();
+  });
+  results.addEventListener('click',async e=>{
+    const button=e.target.closest('[data-search-pick]');
+    if(!button||button.disabled||busy) return;
+    const item=matches.find(s=>s.id===button.dataset.searchPick);
+    if(!item) return;
+    busy=true;error=false;update();
+    let accepted=false;
+    try{ accepted=await choose(item,slot,()=>input.isConnected); }catch{}
+    if(!input.isConnected) return;
+    if(accepted){
+      searchQueries.delete(id);
+      redraw();
+      document.getElementById(id)?.focus({preventScroll:true});
+    }else{
+      busy=false;error=true;update();
+      input.focus({preventScroll:true});
+    }
+  });
+  if(input.value.trim()) onQuery?.();
+  update();
+}
+function explorerSearchEntries(){
+  return exIds().map(id=>{
+    const s=S()[id], path=explorerPath(id);
+    return {id,label:s.label,detail:[...path.map(L10),L10(s.unit)].filter(Boolean).join(' · '),
+      terms:[...path,s.unit,s.code,s.family,s.original_name]};
+  });
+}
+function setSearchPick(picks,id,slot){
+  if(slot===null) picks.push(id);
+  else picks[slot]=id;
+}
+function bindExplorerSearch(){
+  const board=ex.view==='pizarra';
+  const axes=ex.view==='scatter'||board&&bb.mode==='scatter';
+  const collection=({multi:'mpicks',stack:'spicks'})[ex.view]||'picks';
+  const picks=board?bb.picks:axes?[ex.sx,ex.sy]:ex[collection];
+  const firstChart=ex.view==='multi'||ex.view==='stack';
+  bindSectionSearch('explorer-search',{
+    entries:explorerSearchEntries,picks,limit:board?bbMax():collection==='picks'?6:4,axes,
+    destination:firstChart?(isEN()?'First chart':'Primer gráfico'):'',
+    choose:(item,slot)=>{
+      if(axes&&!board) ex[slot===0?'sx':'sy']=item.id;
+      else setSearchPick(picks,item.id,slot);
+      if(board) saveBB(); else saveEx();
+      return true;
+    },
+    redraw:viewExplorer
+  });
+}
 const pickerGroups=new Map();
 function findSeriesPath(node,id,path=[]){
   if(node.items.some(s=>s.id===id)) return path;
@@ -1185,7 +1312,8 @@ function openTurkeyTopic(key){
 function exHeader(){ return `<div class="sechead"><h2>Blackboard</h2>
    ${ex.view==='pizarra'?(bb.mode==='scatter'?'':rangeCtl()):ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
   <div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>
-  ${IS_TURKEY?turkeyTopics():''}`; }
+  ${IS_TURKEY?turkeyTopics():''}
+  ${ex.view==='pizarra'?'':sectionSearch('explorer-search',true)}`; }
 const axisOf=(id,i)=>ex.axis2[id]||(i===0?'L':'R');
 function pickRow(list,key,max){ const col=i=>COLORS[i%4]; const mkey=key==='mpicks'?'mode':null;
   const full=list.length>=max, word={4:'cuatro',6:'seis'}[max]||max;
@@ -1205,6 +1333,7 @@ function bindExplorerViews(){
 }
 function viewExplorer(){
   if(ex.view==='pizarra'){viewBoard(); return;}
+  const searchFocused=document.activeElement?.id==='explorer-search';
   const ids=exIds();
   if(ex.view==='scatter'&&ids.length<2){ex.view='pizarra';viewBoard();return;}
   ex.picks=ex.picks.filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,6); ['mpicks','mpicks2','spicks','spicks2'].forEach(k=>ex[k]=ex[k].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,4)); ['sline','sline2'].forEach(k=>{ if(ex[k]&&!S()[ex[k]]) ex[k]=''; });
@@ -1215,6 +1344,7 @@ function viewExplorer(){
   panel.querySelectorAll('[data-er]').forEach(b=>b.addEventListener('click',()=>{ex.range=b.dataset.er; saveEx(); viewExplorer();}));
   bindCustomRange(()=>viewExplorer());
   bindExplorerViews();
+  bindExplorerSearch();
   bindSeriesPickers();
   panel.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.key; ex[k]=ex[k].filter(x=>x!==b.dataset.rm); saveEx(); viewExplorer();}));
   panel.querySelectorAll('[data-add-series]').forEach(sel=>sel.addEventListener('change',()=>{ const k=sel.dataset.key, mx=k==='picks'?6:4; if(sel.value&&ex[k].length<mx){ ex[k].push(sel.value); saveEx(); viewExplorer(); } }));
@@ -1228,6 +1358,7 @@ function viewExplorer(){
     const pr=document.getElementById('sel-preset'+n); if(pr) pr.addEventListener('change',()=>{ const P=STACK_PRESETS[pr.value]; if(P){ ex['spicks'+sfx]=P.bars.slice(); ex['sline'+sfx]=P.line; saveEx(); viewExplorer(); } }); });
   const draw = ex.view==='multi'? drawMulti : ex.view==='scatter'? drawScatterView : ex.view==='stack'? drawStack : drawGallery;
   draw(); observe(draw); tr(panel);
+  if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
 }
 
 /* ---- gallery (same cards as the overview) */
@@ -1367,7 +1498,7 @@ function drawScatter(host,pts,f,X,Y,fit){
 
 /* ---- Pizarra de series: one large chart; left panel with chart modes and two tabs (all series / selected) */
 const boardKey=IS_TURKEY?'mme-bb-turkey':'mme-bb';
-const bb={mode:'lines', tr:'level', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', q:'', fit:'lin', listOpen:false};
+const bb={mode:'lines', tr:'level', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', fit:'lin', listOpen:false};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_TURKEY&&!saved.catalogPreference) delete saved.listOpen;
@@ -1386,11 +1517,10 @@ function bbCommon(){ const f=bb.picks.map(id=>S()[id].freq).reduce((a,b)=>FRANK[
   return {f, items:bb.picks.map((id,i)=>({id:mk(id),name:S()[id].label,color:COLORS[i%4]}))}; }
 const openCatalogGroups=new Set();
 function bbList(){
-  const q=bb.q.trim().toLowerCase(), full=bb.picks.length>=bbMax();
+  const full=bb.picks.length>=bbMax();
   function catalog(node,path=[]){
     let count=0, html='';
-    for(const {id,label} of node.items){
-      if(q&&![label,...path].flatMap(s=>[s,L10(s)]).join(' ').toLowerCase().includes(q)) continue;
+    for(const {id} of node.items){
       const s=S()[id], on=bb.picks.includes(id);
       count++;
       html+=`<label><input type="checkbox" data-bbp="${esc(id)}"${on?' checked':''}${!on&&full?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit)}</span></span></label>`;
@@ -1401,7 +1531,7 @@ function bbList(){
       if(!child.count) continue;
       count+=child.count;
       const key=childPath.join(' / ');
-      html+=`<details data-catalog-group="${esc(key)}"${q||openCatalogGroups.has(key)?' open':''}>
+      html+=`<details data-catalog-group="${esc(key)}"${openCatalogGroups.has(key)?' open':''}>
         <summary class="bbh">${esc(L10(group.label))} (${child.count})</summary>${child.html}</details>`;
     }
     return {count,html};
@@ -1430,6 +1560,7 @@ function loadHeatExample(){
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
 function viewBoard(){
+  const searchFocused=document.activeElement?.id==='explorer-search';
   if(bb.mode==='heat'&&!bb.heatExampleLoaded){
     if(IS_TURKEY&&bb.picks.some(id=>Object.hasOwn(S(),id))) bb.heatExampleLoaded=true;
     else loadHeatExample();
@@ -1443,12 +1574,13 @@ function viewBoard(){
   const H=bbFigHead(), units=new Set(bb.picks.map(id=>unitLabel(S()[id].unit)));
   panel.innerHTML=exHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
+     ${sectionSearch('explorer-search')}
      ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
      <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><label class="picklab" for="bbadd">Series (${bb.picks.length}/${bbMax()})</label>
        ${seriesPicker('bbadd',explorerGroups(bb.picks),{disabled:bb.picks.length>=bbMax(),placeholder:bb.picks.length>=bbMax()?'Máximo de series alcanzado':''})}${bbSel()}</div>`}
-     ${bb.mode!=='scatter'?`<details class="bbgrp" id="bbcatalog" ${bb.listOpen?'open':''}><summary class="picklab">${isEN()?'Browse all series':'Ver todas las series'}</summary><label class="picklab" for="bbsearch">${isEN()?'All series':'Todas las series'}</label><input id="bbsearch" class="bbsearch" type="search" value="${esc(bb.q)}" placeholder="${isEN()?'Search series…':'Buscar serie…'}" aria-label="${isEN()?'Search series':'Buscar serie'}"><div id="bblist" class="bblist">${bbList()}</div></details>`:''}
+     ${bb.mode!=='scatter'?`<details class="bbgrp" id="bbcatalog" ${bb.listOpen?'open':''}><summary class="picklab">${isEN()?'Browse all series':'Ver todas las series'}</summary><div id="bblist" class="bblist">${bbList()}</div></details>`:''}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${bb.mode==='lines'?`<div class="bbgrp"><span class="picklab">Transformación</span><div class="bbtr">${BB_TR.map(([k,l])=>`<button type="button" data-bbt="${k}" aria-pressed="${bb.tr===k}">${l}</button>`).join('')}</div></div>`:''}
@@ -1457,14 +1589,14 @@ function viewBoard(){
    <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${bb.picks.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(bb.picks)}${(bb.mode==='lines'&&bb.tr==='level'||bb.mode==='bars'||bb.mode==='stack')&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
-  bindRange(); bindExplorerViews(); bindSeriesPickers();
+  bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
   const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_TURKEY)bb.catalogPreference=true;saveBB();});
-  const search=document.getElementById('bbsearch'), list=document.getElementById('bblist');
-  if(search&&list){search.addEventListener('input',()=>{bb.q=search.value;list.innerHTML=bbList();tr(list);});list.addEventListener('change',e=>{const input=e.target;if(!input.matches('[data-bbp]'))return;const id=input.dataset.bbp;if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax())bb.picks.push(id);else if(!input.checked)bb.picks=bb.picks.filter(x=>x!==id);rerender();});}
+  const list=document.getElementById('bblist');
+  if(list) list.addEventListener('change',e=>{const input=e.target;if(!input.matches('[data-bbp]'))return;const id=input.dataset.bbp;if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax())bb.picks.push(id);else if(!input.checked)bb.picks=bb.picks.filter(x=>x!==id);rerender();});
   if(list) list.addEventListener('toggle',e=>{
     const family=e.target.dataset.catalogGroup;
-    if(!family||bb.q.trim()) return;
+    if(!family) return;
     if(e.target.open) openCatalogGroups.add(family);
     else openCatalogGroups.delete(family);
   },true);
@@ -1478,6 +1610,7 @@ function viewBoard(){
   const add=document.getElementById('bbadd'); if(add) add.addEventListener('change',()=>{ if(add.value&&bb.picks.length<bbMax()&&!bb.picks.includes(add.value)){ bb.picks.push(add.value); rerender(); } });
   [['bbx',0],['bby',1]].forEach(([k,i])=>{ const el=document.getElementById(k); if(el) el.addEventListener('change',()=>{ const p=bb.picks.slice(); const j=p.indexOf(el.value); if(j>1) p.splice(j,1); p[i]=el.value; bb.picks=p; rerender(); }); });
   drawBoard(); observe(drawBoard); tr(panel);
+  if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
 }
 function drawBoard(){ const h=document.getElementById('bbchart'), lg=document.getElementById('bblg'); if(!h) return; if(!bb.picks.length){ h.innerHTML=''; lg.innerHTML=''; return; }
   if(bb.mode==='heat'){ drawHeatBoard(h); lg.innerHTML=''; return; }
@@ -1504,7 +1637,7 @@ let BIGDATA={"source":"BBVA Research · Alta Frecuencia - España","sheet_names"
 const bigState={
   view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
   geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
-  scope:'national',geoGroup:'',catalogOpen:false,query:'',variant:'',reference:'',compare:null
+  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null
 };
 async function fetchBigData(path){
   let response = await fetch('drive_ingestion/snapshots/bigdata/'+path, { cache: 'no-store' });
@@ -1588,8 +1721,7 @@ const BIG_SEARCH_ALIASES=[
   ['Seguros','Insurance & Fin. Service'], ['Total Consumo','Total coicops','Total consumption'],
   ['Tarjeta','card'], ['Efectivo','cash'], ['Transferencia','transfer']
 ];
-const bigNormalize=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-const bigAliases=new Map(BIG_SEARCH_ALIASES.flatMap(names=>names.map(name=>[bigNormalize(name),names.map(bigNormalize)])));
+const bigAliases=new Map(BIG_SEARCH_ALIASES.flatMap(names=>names.map(name=>[normalizeSearch(name),names.map(normalizeSearch)])));
 const bigMetric=s=>s.label.split(' · ').at(-2)||s.label;
 const bigVariant=s=>s.label.match(/ · (Nominal|Real)$/)?.[1]||'';
 function bigEntries(){
@@ -1602,19 +1734,34 @@ function bigEntries(){
 }
 function bigMatch(s,reference,kind){
   if(s.id===reference.id||s.group!==reference.group||bigVariant(s)!==bigVariant(reference)) return false;
-  const a=bigNormalize(bigMetric(s)), b=bigNormalize(bigMetric(reference));
+  const a=normalizeSearch(bigMetric(s)), b=normalizeSearch(bigMetric(reference));
   const sameMetric=a===b||(bigAliases.get(a)||[]).includes(b);
   return kind==='territory'?s.area!==reference.area&&sameMetric:s.area===reference.area&&!sameMetric;
 }
-function bigMatchesQuery(s,query){
-  const metric=bigNormalize(bigMetric(s));
-  const words=bigNormalize(query).split(' ').filter(Boolean);
-  const names=[s.label,L10(s.label),s.group,L10(s.group),...(bigAliases.get(metric)||[])].join(' ');
-  const search=bigNormalize(names);
-  return words.every(word=>search.includes(word));
+function legacyBigSearchSeries(group,area){
+  // The previous Drive export indexed a single real consumption total per area.
+  const token=area.files?.length===1&&area.files[0].match(/\/real\/([a-f0-9]{20})\.json$/)?.[1];
+  return token?[{id:'drive_geo_'+token,label:group+' · '+area.label+' · Total Consumo · Real'}]:[];
+}
+function bigSearchEntries(){
+  const catalogue=new Map(bigEntries().map(s=>[s.id,s]));
+  for(const [group,areas] of Object.entries(bigState.geoIndex||{})){
+    if(!Object.hasOwn(BIG_TERRITORY_GROUPS,group)||!Array.isArray(areas)) continue;
+    for(const area of areas){
+      const series=Array.isArray(area.series)?area.series:legacyBigSearchSeries(group,area);
+      for(const {id,label} of series){
+        if(id&&label&&!catalogue.has(id)) catalogue.set(id,{id,label,group,area:area.id});
+      }
+    }
+  }
+  return [...catalogue.values()].map(s=>{
+    const detail=s.area?BIG_TERRITORY_GROUPS[s.group]||s.group:'Nacional';
+    const terms=[s.id,s.area,s.group,detail,...bigPath(s,Boolean(s.area)),...(bigAliases.get(normalizeSearch(bigMetric(s)))||[])];
+    return {...s,detail:L10(detail),terms:terms.flatMap(x=>[x,L10(x)])};
+  });
 }
 function bigSeriesField(entries){
-  const {scope,geoGroup:group,geoAreas,compare,query,variant}=bigState;
+  const {scope,geoGroup:group,geoAreas,compare,variant}=bigState;
   const territorial=scope==='territory', area=geoAreas[group], key=group+'|'+area;
   if(territorial&&!area) return '';
   const reference=entries.find(s=>s.id===compare?.reference);
@@ -1622,13 +1769,12 @@ function bigSeriesField(entries){
   let available=inScope.filter(s=>!bigState.selected.includes(s.id));
   if(compare&&reference) available=available.filter(s=>bigMatch(s,reference,compare.kind));
   else if(variant) available=available.filter(s=>bigVariant(s)===variant);
-  available=available.filter(s=>bigMatchesQuery(s,query));
   let placeholder='';
   if(territorial&&bigState.geoLoading[key]) placeholder=isEN()?'Loading…':'Cargando…';
   else if(territorial&&bigState.geoErrors[key]) placeholder=isEN()?'Could not load series. Choose the territory again.':'No se pudieron cargar las series. Vuelve a elegir el territorio.';
   else if(!available.length) placeholder=isEN()?'No matching series':'No hay series que coincidan';
   const byId=new Map(available.map(s=>[s.id,s]));
-  const tree=seriesTree(available,id=>query.trim()||compare?[]:bigPath(byId.get(id),territorial));
+  const tree=seriesTree(available,id=>compare?[]:bigPath(byId.get(id),territorial));
   const id=compare?'big-add-comparison':territorial?'big-add-territory':'big-add-national';
   return seriesPicker(id,tree,{placeholder,attrs:'data-big-add'});
 }
@@ -1662,24 +1808,46 @@ function bigCatalog(entries,reference){
     <option value="">${isEN()?'Real and nominal':'Real y nominal'}</option>
     ${['Real','Nominal'].map(value=>`<option${bigState.variant===value?' selected':''}>${value}</option>`).join('')}
   </select>`:'';
-  const search=(!territorial||id)&&!showTerritory?`<input id="big-search" class="bbsearch" type="search" value="${esc(bigState.query)}"
-    placeholder="${isEN()?'Search series…':'Buscar series…'}" aria-label="${isEN()?'Search series':'Buscar series'}">`:'';
   const comparison=compare&&reference?`<div class="big-compare-actions"><span class="note">${isEN()?'Comparing with':'Comparando con'} ${esc(L10(reference.label))}</span>
     <button type="button" class="btn ghost" id="big-compare-cancel">${isEN()?'Cancel comparison':'Cancelar comparación'}</button></div>`:'';
   return `${toggle}${actions}<div class="bbgrp big-catalog" id="big-catalog">
-    ${comparison}${scope}${areaPicker}${search}${filter}
+    ${comparison}${scope}${areaPicker}${filter}
     <div id="big-series-field">${bigSeriesField(entries)}</div>
   </div>`;
 }
-function addBigSeries(id,focus=true){
-  if(!id||bigState.selected.includes(id)||bigState.selected.length>=4) return false;
-  bigState.selected.push(id);
+function setBigPick(id,slot=null){
+  if(!id||bigState.selected.includes(id)||(slot===null?bigState.selected.length>=4:!bigState.selected[slot])) return false;
+  setSearchPick(bigState.selected,id,slot);
   bigState.reference=id;
   bigState.compare=null;
   bigState.catalogOpen=false;
-  bigState.query='';
-  viewBigData(focus?'big-catalog-toggle':'');
   return true;
+}
+function addBigSeries(id){
+  if(!setBigPick(id)) return false;
+  searchQueries.delete('big-search');
+  viewBigData('big-catalog-toggle');
+  return true;
+}
+function bindBigSearch(){
+  bindSectionSearch('big-search',{
+    entries:bigSearchEntries,picks:bigState.selected,limit:4,onQuery:loadGeoIndex,
+    loading:()=>bigState.indexRequested&&!bigState.geoIndex&&!bigState.indexError,
+    choose:async(item,slot,isCurrent)=>{
+      if(item.area){
+        const series=await fetchGeoArea(item.group,item.area);
+        if(!series.some(s=>s.id===item.id)) return false;
+      }
+      if(!isCurrent()||state.tab!=='bigdata'||!setBigPick(item.id,slot)) return false;
+      bigState.scope=item.area?'territory':'national';
+      if(item.area){
+        bigState.geoGroup=item.group;
+        bigState.geoAreas[item.group]=item.area;
+      }
+      return true;
+    },
+    redraw:viewBigData
+  });
 }
 async function selectBigTerritory(id){
   const group=bigState.geoGroup, compare=bigState.compare;
@@ -1790,17 +1958,17 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  bindBigField();
+ bindBigSearch();
  document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
    bigState.catalogOpen=!bigState.catalogOpen;
    if(!bigState.catalogOpen) bigState.compare=null;
-   viewBigData(bigState.catalogOpen?'big-search':'big-catalog-toggle');
+   viewBigData(bigState.catalogOpen?'big-scope':'big-catalog-toggle');
  });
  document.getElementById('big-scope')?.addEventListener('change',e=>{
    bigState.scope=e.target.value;
-   bigState.query='';
    viewBigData();
  });
  document.getElementById('big-territory-type')?.addEventListener('change',e=>{
@@ -1814,13 +1982,12 @@ function viewBigData(focus=''){
    bindBigField();
    tr(field);
  };
- document.getElementById('big-search')?.addEventListener('input',e=>{bigState.query=e.target.value;updateField();});
  document.getElementById('big-variant')?.addEventListener('change',e=>{bigState.variant=e.target.value;updateField();});
  panel.querySelectorAll('[data-big-compare]').forEach(b=>b.addEventListener('click',()=>{
    const kind=b.dataset.bigCompare;
    bigState.compare={kind,reference:reference.id};
+   searchQueries.delete('big-search');
    bigState.catalogOpen=true;
-   bigState.query='';
    bigState.scope=reference.area?'territory':'national';
    if(reference.area){
      bigState.geoGroup=reference.group;

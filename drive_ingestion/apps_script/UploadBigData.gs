@@ -191,7 +191,7 @@ function readBigDataReport_(rows, national) {
     const path = group.toLowerCase() + '/real/' + id + '.json';
     const series = bigDataSeries_('drive_geo_' + id, group + ' · ' + label + ' · Total Consumo · Real',
       group, 'BBVA Research · Datos_informe.csv', values);
-    groups[group].push({ id: code, label, files: [path] });
+    groups[group].push({ id: code, label, files: [path], series: [{ id: series.id, label: series.label }] });
     files.push(['bigdata_geo/' + path, { series: [series] }]);
   }
   for (const entries of Object.values(groups)) {
