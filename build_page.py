@@ -24,6 +24,6 @@ turkey = turkey.replace('<title>BBVA Research Monitor Macro España</title>',
 turkey = turkey.replace('<h1>BBVA Research Monitor Macro España</h1>',
                         '<h1>BBVA Research Monitor Macro Turquía</h1>', 1)
 turkey = re.sub(r'<p class="lede">[^<]*</p>',
-                '<p class="lede">Indicadores trimestrales y mensuales de Turquía.</p>', turkey, count=1)
+                '<p class="lede">Indicadores macroeconómicos y financieros de Turquía.</p>', turkey, count=1)
 Path("turquia.html").write_text(turkey, encoding="utf-8")
 print("espana.html, artifact.html and turquia.html regenerated")

@@ -11,6 +11,7 @@ on:
       - 'template.html'
       - 'build_page.py'
       - 'turquia.html'
+      - 'turkey_public.js'
       - '.github/workflows/drive-preview.yml'
 
 permissions:

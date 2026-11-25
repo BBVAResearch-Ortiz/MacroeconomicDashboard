@@ -1,0 +1,26 @@
+name: Check Türkiye public data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '40 7,15 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'turkey_public.js'
+      - '.github/workflows/turkey-public-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fetch and validate published observations
+        run: node turkey_public.js
