@@ -157,6 +157,9 @@ table.fc td.f{font-weight:600}
 .big-catalog{border:1px solid var(--rule);border-radius:6px;padding:10px}
 .big-compare-actions{display:flex;flex-wrap:wrap;gap:6px}
 .big-compare-actions .btn,.big-catalog .btn{font-size:12px;line-height:1.3;padding:6px 9px}
+.big-totals{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
+.big-totals .seg button{padding:6px 10px;font-size:13px}
+.big-totals .seg button:disabled:not([aria-pressed="true"]){opacity:.5;cursor:default}
 .pchip .big-reference{color:inherit;font:inherit;text-align:left;padding:0}
 .pchip .big-reference[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px}
 .big-title h3{text-transform:none;letter-spacing:normal}
@@ -1516,26 +1519,30 @@ function transformationPlan(ids,entries,scope,kind,fullHistory=false){
   const catalog=SERIES_TRANSFORMS.catalogue(entries,scope);
   const start=fullHistory?0:cutoff(), end=fullHistory?Infinity:upperCutoff();
   const kinds=transformKinds.filter(k=>scope==='big'?k!=='gdp'&&k!=='trend':!['real','nominal','yoy28'].includes(k));
-  const selected=kinds.includes(kind)?kind:'original';
-  const options=new Map(kinds.map(k=>[k,ids.map((id,index)=>({
-    id,index,base:catalog.byId.get(id)?.series,...SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN())
-  }))]));
+  const options=new Map();
+  for(const k of kinds){
+    const rows=ids.map((id,index)=>({
+      id,index,base:catalog.byId.get(id)?.series,...SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN())
+    }));
+    if(k==='original'||rows.some(row=>row.series)) options.set(k,rows);
+  }
+  const selected=options.has(kind)?kind:'original';
   return {selected,options,rows:options.get(selected)};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
   const options=[...plan.options].map(([kind,rows])=>{
-    const counts={documented:0,calculated:0,unavailable:0,original:0};
-    for(const row of rows) counts[row.status]++;
-    const available=rows.length!==counts.unavailable;
+    const documented=rows.filter(r=>r.status==='documented').length;
+    const calculated=rows.filter(r=>r.status==='calculated').length;
+    const available=rows.filter(r=>r.series).length;
     const status=[
-      counts.documented?counts.documented+(en?' doc.':' doc.'):null,
-      counts.calculated?counts.calculated+(en?' calc.':' calc.'):null,
-      counts.unavailable?counts.unavailable+(en?' unavailable':' no disp.'):null
+      documented?documented+' doc.':null,
+      calculated?calculated+' calc.':null,
+      available<rows.length?`${available}/${rows.length} series`:null
     ].filter(Boolean).join(' / ');
     const name=SERIES_TRANSFORMS.names(kind,en)+(status?' · '+status:'');
-    return `<option value="${kind}"${kind===plan.selected?' selected':available?'':' disabled'}>${esc(name)}</option>`;
+    return `<option value="${kind}"${kind===plan.selected?' selected':''}>${esc(name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
     const name=L10((r.series||r.base)?.label||r.id);
@@ -1629,6 +1636,7 @@ function viewBoard(){
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
   const source=Object.entries(S()).filter(([id])=>!id.startsWith('__'));
   const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter');
+  if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
   const plots=registerPlotSeries(plan.rows,'__plot_board_');
   const ids=plots.map(p=>p.id);
   const H=bbFigHead(ids), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
@@ -1784,7 +1792,7 @@ function fetchGeoArea(group,id){
 const BIG_TERRITORY_GROUPS={CCAA:'Comunidades autónomas',Provincial:'Provincias',Urbano:'Áreas urbanas'};
 const CONSUMPTION_CHANNELS=new Set(['card','debit','transfer','cash','rent','card online','card offline']);
 const CONSUMPTION_GOODS=new Set(['Food & Beverage','Alcohol & Tobacco','Clothing & FootWear','Furnishing & House Equipment']);
-const CONSUMPTION_TOTALS=new Set(['Total coicops','Other']);
+const CONSUMPTION_TOTALS=new Set(['total coicops','total consumo','consumo total','total consumption']);
 const SALES_SERVICES=new Set(['Total Services','Information and Communications','Transport/Storage']);
 Object.assign(EN,{
   Nacional:'National', 'Series territoriales':'Territorial series', 'Ámbito':'Scope',
@@ -1792,7 +1800,9 @@ Object.assign(EN,{
   Ventas:'Sales', Inversión:'Investment', 'Tipo de territorio':'Territory type',
   'Seleccionar tipo de territorio…':'Select a territory type…',
   'Medios y canales de pago':'Payment methods and channels',
-  'Total y otros':'Total and other', 'Servicios y otros gastos':'Services and other spending',
+  'Consumo total':'Total consumption', 'Consumo total nacional':'Total national consumption',
+  'Categorías de consumo':'Consumption categories', 'Otros gastos':'Other spending',
+  'Servicios y otros gastos':'Services and other spending',
   'Industria y construcción':'Industry and construction',
   'Cargando…':'Loading…',
   'Datos no disponibles.':'Data unavailable.',
@@ -1801,12 +1811,12 @@ Object.assign(EN,{
   'No se pudieron cargar las series':'Could not load series'
 });
 function bigPath(s,territorial){
-  const [,category]=s.label.split(' · ');
-  const variant=s.label.match(/ · (Nominal|Real)$/)?.[1]||'Otras series';
-  if(territorial) return [variant];
+  const category=bigMetric(s), variant=bigVariant(s)||'Otras series';
+  if(isBigConsumptionTotal(s)) return ['Consumo total',variant];
+  if(territorial) return ['Categorías de consumo',variant];
   if(s.group==='Consumo'){
     if(CONSUMPTION_CHANNELS.has(category)) return ['Consumo','Medios y canales de pago',variant];
-    const topic=CONSUMPTION_TOTALS.has(category)?'Total y otros':CONSUMPTION_GOODS.has(category)?'Bienes de consumo':'Servicios y otros gastos';
+    const topic=category==='Otros gastos'?'Otros gastos':CONSUMPTION_GOODS.has(category)?'Bienes de consumo':'Servicios y otros gastos';
     return ['Consumo',topic,variant];
   }
   if(s.group==='Actividad sectorial'){
@@ -1822,19 +1832,38 @@ const BIG_SEARCH_ALIASES=[
   ['Mobiliario','Furnishing & House Equipment'],
   ['Salud','Health'], ['Transporte','Transport'], ['Comunicación','Info & Communication'],
   ['Ocio','Leisure'], ['Educación','Education'], ['Alcohol y tabaco','Alcohol & Tobacco'],
-  ['Seguros','Insurance & Fin. Service'], ['Total Consumo','Total coicops','Total consumption'],
+  ['Seguros','Insurance & Fin. Service'], ['Total Consumo','Consumo total','Total coicops','Total consumption'],
+  ['Otros gastos','Other'],
   ['Tarjeta','card'], ['Efectivo','cash'], ['Transferencia','transfer']
 ];
 const bigAliases=new Map(BIG_SEARCH_ALIASES.flatMap(names=>names.map(name=>[normalizeSearch(name),names.map(normalizeSearch)])));
 const bigMetric=s=>s.label.split(' · ').at(-2)||s.label;
 const bigVariant=s=>s.label.match(/ · (Nominal|Real)$/)?.[1]||'';
+const isBigConsumptionTotal=s=>(s.group==='Consumo'||Boolean(s.area))&&CONSUMPTION_TOTALS.has(normalizeSearch(bigMetric(s)));
 function bigEntries(){
-  const national=Array.isArray(BIGDATA.series)?BIGDATA.series:[];
+  const national=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).map(s=>{
+    if(isBigConsumptionTotal(s)) return {...s,label:'Consumo total · '+bigVariant(s)};
+    if(s.group==='Consumo'&&bigMetric(s)==='Other') return {...s,label:'Consumo · Otros gastos · '+bigVariant(s)};
+    return s;
+  });
   const regional=Object.entries(bigState.geoCache).flatMap(([key,series])=>{
     const area=key.split('|')[1];
     return series.map(s=>({...s,area}));
   });
   return national.concat(regional);
+}
+function bigNationalTotals(entries){
+  return ['Real','Nominal'].map(variant=>entries.find(s=>!s.area&&isBigConsumptionTotal(s)&&bigVariant(s)===variant)).filter(Boolean);
+}
+function bigTotalControls(totals){
+  if(!totals.length) return '';
+  const title=L10('Consumo total nacional');
+  const full=bigState.selected.length>=4;
+  const hasTotal=totals.some(s=>bigState.selected.includes(s.id));
+  const buttons=totals.map(s=>`<button type="button" id="big-total-${bigVariant(s).toLowerCase()}" data-big-total="${esc(s.id)}"
+    aria-pressed="${bigState.selected.includes(s.id)}"${full&&!hasTotal?' disabled':''}>${esc(bigVariant(s))}</button>`);
+  return `<div class="big-totals"><span class="picklab">${esc(title)}</span>
+    <div class="seg" role="group" aria-label="${esc(title)}">${buttons.join('')}</div></div>`;
 }
 function bigMatch(s,reference,kind){
   if(s.id===reference.id||s.group!==reference.group||bigVariant(s)!==bigVariant(reference)) return false;
@@ -1932,6 +1961,21 @@ function addBigSeries(id){
   searchQueries.delete('big-search');
   viewBigData('big-catalog-toggle');
   return true;
+}
+function showBigTotal(id,totals,focus){
+  const selected=bigState.selected;
+  if(!selected.includes(id)){
+    const slot=selected.findIndex(key=>totals.some(s=>s.id===key));
+    if(!setBigPick(id,slot<0?null:slot)) return;
+  }
+  bigState.reference=id;
+  bigState.compare=null;
+  bigState.catalogOpen=false;
+  bigState.scope='national';
+  bigState.transform='original';
+  bigState.view='chart';
+  searchQueries.delete('big-search');
+  viewBigData(focus);
 }
 function bindBigSearch(){
   bindSectionSearch('big-search',{
@@ -2049,12 +2093,17 @@ function viewBigData(focus=''){
  loadBigNational();
  if(bigState.catalogOpen&&bigState.scope==='territory') loadGeoIndex();
  const entries=bigEntries();
+ const totals=bigNationalTotals(entries);
  bigState.selected=bigState.selected.filter(id=>entries.some(s=>s.id===id)).slice(0,4);
- if(!bigState.selected.length&&entries.length&&!bigState.initialized){bigState.selected=[entries[0].id];bigState.initialized=true;}
+ if(!bigState.selected.length&&entries.length&&!bigState.initialized){
+   bigState.selected=[(totals[0]||entries[0]).id];
+   bigState.initialized=true;
+ }
  entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
  const chosen=bigState.selected.map(id=>entries.find(s=>s.id===id));
  const plotSelection=bigState.view==='scatter'?chosen.slice(0,2):chosen;
  const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform);
+ if(plan) bigState.transform=plan.selected;
  const plotted=plan?.rows.filter(r=>r.series).map(r=>({...r.series,percentScale:r.percentScale,index:r.index}))||[];
  const units=[...new Set(plotted.map(s=>s.percentScale?'%':L10(s.unit)))];
  const reference=chosen.find(s=>s.id===bigState.reference)||chosen.at(-1);
@@ -2067,10 +2116,11 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan):''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan):''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  bindBigField();
  bindBigSearch();
+ panel.querySelectorAll('[data-big-total]').forEach(button=>button.addEventListener('click',()=>showBigTotal(button.dataset.bigTotal,totals,button.id)));
  document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
    bigState.catalogOpen=!bigState.catalogOpen;
    if(!bigState.catalogOpen) bigState.compare=null;
