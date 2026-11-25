@@ -18,23 +18,8 @@
   --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:only light;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --ground:#070E46; --surface:#0E1759; --surface-2:#1A2470; --rule:#2C3780; --grid:#1E2A78;
-  --ink:#F7F8F8; --muted:#CAD1D8; --faint:#97A3C6;
-  --accent:#85C8FF; --accent-soft:#1A3A8C; --on-accent:#070E46;
-  --s1:#3D8DE0; --s2:#CF7C30; --s3:#1FA3AF; --s4:#8E7FEA;
-  --good:#7FD8A4; --good-bg:#123D3A; --bad:#FF9C86; --bad-bg:#4A1E2A; --neutral-bg:#1A2470;
-  --flag:#FFE761; --flag-bg:#2A2A1A; --navy:#1A2D9E; --on-navy:#ffffff; --tot:#2F6B3A; --on-tot:#E6FFE6; --icon-bg:#1A3A8C; --up:#5FD3DD; --down:#FF8A8A; --flat:#5A6697;
-  --y1:#3D8DE0; --y2:#85C8FF; --y3:#6FD66F; --y4:#FFB56B; --qbar:#4A5590; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --ground:#070E46; --surface:#0E1759; --surface-2:#1A2470; --rule:#2C3780; --grid:#1E2A78;
-  --ink:#F7F8F8; --muted:#CAD1D8; --faint:#97A3C6;
-  --accent:#85C8FF; --accent-soft:#1A3A8C; --on-accent:#070E46;
-  --s1:#3D8DE0; --s2:#CF7C30; --s3:#1FA3AF; --s4:#8E7FEA;
-  --good:#7FD8A4; --good-bg:#123D3A; --bad:#FF9C86; --bad-bg:#4A1E2A; --neutral-bg:#1A2470;
-  --flag:#FFE761; --flag-bg:#2A2A1A; --navy:#1A2D9E; --on-navy:#ffffff; --tot:#2F6B3A; --on-tot:#E6FFE6; --icon-bg:#1A3A8C; --up:#5FD3DD; --down:#FF8A8A; --flat:#5A6697;
-  --y1:#3D8DE0; --y2:#85C8FF; --y3:#6FD66F; --y4:#FFB56B; --qbar:#4A5590; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
 .wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -164,6 +149,10 @@ table.fc td.f{font-weight:600}
 @media(max-width:900px){.bbwrap{grid-template-columns:minmax(0,1fr)}}
 .bbside{display:flex;flex-direction:column;gap:18px;position:sticky;top:12px}
 .bbgrp{display:flex;flex-direction:column;gap:8px}
+.series-picker,.series-levels{display:grid;min-width:0;gap:6px}
+.series-levels:empty{display:none}
+.series-picker select{width:100%;min-width:0}
+.big-title h3{text-transform:none;letter-spacing:normal}
 .bbmodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .bbmodes button,.bbtr button{font:500 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left}
 .bbmodes button[aria-pressed="true"],.bbtr button[aria-pressed="true"],.bbtabs button[aria-selected="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -173,7 +162,8 @@ table.fc td.f{font-weight:600}
 .bbtabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);box-shadow:none}
 .bbsearch{width:100%;font:400 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)}
 .bblist{max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
-.bblist .bbh{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 0 4px}
+.bblist .bbh{font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 0;cursor:pointer}
+.bblist details details{margin-left:12px}
 .bblist label{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.3;padding:5px 4px;border-radius:4px;cursor:pointer}
 .bblist label:hover{background:var(--neutral-bg)}
 .bblist label .u{color:var(--muted);font-size:11.5px;margin-left:4px}
@@ -552,7 +542,7 @@ function drawChart(host, cfg){
   let rt=null, rlo=0, rhi=1; if(dual){ const rv=rlines.flatMap(s=>s.data.map(o=>o[1])); if(rv.length){ rt=niceTicks(Math.min(...rv),Math.max(...rv),ticks.length-1); rlo=rt[0]; rhi=rt[rt.length-1]; } }
   const yR=v=>padT+(rhi-v)/((rhi-rlo)||1)*(H-padT-padB); const y=yL; const yOf=s=>s.right?yR:yL;
   const grid=css('--grid'), rule=css('--rule'), surf=css('--surface');
-  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${cfg.aria||''}">`;
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}">`;
   ticks.forEach(v=>{ g+=`<line x1="${padL}" x2="${W-padR}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?rule:grid}" stroke-width="${v===0?1.2:1}"/><text x="${padL-6}" y="${y(v)+3.5}" text-anchor="end">${cfg.percentScale?formatBigPercent(v):fmtN(v, Math.abs(ticks[1]-ticks[0])<1?1:0)}</text>`; });
   if(dual&&rt){ rt.forEach(v=>{ g+=`<text x="${W-padR+6}" y="${yR(v)+3.5}" text-anchor="start">${fmtN(v, Math.abs(rt[1]-rt[0])<1?1:0)}</text>`; });
     g+=`<text x="${padL-6}" y="12" text-anchor="end" style="fill:${css('--ink')};font-weight:500">Izq.</text><text x="${W-padR+6}" y="12" text-anchor="start" style="fill:${css('--ink')};font-weight:500">Dcha.</text>`; }
@@ -936,7 +926,193 @@ if(!ex.axis2||typeof ex.axis2!=='object') ex.axis2={};
 function saveEx(){ try{ localStorage.setItem(explorerKey,JSON.stringify(ex)); }catch(e){} }
 const EXVIEWS=[['pizarra','Blackboard'],['galeria','Galería'],['multi','Gráfico multiserie'],['scatter','Scatterplot'],['stack','Barras apiladas']];
 const exIds=()=>Object.keys(S()).filter(k=>S()[k].block!=='aux');
-function seriesOptions(exclude=[], selected=null){ return Object.entries(BLOCKS).map(([b,l])=>{ const o=exIds().filter(k=>S()[k].block===b&&(!exclude.includes(k)||k===selected)); return o.length?`<optgroup label="${l}">${o.map(k=>`<option value="${k}" ${k===selected?'selected':''}>${esc(S()[k].label)} (${esc(S()[k].unit)})</option>`).join('')}</optgroup>`:''; }).join(''); }
+const DRIVE_FAMILIES={
+  ESI:'ESI', PMI:'PMI', INDUSTRIAL_PRODUCTION:'Producción industrial (IPI)',
+  SERVICES_ACTIVITY:'Actividad de servicios (IASS)', TRADE_BALANCE:'Balanza comercial',
+  LARGE_ENTERPRISES:'Grandes empresas'
+};
+const IPI_BRANCHES={
+  GEN:'Índice general', CONS:'Bienes de consumo', DUR:'Consumo duradero', NODUR:'Consumo no duradero',
+  ENE:'Energía', EQ:'Bienes de equipo', INT:'Bienes intermedios'
+};
+const SERIES_LABELS={
+  'Producción industrial (IPI)':'Industrial production (IPI)',
+  'Actividad de servicios (IASS)':'Services activity (IASS)',
+  'Balanza comercial':'Trade balance', 'Grandes empresas':'Large enterprises',
+  'Ventas y demanda':'Sales and demand', Exportaciones:'Exports', Importaciones:'Imports', Saldo:'Balance',
+  'Variación interanual':'Year-on-year change', 'Variación mensual':'Month-on-month change',
+  'Variación trimestral':'Quarter-on-quarter change', 'Sin ajustar':'Unadjusted', Ajustado:'Adjusted',
+  'Índice general':'Overall index', 'Bienes de consumo':'Consumer goods', 'Consumo duradero':'Durable consumer goods',
+  'Consumo no duradero':'Non-durable consumer goods', 'Bienes de equipo':'Capital goods',
+  'Bienes intermedios':'Intermediate goods', 'Energía':'Energy',
+  'Encuesta a hogares':'Household survey', 'Encuesta a empresas · España':'Business survey · Spain',
+  'Encuesta a empresas · Zona euro':'Business survey · Euro area',
+  'PIB y aportaciones':'GDP and contributions', Demanda:'Demand', VAB:'Gross value added',
+  'Indicadores sintéticos':'Composite indicators', 'Actividad y consumo':'Activity and consumption', Turismo:'Tourism',
+  'Mercado de trabajo':'Labour market', 'Afiliación y paro registrado':'Social Security and registered unemployment',
+  'Precios de consumo':'Consumer prices', 'Salarios y costes laborales':'Wages and labour costs',
+  'Construcción y oferta':'Construction and supply', 'Transacciones y precios':'Transactions and prices',
+  'Crédito e hipotecas':'Credit and mortgages', 'Tipos de interés':'Interest rates',
+  'Deuda y saldo público':'Government debt and balance', 'Cuentas exteriores':'External accounts',
+  'Bonos y prima de riesgo':'Bonds and risk premium', 'Saldos y crecimiento':'Balances and growth',
+  'Nuevas operaciones':'New lending', 'Tipos de crédito':'Lending rates', 'Tipos de depósito':'Deposit rates',
+  Dudosidad:'Non-performing loans', 'Otras series':'Other series',
+  'Seleccionar grupo…':'Select a group…', 'Seleccionar subgrupo…':'Select a subgroup…',
+  'Grupo de series':'Series group', 'Subgrupo de series':'Series subgroup'
+};
+Object.assign(EN,SERIES_LABELS);
+const BASE_BRANCHES={
+  actividad:[
+    [/^(pib_|ap_)/,'PIB y aportaciones'], [/^vab_/,'VAB'], [/^[xm]_yoy$/,'Exportaciones e importaciones'], [/./,'Demanda']
+  ],
+  coyuntura:[
+    [/^(isa_|cli$)/,'Indicadores sintéticos'], [/^(turistas|gasto_tur)$/,'Turismo'],
+    [/^hipotecas$/,'Crédito e hipotecas'], [/./,'Actividad y consumo']
+  ],
+  empleo:[[ /^(afil_|paro_reg)/,'Afiliación y paro registrado'], [/./,'Mercado de trabajo']],
+  precios:[[ /^(sal_|clab_)/,'Salarios y costes laborales'], [/^ipv$/,'Transacciones y precios'], [/./,'Precios de consumo']],
+  vivienda:[
+    [/^viv_(visados|iniciadas|terminadas|protegida|coste)/,'Construcción y oferta'],
+    [/^viv_credito/,'Crédito e hipotecas'], [/./,'Transacciones y precios']
+  ],
+  publico:[[/./,'Deuda y saldo público']],
+  exterior:[[/^tur_/,'Turismo'], [/./,'Cuentas exteriores']],
+  financiero:[
+    [/^(bono_|prima$)/,'Bonos y prima de riesgo'], [/^(credito_|depositos_)/,'Saldos y crecimiento'], [/./,'Tipos de interés']
+  ],
+  credito:[
+    [/^(cred_dudosidad|dud_)/,'Dudosidad'], [/^nop_/,'Nuevas operaciones'],
+    [/^tipo_dep_/,'Tipos de depósito'], [/^tipo_/,'Tipos de crédito'], [/./,'Saldos y crecimiento']
+  ]
+};
+function explorerPath(id){
+  const s=S()[id], block=BLOCKS[s.block]||'Otras series', code=s.code||'';
+  if(IS_TURKEY){
+    if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [block,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
+    return [block];
+  }
+  const family=Object.hasOwn(DRIVE_FAMILIES,s.family)?DRIVE_FAMILIES[s.family]:null;
+  if(id==='esi'||id==='conf_cons'||s.family==='ESI'){
+    const branch=id==='conf_cons'||/^ESI_(CC_|CONF_CONS)/.test(code)?'Encuesta a hogares':
+      id==='esi'?'Índice general':code.endsWith('_EA')?'Encuesta a empresas · Zona euro':'Encuesta a empresas · España';
+    return [DRIVE_FAMILIES.ESI,branch];
+  }
+  if(id==='ipi_yoy'||s.family==='INDUSTRIAL_PRODUCTION'){
+    return [DRIVE_FAMILIES.INDUSTRIAL_PRODUCTION,IPI_BRANCHES[code.split('_')[1]]||'Índice general'];
+  }
+  if(s.family==='LARGE_ENTERPRISES'){
+    const topic=code.startsWith('GE_EXP_')?'Exportaciones':code.startsWith('GE_IMP_')?'Importaciones':'Ventas y demanda';
+    const variant={AA:'Variación interanual',MM:'Variación mensual',TRIM:'Trimestral',NIV:'Nivel'}[code.split('_').at(-1)]||'Otras series';
+    return [family,topic,variant];
+  }
+  if(s.family==='TRADE_BALANCE'){
+    const topic=code.startsWith('BC_EXP_')?'Exportaciones':code.startsWith('BC_IMP_')?'Importaciones':'Saldo';
+    return [family,topic,code.endsWith('_BRUTO')?'Sin ajustar':'Ajustado'];
+  }
+  if(s.family==='SERVICES_ACTIVITY') return [family,code.endsWith('_RAW')?'Sin ajustar':'Ajustado'];
+  if(family) return [family];
+  const branch=BASE_BRANCHES[s.block]?.find(([pattern])=>pattern.test(id))?.[1];
+  return branch?[block,branch]:[block];
+}
+function seriesTree(items,pathFor){
+  const makeNode=()=>({items:[],children:new Map(),count:0});
+  const root=makeNode();
+  for(const {id,label} of items){
+    let node=root;
+    node.count++;
+    for(const step of pathFor(id)){
+      if(!node.children.has(step)) node.children.set(step,makeNode());
+      node=node.children.get(step);
+      node.count++;
+    }
+    node.items.push({id,label});
+  }
+  const locale=isEN()?'en':'es';
+  const sorted=(a,b)=>L10(a).localeCompare(L10(b),locale);
+  function serialize(node){
+    return {
+      count:node.count,
+      items:node.items.sort((a,b)=>sorted(a.label,b.label)),
+      groups:[...node.children].sort(([a],[b])=>sorted(a,b)).map(([label,child])=>({label,...serialize(child)}))
+    };
+  }
+  return serialize(root);
+}
+function explorerGroups(exclude=[]){
+  const items=exIds().filter(id=>!exclude.includes(id)).map(id=>({
+    id,label:`${S()[id].label} (${S()[id].unit})`
+  }));
+  return seriesTree(items,explorerPath);
+}
+const pickerGroups=new Map();
+function findSeriesPath(node,id,path=[]){
+  if(node.items.some(s=>s.id===id)) return path;
+  for(const group of node.groups){
+    const found=findSeriesPath(group,id,[...path,group.label]);
+    if(found) return found;
+  }
+}
+function pickerBranch(tree,path,disabled,label){
+  const levels=[];
+  const chosen=[];
+  let node=tree;
+  while(node.groups.length){
+    const i=chosen.length;
+    const automatic=!node.items.length&&node.groups.length===1;
+    const active=automatic?node.groups[0]:node.groups.find(g=>g.label===path[i]);
+    if(!automatic){
+      const groupLabel=i?'Subgrupo de series':'Grupo de series';
+      levels.push(`<select class="axsel" data-series-level="${i}" aria-label="${esc(L10(groupLabel)+' · '+L10(label))}"${disabled?' disabled':''}>
+        <option value="">${esc(L10(i?'Seleccionar subgrupo…':'Seleccionar grupo…'))}</option>
+        ${node.groups.map(g=>`<option value="${esc(g.label)}"${g===active?' selected':''}>${esc(L10(g.label))} (${g.count})</option>`).join('')}
+      </select>`);
+    }
+    if(!active) break;
+    chosen.push(active.label);
+    node=active;
+  }
+  return {levels:levels.join(''),items:node.items,path:chosen};
+}
+function pickerOptions(items,current,placeholder,allowClear){
+  const choices=current&&!items.some(s=>s.id===current.id)?[current,...items]:items;
+  return `<option value=""${allowClear?'':' disabled'}${current?'':' selected'}>${esc(placeholder)}</option>`+
+    choices.map(s=>`<option value="${esc(s.id)}"${s.id===current?.id?' selected':''}>${esc(s.label)}</option>`).join('');
+}
+function seriesPicker(id,tree,{selected='',placeholder='',allowClear=false,disabled=false,label='Añadir una serie',attrs=''}={}){
+  const path=(selected&&findSeriesPath(tree,selected))||pickerGroups.get(id)||[];
+  const branch=pickerBranch(tree,path,disabled,label);
+  const current=branch.items.find(s=>s.id===selected);
+  return `<div class="series-picker" data-series-picker data-picker-label="${esc(label)}">
+    <div class="series-levels">${branch.levels}</div>
+    <template>${esc(JSON.stringify(tree))}</template>
+    <select id="${id}" class="axsel" aria-label="${esc(label)}" ${attrs}${disabled||(!branch.items.length&&!allowClear)?' disabled':''}>${pickerOptions(branch.items,current,placeholder||'Añadir una serie…',allowClear)}</select>
+  </div>`;
+}
+function bindSeriesPickers(){
+  panel.querySelectorAll('[data-series-picker]').forEach(picker=>{
+    const levels=picker.firstElementChild;
+    const select=picker.lastElementChild;
+    if(!levels.children.length) return;
+    const tree=JSON.parse(picker.querySelector('template').content.textContent);
+    const prompt=select.options[0];
+    let path=pickerBranch(tree,findSeriesPath(tree,select.value)||pickerGroups.get(select.id)||[],false,picker.dataset.pickerLabel).path;
+    levels.addEventListener('change',e=>{
+      const level=Number(e.target.dataset.seriesLevel);
+      if(!Number.isInteger(level)) return;
+      path=path.slice(0,level);
+      if(e.target.value) path.push(e.target.value);
+      const branch=pickerBranch(tree,path,false,picker.dataset.pickerLabel);
+      path=branch.path;
+      pickerGroups.set(select.id,path);
+      levels.innerHTML=branch.levels;
+      levels.querySelector(`[data-series-level="${level}"]`)?.focus({preventScroll:true});
+      const current=select.value?{id:select.value,label:select.selectedOptions[0]._es||select.selectedOptions[0].textContent}:null;
+      select.innerHTML=pickerOptions(branch.items,current,prompt.textContent,!prompt.disabled);
+      select.disabled=!current&&!branch.items.length&&prompt.disabled;
+      tr(select);
+    });
+  });
+}
 function withRange(fn){ const keep=state.range; state.range=ex.range; try{ fn(); } finally{ state.range=keep; } }
 
 /* frequency alignment: averages a series to a lower frequency (D→M, D/M→Q) */
@@ -959,7 +1135,7 @@ function pickRow(list,key,max){ const col=i=>COLORS[i%4]; const mkey=key==='mpic
   const full=list.length>=max, word={4:'cuatro',6:'seis'}[max]||max;
   return `<div class="pickrow"><div class="picks"><span class="picklab">Series (hasta ${word})</span>
    <div class="chips">${list.map((id,i)=>`<span class="pchip"><i style="background:var(${key==='picks'?'--s1':col(i)})"></i>${esc(S()[id].label)}${key==='mpicks2'?`<button type="button" class="axbtn" data-ax="${id}" aria-label="Cambiar eje de ${esc(S()[id].label)}">${axisOf(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:''}<button type="button" data-rm="${id}" data-key="${key}" aria-label="Quitar ${esc(S()[id].label)}">×</button></span>`).join('')}</div>
-   <select class="addSeries" data-key="${key}" ${full?'disabled':''} aria-label="Añadir una serie"><option value="">${full?`Máximo ${word} series: quita una para añadir otra`:'Añadir una serie…'}</option>${seriesOptions(list)}</select></div>
+   ${seriesPicker('add-'+key,explorerGroups(list),{disabled:full,placeholder:full?`Máximo ${word} series: quita una para añadir otra`:'',attrs:`data-add-series data-key="${key}"`})}</div>
    ${mkey?`<div class="picks" style="flex:0 1 auto"><span class="picklab">Mostrar</span><div class="seg" role="group" aria-label="Mostrar"><button type="button" data-mkey="${mkey}" data-mode="pub" aria-pressed="${ex[mkey]==='pub'}">Como se publica</button><button type="button" data-mkey="${mkey}" data-mode="z" aria-pressed="${ex[mkey]==='z'}">Estandarizado</button></div></div>`:''}</div>`; }
 function bindExplorerViews(){ panel.querySelectorAll('[data-ev]').forEach(b=>b.addEventListener('click',()=>{ex.view=b.dataset.ev; saveEx(); viewExplorer();})); }
 function viewExplorer(){
@@ -974,8 +1150,9 @@ function viewExplorer(){
   panel.querySelectorAll('[data-er]').forEach(b=>b.addEventListener('click',()=>{ex.range=b.dataset.er; saveEx(); viewExplorer();}));
   bindCustomRange(()=>viewExplorer());
   bindExplorerViews();
+  bindSeriesPickers();
   panel.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.key; ex[k]=ex[k].filter(x=>x!==b.dataset.rm); saveEx(); viewExplorer();}));
-  panel.querySelectorAll('select.addSeries').forEach(sel=>sel.addEventListener('change',()=>{ const k=sel.dataset.key, mx=k==='picks'?6:4; if(sel.value&&ex[k].length<mx){ ex[k].push(sel.value); saveEx(); viewExplorer(); } }));
+  panel.querySelectorAll('[data-add-series]').forEach(sel=>sel.addEventListener('change',()=>{ const k=sel.dataset.key, mx=k==='picks'?6:4; if(sel.value&&ex[k].length<mx){ ex[k].push(sel.value); saveEx(); viewExplorer(); } }));
   panel.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{ex[b.dataset.mkey]=b.dataset.mode; saveEx(); viewExplorer();}));
   ['sx','sy'].forEach(k=>{ const el=document.getElementById('sel-'+k); if(el) el.addEventListener('change',()=>{ ex[k]=el.value; saveEx(); viewExplorer(); }); });
   panel.querySelectorAll('[data-ax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.ax, i=ex.mpicks2.indexOf(id); ex.axis2[id]=axisOf(id,i)==='L'?'R':'L'; saveEx(); viewExplorer(); }));
@@ -1032,9 +1209,8 @@ function stackCommon(sfx){ const picks=ex['spicks'+sfx], line=ex['sline'+sfx]; c
 function stackParts(sfx){ const n=sfx||'', picks=ex['spicks'+sfx], line=ex['sline'+sfx]; const all=picks.concat(line?[line]:[]); const C=stackCommon(sfx);
   const units=[...new Set(all.map(id=>S()[id].unit))];
   const fN=C?{M:'mensual',Q:'trimestral',D:'diaria'}[C.f]:''; const conv=C&&all.some(id=>S()[id].freq!==C.f)?` · las series de mayor frecuencia se promedian a ${fN}`:'';
-  const lineOpts=`<option value="" ${!line?'selected':''}>Ninguna</option>`+seriesOptions([],line||null);
   const pick=`<div class="mcol"><div class="pickrow"><div class="picks"><label class="picklab" for="sel-preset${n}">Ejemplos</label><select id="sel-preset${n}" class="axsel"><option value="">Elige un ejemplo…</option>${Object.entries(STACK_PRESETS).filter(([,P])=>P.bars.every(id=>S()[id])&&(!P.line||S()[P.line])).map(([k,P])=>`<option value="${k}">${P.label}</option>`).join('')}</select></div>
-     <div class="picks"><label class="picklab" for="sel-sline${n}">Línea (total)</label><select id="sel-sline${n}" class="axsel">${lineOpts}</select></div></div>
+     <div class="picks"><label class="picklab" for="sel-sline${n}">Línea (total)</label>${seriesPicker('sel-sline'+n,explorerGroups(),{selected:line,placeholder:'Ninguna',allowClear:true,label:'Línea (total)'})}</div></div>
    ${pickRow(picks,'spicks'+sfx,4)}</div>`;
   const fig=C&&picks.length?`<figure class="fig" style="margin:0"><div><h3>${esc(picks.map(id=>S()[id].label).join(' / '))}${line?' / '+esc(S()[line].label):''}</h3><div class="sub">${esc(`Barras apiladas${line?' y línea':''} · ${units.map(u=>UNIT_ES[u]||u).join(' · ')} · ${fN}${conv}`)}</div></div>
      <div class="lg" id="stlg${n}"></div><div class="chart" id="stchart${n}"></div><figcaption class="src">Fuente: ${srcLine(all)}${units.length>1?`<br><span class="mixnote">Las series tienen unidades distintas; el apilado solo es interpretable si los componentes suman al total.</span>`:''}</figcaption></figure>`:'<p class="note">No hay series elegidas. Usa «Añadir una serie…» o elige un ejemplo.</p>';
@@ -1072,9 +1248,9 @@ function exScatter(){ const {pts,f,X,Y}=scatterData(); const F=fitFor(pts), fit=
   const conv = X.freq!==Y.freq ? (isEN()?` · higher-frequency series averaged to ${fN}`:` · la serie de mayor frecuencia se promedia a ${fN}`) : '';
   const first=pts.length?fmtDate(pts[0].d,f):'', last=pts.length?fmtDate(pts[pts.length-1].d,f):'';
   return `<p class="note" style="margin:14px 0">${isEN()?`Long-run relationship: the scatter always uses the full common history (${first} – ${last}). Each dot is one period; darker dots are more recent and the latest period is labelled.`:`Relación de largo plazo: la dispersión usa siempre toda la historia común (${first} – ${last}). Cada punto es un periodo; los más oscuros son los más recientes y el último lleva etiqueta.`}</p>
-   <div class="pickrow"><div class="picks"><label class="picklab" for="sel-sx">Eje horizontal (X)</label><select id="sel-sx" class="axsel">${seriesOptions([],ex.sx)}</select></div>
+   <div class="pickrow"><div class="picks"><label class="picklab" for="sel-sx">Eje horizontal (X)</label>${seriesPicker('sel-sx',explorerGroups(),{selected:ex.sx,label:'Eje horizontal (X)'})}</div>
      <div class="picks" style="flex:0 0 auto;justify-content:flex-end"><button type="button" class="btn ghost" id="swapxy">Intercambiar ejes</button></div>
-     <div class="picks"><label class="picklab" for="sel-sy">Eje vertical (Y)</label><select id="sel-sy" class="axsel">${seriesOptions([],ex.sy)}</select></div>
+     <div class="picks"><label class="picklab" for="sel-sy">Eje vertical (Y)</label>${seriesPicker('sel-sy',explorerGroups(),{selected:ex.sy,label:'Eje vertical (Y)'})}</div>
      <div class="picks" style="flex:0 0 auto"><span class="picklab">Opciones</span><label class="chk"><input type="checkbox" id="trail" ${ex.trail?'checked':''}> Unir puntos en orden temporal</label></div>
      <div class="picks" style="flex:0 0 auto"><span class="picklab">Ajuste</span><div class="seg" role="group" aria-label="Ajuste">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal (LOWESS)']].map(([k,l])=>`<button type="button" data-fit="${k}" aria-pressed="${(ex.fit||'lin')===k}">${l}</button>`).join('')}</div></div></div>
    <div class="scatwrap"><figure class="fig" style="margin:0;min-width:0"><div><h3>${esc(Y.label)} frente a ${esc(X.label)}</h3><div class="sub">${esc(`X: ${X.unit} · Y: ${Y.unit} · ${fN} · ${first} – ${last}${conv}`)}</div></div>
@@ -1143,10 +1319,30 @@ function b100Series(id){ const c0=cutoff(), s=S()[id]; const d=s.data.filter(o=>
 function bbCommon(){ const f=bb.picks.map(id=>S()[id].freq).reduce((a,b)=>FRANK[a]<=FRANK[b]?a:b);
   const mk=id=>{ const s=S()[id]; const k='__bb_'+id; DATA.series[k]={...s,block:'aux',freq:f,data:toFreq(s.data,s.freq,f).map(o=>[o[0],o[1],0])}; return k; };
   return {f, items:bb.picks.map((id,i)=>({id:mk(id),name:S()[id].label,color:COLORS[i%4]}))}; }
-function bbList(){ const q=bb.q.trim().toLowerCase(), full=bb.picks.length>=bbMax();
-  return Object.entries(BLOCKS).map(([b,l])=>{ const ids=exIds().filter(k=>S()[k].block===b&&(!q||(S()[k].label+' '+L10(S()[k].label)+' '+S()[k].unit+' '+l+' '+L10(l)).toLowerCase().includes(q)));
-    if(!ids.length) return ''; return `<div class="bbh">${esc(l)}</div>`+ids.map(k=>{ const on=bb.picks.includes(k);
-      return `<label><input type="checkbox" data-bbp="${k}" ${on?'checked':''} ${!on&&full?'disabled':''}><span>${esc(S()[k].label)}<span class="u">${esc(S()[k].unit)}</span></span></label>`; }).join(''); }).join('')||'<p class="note">Ninguna serie coincide con la búsqueda.</p>'; }
+const openCatalogGroups=new Set();
+function bbList(){
+  const q=bb.q.trim().toLowerCase(), full=bb.picks.length>=bbMax();
+  function catalog(node,path=[]){
+    let count=0, html='';
+    for(const {id,label} of node.items){
+      if(q&&![label,...path].flatMap(s=>[s,L10(s)]).join(' ').toLowerCase().includes(q)) continue;
+      const s=S()[id], on=bb.picks.includes(id);
+      count++;
+      html+=`<label><input type="checkbox" data-bbp="${esc(id)}"${on?' checked':''}${!on&&full?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit)}</span></span></label>`;
+    }
+    for(const group of node.groups){
+      const childPath=[...path,group.label];
+      const child=catalog(group,childPath);
+      if(!child.count) continue;
+      count+=child.count;
+      const key=childPath.join(' / ');
+      html+=`<details data-catalog-group="${esc(key)}"${q||openCatalogGroups.has(key)?' open':''}>
+        <summary class="bbh">${esc(L10(group.label))} (${child.count})</summary>${child.html}</details>`;
+    }
+    return {count,html};
+  }
+  return catalog(explorerGroups()).html||'<p class="note">Ninguna serie coincide con la búsqueda.</p>';
+}
 function bbSel(){ if(!bb.picks.length) return '<p class="note">No hay series elegidas. Añádelas con el desplegable.</p>';
   return `<div class="bbsel">${bb.picks.map((id,i)=>`<div class="row"><span class="sw" style="background:var(${COLORS[i%4]})"></span><span>${esc(S()[id].label)} <span class="u">${esc(S()[id].unit)}</span></span>
     ${bb.mode==='dual'?`<button type="button" data-bbax="${id}" title="Cambiar de eje">${bbAxis(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
@@ -1179,11 +1375,11 @@ function viewBoard(){
   const H=bbFigHead(), units=new Set(bb.picks.map(id=>unitLabel(S()[id].unit)));
   panel.innerHTML=exHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
-     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label><select id="bbx" class="axsel">${seriesOptions([],bb.picks[0]||null)}</select></div>
-     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label><select id="bby" class="axsel">${seriesOptions([],bb.picks[1]||null)}</select></div>
+     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
+     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><label class="picklab" for="bbadd">Series (${bb.picks.length}/${bbMax()})</label>
-       <select id="bbadd" class="axsel" ${bb.picks.length>=bbMax()?'disabled':''}><option value="">${bb.picks.length>=bbMax()?'Máximo de series alcanzado':'Añadir una serie…'}</option>${seriesOptions(bb.picks)}</select>${bbSel()}</div>`}
+       ${seriesPicker('bbadd',explorerGroups(bb.picks),{disabled:bb.picks.length>=bbMax(),placeholder:bb.picks.length>=bbMax()?'Máximo de series alcanzado':''})}${bbSel()}</div>`}
      ${bb.mode!=='scatter'?`<details class="bbgrp" id="bbcatalog" ${bb.listOpen?'open':''}><summary class="picklab">${isEN()?'Browse all series':'Ver todas las series'}</summary><label class="picklab" for="bbsearch">${isEN()?'All series':'Todas las series'}</label><input id="bbsearch" class="bbsearch" type="search" value="${esc(bb.q)}" placeholder="${isEN()?'Search series…':'Buscar serie…'}" aria-label="${isEN()?'Search series':'Buscar serie'}"><div id="bblist" class="bblist">${bbList()}</div></details>`:''}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
@@ -1193,11 +1389,17 @@ function viewBoard(){
    <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${bb.picks.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(bb.picks)}${(bb.mode==='lines'&&bb.tr==='level'||bb.mode==='bars'||bb.mode==='stack')&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
-  bindRange(); bindExplorerViews();
+  bindRange(); bindExplorerViews(); bindSeriesPickers();
   const rerender=()=>{ saveBB(); viewBoard(); };
   const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_TURKEY)bb.catalogPreference=true;saveBB();});
   const search=document.getElementById('bbsearch'), list=document.getElementById('bblist');
   if(search&&list){search.addEventListener('input',()=>{bb.q=search.value;list.innerHTML=bbList();tr(list);});list.addEventListener('change',e=>{const input=e.target;if(!input.matches('[data-bbp]'))return;const id=input.dataset.bbp;if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax())bb.picks.push(id);else if(!input.checked)bb.picks=bb.picks.filter(x=>x!==id);rerender();});}
+  if(list) list.addEventListener('toggle',e=>{
+    const family=e.target.dataset.catalogGroup;
+    if(!family||bb.q.trim()) return;
+    if(e.target.open) openCatalogGroups.add(family);
+    else openCatalogGroups.delete(family);
+  },true);
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
   panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{ bb.mode=b.dataset.bbm; rerender(); }));
   panel.querySelectorAll('[data-bbt]').forEach(b=>b.addEventListener('click',()=>{ bb.tr=b.dataset.bbt; rerender(); }));
@@ -1230,7 +1432,7 @@ function drawHeatBoard(host){
   const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=r.sd?(v-r.mean)/r.sd:0,a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
   host.innerHTML=`<p class="note">${freq==='Q'?'Trimestral':'Mensual'} · azul: sobre la media · naranja: bajo la media · intensidad: distancia a la media (σ) · gris: sin datos</p><div class="bbheat-scroll"><table class="bbheat"><thead><tr><th>Serie</th>${dates.map(d=>`<th title="${d}">${freq==='Q'?d.slice(0,4)+' T'+(Math.floor((+d.slice(5,7)-1)/3)+1):d.slice(0,7)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th title="${esc(r.src.label)}">${esc(r.src.label)}</th>${dates.map(d=>cell(r,d)).join('')}</tr>`).join('')}</tbody></table></div><p class="note">Los datos diarios se promedian por mes o trimestre y los mensuales por trimestre; se requieren 15 días por mes, 40 por trimestre o los tres meses. La media y desviación típica se calculan por serie en el periodo visible; una serie constante tiene z = 0.</p>`;
 }
-let BIGDATA={"series":[]}; const bigState={view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false};
+let BIGDATA={"series":[]}; const bigState={view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,scope:'national',geoGroup:''};
 async function fetchBigData(path){
   let response = await fetch('drive_ingestion/snapshots/bigdata/'+path, { cache: 'no-store' });
   if(response.status===404) response = await fetch(path, { cache: 'no-store' });
@@ -1246,18 +1448,141 @@ function loadBigNational(){
   }).catch(()=>{ /* The embedded release stays available. */ });
 }
 function loadGeoIndex(){if(bigState.indexRequested)return;bigState.indexRequested=true;fetchBigData('bigdata_geo/index.json').then(d=>{bigState.geoIndex=d.groups||{};if(state.tab==='bigdata')viewBigData()}).catch(()=>{bigState.indexError=true;if(state.tab==='bigdata')viewBigData()})}
-async function loadGeoArea(group,id){bigState.geoAreas[group]=id;if(!id){viewBigData();return}const key=group+'|'+id;if(bigState.geoCache[key]){viewBigData();return}const area=(bigState.geoIndex?.[group]||[]).find(a=>a.id===id);if(!area)return;bigState.geoLoading[group]=true;delete bigState.geoErrors[group];viewBigData();try{const payload=await Promise.all(area.files.map(async f=>{if(!/^(ccaa|provincial|urbano)\/(nominal|real)\/[a-f0-9]{20}\.json$/.test(f))throw Error('invalid file');return fetchBigData('bigdata_geo/'+f)}));bigState.geoCache[key]=payload.flatMap(x=>Array.isArray(x.series)?x.series:[])}catch(e){bigState.geoErrors[group]=true}finally{bigState.geoLoading[group]=false;if(state.tab==='bigdata')viewBigData()}}
-function viewBigData(){
- loadBigNational();loadGeoIndex();const entries=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).concat(Object.values(bigState.geoCache).flat());bigState.selected=bigState.selected.filter(id=>entries.some(s=>s.id===id)).slice(0,4);if(!bigState.selected.length&&entries.length&&!bigState.initialized){bigState.selected=[entries[0].id];bigState.initialized=true;}
- entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
- const groups=[{key:'Consumo',es:'Consumo',en:'Consumption'},{key:'Inversión',es:'Inversión',en:'Investment'},{key:'Actividad sectorial',es:'Ventas',en:'Sales'},{key:'CCAA',es:'CCAA',en:'Regions'},{key:'Provincial',es:'Provincial',en:'Provinces'},{key:'Urbano',es:'Urbano',en:'Urban areas'}];
- const controls=groups.map((g,i)=>{const geo=['CCAA','Provincial','Urbano'].includes(g.key),id=bigState.geoAreas[g.key]||'',key=g.key+'|'+id,items=geo?(bigState.geoCache[key]||[]):entries.filter(s=>s.group===g.key),label=isEN()?g.en:g.es,areas=bigState.geoIndex?.[g.key]||[];const territory=geo?`<select data-geo-area="${g.key}" class="axsel" aria-label="${label}" ${areas.length?'':'disabled'}><option value="">${bigState.indexError?(isEN()?'Could not load territories':'No se pudieron cargar los territorios'):(isEN()?'Select territory…':'Seleccionar territorio…')}</option>${areas.map(a=>`<option value="${esc(a.id)}" ${a.id===id?'selected':''}>${esc(a.label)}</option>`).join('')}</select>`:'';return `<div class="bbgrp"><label class="picklab" for="big-add-${i}">${label}</label>${territory}<select id="big-add-${i}" data-big-add class="axsel" ${items.length?'':'disabled'}><option value="">${bigState.geoLoading[g.key]?(isEN()?'Loading…':'Cargando…'):bigState.geoErrors[g.key]?(isEN()?'Could not load series':'No se pudieron cargar las series'):items.length?(isEN()?'Add a series…':'Añadir una serie…'):(isEN()?'Select a territory or await data':'Selecciona territorio o espera datos')}</option>${items.map(s=>`<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('')}</select>${g.key==='Actividad sectorial'&&items.length?`<span class="note">${isEN()?'Source: sectoral activity sheet':'Fuente: hoja de actividad sectorial'}</span>`:''}</div>`}).join('');
- const selected=bigState.selected.map(id=>{const s=entries.find(x=>x.id===id);return `<span class="pchip">${esc(s.label)}<button type="button" data-big-remove="${esc(id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`}).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div>${bigState.view==='chart'&&bigState.selected.length>4?`<span class="note">${isEN()?'Chart shows the first four selected series.':'El gráfico muestra las cuatro primeras series seleccionadas.'}</span>`:''}</div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div><h3>${bigState.view==='heat'?(isEN()?'Spain: consumption indicators':'España: indicadores de consumo'):(isEN()?'High-frequency indicators':'Indicadores de alta frecuencia')}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
- bindRange();const swap=document.getElementById('big-swap');if(swap)swap.addEventListener('click',()=>{if(bigState.selected.length>=2){[bigState.selected[0],bigState.selected[1]]=[bigState.selected[1],bigState.selected[0]];viewBigData()}});panel.querySelectorAll('[data-big-view]').forEach(b=>b.addEventListener('click',()=>{bigState.view=b.dataset.bigView;viewBigData()}));panel.querySelectorAll('[data-geo-area]').forEach(el=>el.addEventListener('change',()=>loadGeoArea(el.dataset.geoArea,el.value)));panel.querySelectorAll('[data-big-add]').forEach(add=>add.addEventListener('change',()=>{if(add.value&&!bigState.selected.includes(add.value)&&bigState.selected.length<4)bigState.selected.push(add.value);viewBigData()}));panel.querySelectorAll('[data-big-remove]').forEach(b=>b.addEventListener('click',()=>{bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);viewBigData()}));
- const draw=()=>{if(bigState.view==='heat'){drawBigHeat();return}if(bigState.view==='scatter'){drawBigScatter(entries);return}const chart=document.getElementById('big-chart');if(!chart)return;const lines=bigState.selected.slice(0,4).map((id,i)=>({id:'__big_'+id,name:entries.find(s=>s.id===id).label,color:COLORS[i%4]}));document.getElementById('big-legend').innerHTML=legendHTML(lines);drawChart(chart,{lines,aria:'Big Data',height:420,percentScale:true})};draw();observe(draw);tr(panel);
+async function loadGeoArea(group,id){
+  bigState.geoAreas[group]=id;
+  const key=group+'|'+id;
+  const area=(bigState.geoIndex?.[group]||[]).find(a=>a.id===id);
+  if(!area||bigState.geoCache[key]||bigState.geoLoading[key]){
+    viewBigData();
+    return;
+  }
+  bigState.geoLoading[key]=true;
+  delete bigState.geoErrors[key];
+  viewBigData();
+  try{
+    const payload=await Promise.all(area.files.map(f=>{
+      if(!/^(ccaa|provincial|urbano)\/(nominal|real)\/[a-f0-9]{20}\.json$/.test(f)) throw Error('invalid file');
+      return fetchBigData('bigdata_geo/'+f);
+    }));
+    bigState.geoCache[key]=payload.flatMap(x=>Array.isArray(x.series)?x.series:[]);
+  }catch(e){
+    bigState.geoErrors[key]=true;
+  }finally{
+    delete bigState.geoLoading[key];
+    if(state.tab==='bigdata') viewBigData();
+  }
 }
-function drawBigScatter(entries){const host=document.getElementById('big-scatter');if(!host)return;const chosen=bigState.selected.slice(0,2).map(id=>entries.find(x=>x.id===id)).filter(Boolean);if(chosen.length<2){host.innerHTML=`<p class="note">${isEN()?'Select two series to create the scatterplot.':'Selecciona dos series para crear el scatterplot.'}</p>`;return;}const [X,Y]=chosen,xs=new Map(X.data.filter(o=>inRange(o[0])).map(o=>[o[0],o[1]])),pts=Y.data.filter(o=>inRange(o[0])&&xs.has(o[0])).map(o=>({d:o[0],x:xs.get(o[0]),y:o[1]}));const keep=ex.trail;ex.trail=false;try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}}
+const BIG_TERRITORY_GROUPS={CCAA:'Comunidades autónomas',Provincial:'Provincias',Urbano:'Áreas urbanas'};
+const CONSUMPTION_CHANNELS=new Set(['card','debit','transfer','cash','rent','card online','card offline']);
+const CONSUMPTION_GOODS=new Set(['Food & Beverage','Alcohol & Tobacco','Clothing & FootWear','Furnishing & House Equipment']);
+const CONSUMPTION_TOTALS=new Set(['Total coicops','Other']);
+const SALES_SERVICES=new Set(['Total Services','Information and Communications','Transport/Storage']);
+Object.assign(EN,{
+  Nacional:'National', 'Series territoriales':'Territorial series', 'Ámbito':'Scope',
+  'Comunidades autónomas':'Regions', Provincias:'Provinces', 'Áreas urbanas':'Urban areas',
+  Ventas:'Sales', Inversión:'Investment', 'Tipo de territorio':'Territory type',
+  'Seleccionar tipo de territorio…':'Select a territory type…',
+  'Medios y canales de pago':'Payment methods and channels',
+  'Total y otros':'Total and other', 'Servicios y otros gastos':'Services and other spending',
+  'Industria y construcción':'Industry and construction',
+  'Cargando…':'Loading…',
+  'Datos no disponibles.':'Data unavailable.',
+  'Seleccionar territorio…':'Select territory…',
+  'No se pudieron cargar los territorios':'Could not load territories',
+  'No se pudieron cargar las series':'Could not load series'
+});
+function bigPath(s,territorial){
+  const [,category]=s.label.split(' · ');
+  const variant=s.label.match(/ · (Nominal|Real)$/)?.[1]||'Otras series';
+  if(territorial) return [variant];
+  if(s.group==='Consumo'){
+    if(CONSUMPTION_CHANNELS.has(category)) return ['Consumo','Medios y canales de pago',variant];
+    const topic=CONSUMPTION_TOTALS.has(category)?'Total y otros':CONSUMPTION_GOODS.has(category)?'Bienes de consumo':'Servicios y otros gastos';
+    return ['Consumo',topic,variant];
+  }
+  if(s.group==='Actividad sectorial'){
+    return ['Ventas',SALES_SERVICES.has(category)?'Servicios':'Industria y construcción',variant];
+  }
+  return [s.group||'Otras series',variant];
+}
+function bigControls(entries){
+  const full=bigState.selected.length>=4, territorial=bigState.scope==='territory';
+  const scope=`<label class="picklab" for="big-scope">Ámbito</label>
+    <select id="big-scope" class="axsel">
+      <option value="national"${territorial?'':' selected'}>Nacional</option>
+      <option value="territory"${territorial?' selected':''}>Series territoriales</option>
+    </select>`;
+  const group=bigState.geoGroup, groupLabel=BIG_TERRITORY_GROUPS[group];
+  const id=bigState.geoAreas[group]||'', key=group+'|'+id;
+  const areas=bigState.geoIndex?.[group]||[];
+  const territoryControls=territorial?`<select id="big-territory-type" class="axsel" aria-label="Tipo de territorio"${bigState.geoIndex?'':' disabled'}>
+      <option value="">${bigState.indexError?'No se pudieron cargar los territorios':bigState.geoIndex?'Seleccionar tipo de territorio…':'Cargando…'}</option>
+      ${Object.entries(BIG_TERRITORY_GROUPS).map(([type,label])=>`<option value="${type}"${group===type?' selected':''}>${esc(L10(label))} (${bigState.geoIndex?.[type]?.length||0})</option>`).join('')}
+    </select>${groupLabel?`<select id="big-territory" data-geo-area="${group}" class="axsel" aria-label="${esc(groupLabel)}"${areas.length?'':' disabled'}>
+      <option value="">Seleccionar territorio…</option>
+      ${areas.map(a=>`<option value="${esc(a.id)}"${a.id===id?' selected':''}>${esc(a.label)}</option>`).join('')}
+    </select>`:''}`:'';
+  let picker='';
+  if(!territorial||id){
+    const items=territorial?(bigState.geoCache[key]||[]):entries.filter(s=>!Object.hasOwn(BIG_TERRITORY_GROUPS,s.group));
+    const available=items.filter(s=>!bigState.selected.includes(s.id));
+    let placeholder='';
+    if(full) placeholder='Máximo de series alcanzado';
+    else if(bigState.geoLoading[key]&&territorial) placeholder='Cargando…';
+    else if(bigState.geoErrors[key]&&territorial) placeholder='No se pudieron cargar las series';
+    else if(!available.length) placeholder='Datos no disponibles.';
+    const byId=new Map(available.map(s=>[s.id,s]));
+    const tree=seriesTree(available,id=>bigPath(byId.get(id),territorial));
+    picker=seriesPicker(territorial?'big-add-territory':'big-add-national',tree,{disabled:full,placeholder,attrs:'data-big-add'});
+  }
+  return `<div class="bbgrp">${scope}${territoryControls}${picker}</div>`;
+}
+function bigChartTitle(selected){
+  if(bigState.view==='heat') return isEN()?'Spain: consumption indicators':'España: indicadores de consumo';
+  if(!selected.length) return isEN()?'Select a series':'Selecciona una serie';
+  const labels=selected.map(s=>L10(s.label));
+  if(bigState.view==='scatter') return labels.length<2?labels[0]:labels[1]+(isEN()?' vs. ':' frente a ')+labels[0];
+  return labels.join(' / ');
+}
+function viewBigData(){
+ loadBigNational();if(bigState.scope==='territory')loadGeoIndex();const entries=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).concat(Object.values(bigState.geoCache).flat());bigState.selected=bigState.selected.filter(id=>entries.some(s=>s.id===id)).slice(0,4);if(!bigState.selected.length&&entries.length&&!bigState.initialized){bigState.selected=[entries[0].id];bigState.initialized=true;}
+ entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
+ const chosen=bigState.selected.map(id=>entries.find(s=>s.id===id));
+ const title=bigChartTitle(chosen);
+ const controls=bigControls(entries);
+ const selected=chosen.map(s=>`<span class="pchip">${esc(s.label)}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`).join('');
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ bindRange();bindSeriesPickers();
+ document.getElementById('big-scope').addEventListener('change',e=>{bigState.scope=e.target.value;viewBigData();document.getElementById('big-scope').focus()});
+ document.getElementById('big-territory-type')?.addEventListener('change',e=>{bigState.geoGroup=e.target.value;viewBigData();document.getElementById('big-territory-type').focus()});
+ const swap=document.getElementById('big-swap');if(swap)swap.addEventListener('click',()=>{if(bigState.selected.length>=2){[bigState.selected[0],bigState.selected[1]]=[bigState.selected[1],bigState.selected[0]];viewBigData()}});panel.querySelectorAll('[data-big-view]').forEach(b=>b.addEventListener('click',()=>{bigState.view=b.dataset.bigView;viewBigData()}));panel.querySelectorAll('[data-geo-area]').forEach(el=>el.addEventListener('change',()=>loadGeoArea(el.dataset.geoArea,el.value)));panel.querySelectorAll('[data-big-add]').forEach(add=>add.addEventListener('change',()=>{if(add.value&&!bigState.selected.includes(add.value)&&bigState.selected.length<4)bigState.selected.push(add.value);viewBigData()}));panel.querySelectorAll('[data-big-remove]').forEach(b=>b.addEventListener('click',()=>{bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);viewBigData()}));
+ const draw=()=>{
+   if(bigState.view==='heat'){drawBigHeat();return}
+   if(bigState.view==='scatter'){drawBigScatter(chosen);return}
+   const chart=document.getElementById('big-chart');
+   if(!chart) return;
+   const lines=chosen.map((s,i)=>({id:'__big_'+s.id,name:s.label,color:COLORS[i%4]}));
+   const legend=document.getElementById('big-legend');
+   legend.innerHTML=legendHTML(lines);
+   drawChart(chart,{lines,aria:title,height:420,percentScale:true});
+   tr(legend); tr(chart);
+ };
+ draw();observe(draw);tr(panel);
+}
+function drawBigScatter(chosen){
+ const host=document.getElementById('big-scatter');
+ if(!host) return;
+ if(chosen.length<2){
+   host.innerHTML=`<p class="note">${isEN()?'Select two series to create the scatterplot.':'Selecciona dos series para crear el scatterplot.'}</p>`;
+   return;
+ }
+ const [X,Y]=chosen.map(s=>({...s,unit:'%'}));
+ const xs=new Map(X.data.filter(([day])=>inRange(day)).map(([day,value])=>[day,value*100]));
+ const pts=Y.data.filter(([day])=>xs.has(day)).map(([day,value])=>({d:day,x:xs.get(day),y:value*100}));
+ const keep=ex.trail;
+ ex.trail=false;
+ try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}
+}
 function loadBigHeat(){if(bigState.heatRequested)return;bigState.heatRequested=true;fetchBigData('bigdata_heatmap.json').then(data=>{if(!Array.isArray(data.rows))throw Error('invalid data');bigState.heatTable=data;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()}).catch(()=>{bigState.heatError=true;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()})}
 function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)return;if(!bigState.heatTable){if(bigState.heatError)host.innerHTML=`<p class="note">${isEN()?'Could not load the consumption table.':'No se pudo cargar la tabla de consumo.'}</p>`;else{host.innerHTML=`<p class="note">${isEN()?'Loading consumption table…':'Cargando tabla de consumo…'}</p>`;loadBigHeat()}return;}const rows=bigState.heatTable.rows,allMonths=[...new Set(rows.flatMap(r=>Object.keys(r.monthly||{})))].sort(),allWeeks=[...new Set(rows.flatMap(r=>Object.keys(r.weekly||{})))].sort();let anchor=allWeeks.length?ts(allWeeks[allWeeks.length-1]):lastDateAll();anchor=Math.min(anchor,upperCutoff());const months=allMonths.filter(m=>{const y=+m.slice(0,4),n=+m.slice(5,7),end=Date.UTC(y,n,0);return end<=anchor&&end>=cutoff()}).slice(-9),weeks=allWeeks.filter(w=>ts(w)<=anchor&&ts(w)>=cutoff()).slice(-4);if(!months.length&&!weeks.length){host.innerHTML=`<p class="note">${isEN()?'No data in this period.':'No hay datos en este periodo.'}</p>`;return;}const hasGap=months.length>0&&weeks.length>0;const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${1+months.length+weeks.length+(hasGap?1:0)}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th></tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${hasGap?'<td class="bigmap-spacer" aria-hidden="true"></td>':''}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th><th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th></tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
 function viewMigracion(){
@@ -1334,6 +1659,7 @@ async function fetchDriveSnapshot(previousVersion){
       unit: entry.unidad,
       freq: frequency,
       block,
+      family: entry.bloque,
       source: (entry.fuente || 'Google Drive').split(/ \| (?:Archivo interno|Internal file):/)[0],
       code: id,
       original_name: entry.subtitulo_descripcion,
@@ -1385,8 +1711,6 @@ const h0=location.hash.slice(1); if(h0==='pizarra'||h0==='financiero'){state.tab
 window.addEventListener('hashchange',()=>{ const k=location.hash.slice(1); if(k==='pizarra'||k==='financiero'){state.tab='explorador';ex.view='pizarra';render();return;} if(TABS.some(t=>t.k===k)&&k!==state.tab){ state.tab=k; render(); } });
 render();
 if(location.protocol!=='file:'){ reload(false); setInterval(()=>reload(false),15*60*1000); }
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
-new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 </script>
 
 </body></html>

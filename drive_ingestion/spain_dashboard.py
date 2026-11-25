@@ -43,6 +43,7 @@ def merge_series(base, imported):
             'unit': entry['unidad'],
             'freq': frequency,
             'block': BLOCKS.get(entry['área'], 'actividad'),
+            'family': entry.get('bloque'),
             'source': re.split(r' \| (?:Archivo interno|Internal file):',
                                entry['fuente'] or 'Google Drive', maxsplit=1)[0],
             'code': source_id,
