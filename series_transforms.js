@@ -49,6 +49,14 @@ const SERIES_TRANSFORMS = (() => {
       return shape({family:m[1],adjustment:m[2]==='CVEC'?'adjusted':'raw',
         aggregate:flow?'sum':'mean',canGrow:!code.startsWith('BC_SALDO'),hasMethod:true});
     }
+    if(id.startsWith('drive_us_')){
+      const metaText=(String(s.transform||'')+' '+String(s.original_name||'')+' '+String(s.label||'')).toLowerCase();
+      const adjustment=/(?:_raw_|_nsa|not seasonally adjusted|unadjusted|sin ajustar)/.test(code.toLowerCase()+' '+metaText)?'raw':
+        /(?:_sa|_sca|seasonally adjusted|desestacionaliz)/.test(code.toLowerCase()+' '+metaText)?'adjusted':'';
+      const kind=/% y\/y|% a\/a|year-on-year/i.test(unit)?'yoy':/% q\/q|% t\/t|quarter-on-quarter/i.test(unit)?'qoq':/% m\/m|month-on-month/i.test(unit)?'mom':'level';
+      const canGrow=kind==='level'&&(/index|usd|dollar|billion|million|thousand|people|person|level|índice|miles|millones/i.test(unit))&&!/balance|saldo|rate|spread|%/i.test(unit);
+      return shape({adjustment,kind,aggregate:/index|índice/i.test(unit)?'mean':'',canGrow,hasMethod:Boolean(adjustment||s.transform)});
+    }
     if(id.startsWith('drive_tr_')){
       const adjustment=code.includes('_RAW_')?'raw':/_SC?A_/.test(code)?'adjusted':'';
       const isGDP=/^TR_Q_(EXP|PROD)_/.test(code);

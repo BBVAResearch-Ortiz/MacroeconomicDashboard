@@ -380,7 +380,7 @@ const EN = {
   "Resumen": "Overview", "Explorador y pizarra": "Series explorer & blackboard", "Explorador de series": "Series explorer", "Actividad": "Activity", "Empleo": "Employment",
   "Precios": "Prices", "Sector público y exterior": "Public and external sector", "Financiero": "Financial",
   "Previsiones BBVA Research": "BBVA Research forecasts", "Tablas": "Tables", "Fuentes y método": "Sources and method",
-  "Análisis de migración": "Migration analysis", "Sección en preparación": "Section in preparation",
+  "Modelos": "Models", "Sección en preparación": "Section in preparation",
   "Actividad y demanda": "Activity and demand", "Mercado laboral": "Labour market", "Condiciones financieras": "Financial conditions",
   "Coyuntura": "Short-term indicators", "Sector público": "Public sector", "Sector exterior": "External sector",
   "1 año": "1 year", "3 años": "3 years", "4 años": "4 years", "5 años": "5 years", "10 años": "10 years", "Todo": "All",
@@ -543,17 +543,20 @@ function core(x){ if(EN[x]!=null) return EN[x]; let m;
   return rules(x); }
 function toEN(s){ if(s==null) return s; const k=s.trim(); if(!k) return s; const i0=s.indexOf(k); return s.slice(0,i0)+core(k)+s.slice(i0+k.length); }
 const L10=x=>isEN()?toEN(x):x;
-function tr(root){ if(!root) return; const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|CODE)$/.test(n.parentNode.nodeName)?2:1});
+function tr(root){ if(!root) return; const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|CODE)$/.test(n.parentNode.nodeName)||n.parentElement?.closest?.('#usa-models-host')?2:1});
   let n; while((n=w.nextNode())){ if(n._es===undefined) n._es=n.data; const v=isEN()?toEN(n._es):n._es; if(n.data!==v) n.data=v; }
-  root.querySelectorAll?.('[aria-label],[title],optgroup[label]').forEach(el=>{ el._esA=el._esA||{}; ['aria-label','title','label'].forEach(a=>{ if(!el.hasAttribute(a)) return; if(el._esA[a]===undefined) el._esA[a]=el.getAttribute(a); el.setAttribute(a, isEN()?toEN(el._esA[a]):el._esA[a]); }); }); }
+  root.querySelectorAll?.('[aria-label],[title],optgroup[label]').forEach(el=>{ if(el.closest?.('#usa-models-host')) return; el._esA=el._esA||{}; ['aria-label','title','label'].forEach(a=>{ if(!el.hasAttribute(a)) return; if(el._esA[a]===undefined) el._esA[a]=el.getAttribute(a); el.setAttribute(a, isEN()?toEN(el._esA[a]):el._esA[a]); }); }); }
 const IS_TURKEY = document.documentElement.dataset.monitor === 'turkey';
+const IS_USA = document.documentElement.dataset.monitor === 'usa';
+const IS_EXTERNAL_MONITOR = IS_TURKEY || IS_USA;
 let turkeyLoading = IS_TURKEY && location.protocol !== 'file:';
-let spainDriveLoading = !IS_TURKEY && location.protocol !== 'file:';
+let usaLoading = IS_USA && location.protocol !== 'file:';
+let spainDriveLoading = !IS_EXTERNAL_MONITOR && location.protocol !== 'file:';
 let dashboardBase = JSON.parse(document.getElementById('embedded-data').textContent);
 let DATA = { ...dashboardBase, series: { ...dashboardBase.series } };
 let SOURCE_NOTE = 'datos incrustados en la página';
 const S = () => DATA.series;
-const state = {tab:IS_TURKEY?'explorador':'resumen', range:'4a'};
+const state = {tab:IS_EXTERNAL_MONITOR?'explorador':'resumen', range:'4a'};
 const SHORT_RANGES=['1m','3m','6m'];
 const RANGES=[...SHORT_RANGES,'1a','4a','10a','todo','custom'];
 const customRange={start:'',end:''};try{Object.assign(customRange,JSON.parse(localStorage.getItem('mme-custom-range')||'{}'))}catch(e){}
@@ -820,7 +823,7 @@ const FIGS = {
 };
 const BLACKBOARD_TAB={k:'explorador',l:'Blackboard'};
 const SPAIN_EXTRA_TABS=[{k:'bigdata',l:'Big Data'},{k:'previsiones',l:'Previsiones BBVA Research'},
-  {k:'migracion',l:'Análisis de migración'},{k:'tablas',l:'Tablas'},{k:'fuentes',l:'Fuentes y método'}];
+  {k:'tablas',l:'Tablas'},{k:'fuentes',l:'Fuentes y método'}];
 
 /* KPI tiles: polarity +1 = up is favourable, -1 = up is unfavourable, 0 = no judgement */
 const KPIS=[['pib_yoy',1,'actividad'],['pib_qoq',1,'actividad'],['paro_epa',-1,'empleo'],['afil_yoy',1,'empleo'],['ipc',-1,'precios'],['ipc_sub',-1,'precios'],
@@ -1135,7 +1138,16 @@ Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producció
   'Consumo, gasto público e inversión':'Consumption, government spending and investment',
   'Agricultura, industria y construcción':'Agriculture, industry and construction',
   'Exportaciones e importaciones':'Exports and imports'});
-const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:{actividad:'Actividad',coyuntura:'Coyuntura',empleo:'Empleo',precios:'Precios',
+const USA_BLOCKS={GDP:'PIB y cuentas nacionales',GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por la producción',
+  ACTIVITY:'Actividad y coyuntura',HIGH_FREQUENCY_ACTIVITY:'Actividad de alta frecuencia',CONSUMPTION:'Consumo',
+  INDUSTRIAL_PRODUCTION:'Producción industrial',LABOUR_MARKET:'Mercado laboral',INFLATION:'Inflación y precios',
+  HOUSING:'Vivienda',INTEREST_RATES:'Tipos de interés y condiciones financieras',FINANCIAL:'Mercados financieros',
+  PUBLIC_SECTOR:'Sector público',EXTERNAL_SECTOR:'Sector exterior',TRADE_BALANCE:'Balanza comercial',
+  CONFIDENCE:'Confianza y encuestas',PMI:'PMI e ISM',other:'Otras series'};
+Object.assign(EN,{'PIB y cuentas nacionales':'GDP and national accounts','Actividad y coyuntura':'Activity and short-term indicators',
+  'Inflación y precios':'Inflation and prices','Tipos de interés y condiciones financieras':'Interest rates and financial conditions',
+  'Confianza y encuestas':'Confidence and surveys','PMI e ISM':'PMI and ISM'});
+const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',coyuntura:'Coyuntura',empleo:'Empleo',precios:'Precios',
   vivienda:'Vivienda',credito:'Créditos y depósitos',publico:'Sector público',exterior:'Sector exterior',financiero:'Financiero'};
 const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
 const turkeyStackPresets={
@@ -1149,12 +1161,14 @@ const explorerDefaults=IS_TURKEY?{
   mpicks2:turkeyIds('M_SCA_IP','M_SA_UNEMPLOYMENT_RATE'),
   spicks:turkeyStackPresets.spending.bars, sline:'', spicks2:turkeyStackPresets.production.bars, sline2:'',
   sx:turkeyIds('M_SCA_IP')[0], sy:turkeyIds('M_SA_CAPACITY_UTILIZATION_RATE')[0]
+}:IS_USA?{
+  picks:[], mpicks:[], mpicks2:[], spicks:[], sline:'', spicks2:[], sline2:'', sx:'', sy:''
 }:{
   picks:['pib_yoy','paro_epa','afil_yoy','ipc','deuda','prima'], mpicks:['ipc','ipc_sub','ipc_ser'],
   mpicks2:['pib_yoy','prima'], spicks:['ap_dn','ap_de'], sline:'pib_yoy',
   spicks2:['ipc_ene','ipc_ali','ipc_ser'], sline2:'ipc', sx:'paro_epa', sy:'ipc_sub'
 };
-const explorerKey=IS_TURKEY?'mme-ex-turkey':'mme-ex';
+const explorerKey=IS_TURKEY?'mme-ex-turkey':IS_USA?'mme-ex-usa':'mme-ex';
 const ex={...explorerDefaults, view:'pizarra', axis2:{}, trail:false, range:'4a'};
 try{ const saved=JSON.parse(localStorage.getItem(explorerKey)||'null'); if(saved&&typeof saved==='object') Object.assign(ex,saved); }catch(e){}
 if(!Array.isArray(ex.multiTransforms)) ex.multiTransforms=[ex.mode==='z'?'z':'original','original'];
@@ -1174,7 +1188,7 @@ const DRIVE_FAMILIES={
 };
 const DRIVE_THEME_KEYS={ESI:'esi',PMI:'pmi',INDUSTRIAL_PRODUCTION:'produccion-industrial',
   SERVICES_ACTIVITY:'actividad-servicios',TRADE_BALANCE:'balanza-comercial',LARGE_ENTERPRISES:'grandes-empresas'};
-const THEME_TABS=IS_TURKEY?[]:[
+const THEME_TABS=IS_EXTERNAL_MONITOR?[]:[
   ...Object.entries(BLOCKS).map(([k,l])=>({k,l})),
   ...Object.entries(DRIVE_FAMILIES).map(([family,l])=>({k:DRIVE_THEME_KEYS[family],l})),
   {k:'otras-series',l:'Otras series'}
@@ -1234,7 +1248,11 @@ const BASE_BRANCHES={
   ]
 };
 function explorerPath(id){
-  const s=S()[id], block=BLOCKS[s.block]||'Otras series', code=s.code||'';
+  const s=S()[id], block=BLOCKS[s.block]||s.block||'Otras series', code=s.code||'';
+  if(IS_USA){
+    const sub=s.areaLabel&&s.areaLabel!==block?s.areaLabel:'';
+    return sub?[block,sub]:[block];
+  }
   if(IS_TURKEY){
     if(id.startsWith('public_tr_')) return [block,s.family];
     if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [block,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
@@ -1546,7 +1564,18 @@ function bindExplorerViews(){
     openTurkeyTopic(key);
   }));
 }
+function ensureExternalExplorerPicks(){
+  if(!IS_USA) return;
+  const all=exIds();
+  if(!all.length) return;
+  if(!ex.picks.some(id=>S()[id])) ex.picks=all.slice(0,6);
+  if(!ex.mpicks.some(id=>S()[id])) ex.mpicks=all.slice(0,3);
+  if(!ex.mpicks2.some(id=>S()[id])) ex.mpicks2=all.slice(0,2);
+  if(!S()[ex.sx]) ex.sx=all[0];
+  if(!S()[ex.sy]) ex.sy=all[1]||all[0];
+}
 function viewExplorer(){
+  ensureExternalExplorerPicks();
   if(ex.view==='pizarra'){viewBoard(); return;}
   const searchFocused=document.activeElement?.id==='explorer-search';
   const focusedTransform=document.activeElement?.id;
@@ -1630,7 +1659,7 @@ function drawMulti(plans){ withRange(()=>plans.forEach((plan,i)=>{
 })); }
 
 /* ---- stacked bars: components stacked by period, optional total as a line */
-const STACK_PRESETS=IS_TURKEY?turkeyStackPresets:{
+const STACK_PRESETS=IS_TURKEY?turkeyStackPresets:IS_USA?{}:{
   pib:{label:'Aportaciones al crecimiento del PIB',bars:['ap_dn','ap_de'],line:'pib_yoy'},
   ipc:{label:'Componentes del IPC (tasas, no aportaciones)',bars:['ipc_ene','ipc_ali','ipc_ser'],line:'ipc'},
   ext:{label:'Saldo exterior: bienes y servicios y cuenta corriente',bars:['bys_pib'],line:'cc_pib'}};
@@ -1787,11 +1816,11 @@ function registerPlotSeries(rows,prefix){
 }
 
 /* ---- Pizarra de series */
-const boardKey=IS_TURKEY?'mme-bb-turkey':'mme-bb';
-const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', fit:'lin', listOpen:false};
+const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
+const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
-  if(IS_TURKEY&&!saved.catalogPreference) delete saved.listOpen;
+  if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
   if(!saved.transformMenu&&saved.tr==='level') saved.tr='original';
   Object.assign(bb,saved);
 }catch(e){}
@@ -1842,7 +1871,7 @@ function bbFigHead(ids){ if(!ids.length) return bb.picks.length?
   const conv=(bb.mode==='bars'||bb.mode==='stack')&&new Set(ids.map(id=>S()[id].freq)).size>1?' · las series de mayor frecuencia se promedian a la menor':'';
   return {t:ids.map(id=>esc(S()[id].label)).join(' / '), sub:esc(`${modeTxt} · ${units.join(' · ')}${conv}`)}; }
 function loadHeatExample(){
-  bb.picks=IS_TURKEY?exIds().filter(id=>S()[id].freq==='M').slice(0,8)
+  bb.picks=IS_EXTERNAL_MONITOR?exIds().filter(id=>S()[id].freq==='M').slice(0,8)
     :['ipi_yoy','icm_yoy','afil_yoy','paro_reg_yoy','ipc','euribor12','matric','turistas'].filter(id=>S()[id]&&S()[id].block!=='aux');
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
@@ -1850,13 +1879,16 @@ function viewBoard(){
   const searchFocused=document.activeElement?.id==='explorer-search';
   const focusedSeries=document.activeElement?.dataset.bbp;
   const catalogScroll=document.getElementById('bblist')?.scrollTop;
+  if(IS_USA&&!bb.picks.length&&exIds().length){
+    bb.picks=exIds().slice(0,3);
+  }
   if(bb.mode==='heat'&&!bb.heatExampleLoaded){
-    if(IS_TURKEY&&bb.picks.some(id=>Object.hasOwn(S(),id))) bb.heatExampleLoaded=true;
+    if(IS_EXTERNAL_MONITOR&&bb.picks.some(id=>Object.hasOwn(S(),id))) bb.heatExampleLoaded=true;
     else loadHeatExample();
   }
   bb.picks=bb.picks.filter(id=>S()[id]&&S()[id].block!=='aux');
   if(bb.mode==='scatter'){
-    const defaults=IS_TURKEY?[]:['paro_epa','ipc_sub'];
+    const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
     bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
@@ -1890,7 +1922,7 @@ function viewBoard(){
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
   bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
-  const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_TURKEY)bb.catalogPreference=true;saveBB();});
+  const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_EXTERNAL_MONITOR)bb.catalogPreference=true;saveBB();});
   const list=document.getElementById('bblist');
   if(list){
     if(catalogScroll!==undefined) list.scrollTop=catalogScroll;
@@ -2460,11 +2492,9 @@ function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)r
   const sectionWidth=1+months.length+(hasGap?0:weeks.length);
   const sectionEnd=hasGap?spacer+`<td class="bigmap-section" colspan="${weeks.length}" aria-hidden="true"></td>`:'';
   const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${sectionWidth}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th>${sectionEnd}</tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${spacer}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th>${months.length?`<th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>`:''}${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}${weeks.length?`<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th>`:''}</tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
-function viewMigracion(){
-  panel.innerHTML=`<div class="sechead"><h2>Análisis de migración</h2></div><div class="fig"><p class="note">Sección en preparación</p></div>`;
-}
 function dashboardTabs(){
   if(IS_TURKEY) return [BLACKBOARD_TAB];
+  if(IS_USA) return [BLACKBOARD_TAB,{k:'modelos',l:'Modelos'}];
   const groups=new Set(exIds().map(id=>explorerPath(id)[0]));
   return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,
     ...THEME_TABS.filter(tab=>groups.has(tab.l)||tab.k===state.tab),...SPAIN_EXTRA_TABS];
@@ -2472,9 +2502,9 @@ function dashboardTabs(){
 function isDashboardTab(key){
   return dashboardTabs().some(tab=>tab.k===key)||THEME_TABS.some(tab=>tab.k===key);
 }
-function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTabs(), split=Math.ceil(tabs.length/2);
+function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTabs(), split=tabs.length<=4?tabs.length:Math.ceil(tabs.length/2);
   const buttons=items=>items.map(x=>`<button type="button" role="tab" id="tab-${x.k}" aria-selected="${x.k===state.tab}" tabindex="${x.k===state.tab?0:-1}" data-k="${x.k}">${esc(x.l)}</button>`).join('');
-  t.innerHTML=`<div class="tabs-row" role="presentation">${buttons(tabs.slice(0,split))}</div>`+(tabs.length>1?`<div class="tabs-row" role="presentation">${buttons(tabs.slice(split))}</div>`:'');
+  t.innerHTML=`<div class="tabs-row" role="presentation">${buttons(tabs.slice(0,split))}</div>`+(tabs.length>split?`<div class="tabs-row" role="presentation">${buttons(tabs.slice(split))}</div>`:'');
   t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; all[j].focus(); go(all[j].dataset.k); }); });
   const sel=t.querySelector('[aria-selected="true"]'); if(sel) sel.scrollIntoView({block:'nearest',inline:'nearest'}); }
 function go(k){ state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
@@ -2489,15 +2519,39 @@ function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+sta
     document.getElementById('stamp').textContent=DATA.meta.n_series
       ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series' : '';
     document.getElementById('foot').innerHTML=`${isEN()?'Sources: Türkiye macro master workbook, CBRT EVDS and TurkStat via':'Fuentes: libro maestro de Turquía, CBRT EVDS y TurkStat a través de'} <a href="${TURKEY_PUBLIC.site}">Batuhan Barlas · Türkiye Macro Monitor</a>.`;
+  }else if(IS_USA){
+    const mainWrap=panel.closest('main');
+    const modelsHost=document.getElementById('usa-models-host');
+    if(state.tab==='modelos'){
+      if(mainWrap) mainWrap.hidden=true;
+      if(modelsHost) modelsHost.hidden=false;
+    }else{
+      if(modelsHost) modelsHost.hidden=true;
+      if(mainWrap) mainWrap.hidden=false;
+      if(DATA.meta.n_series) viewExplorer();
+      else panel.innerHTML=`<div class="sechead"><h2>Blackboard</h2></div><div class="fig"><p class="note">${usaLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'No USA Blackboard series loaded yet. Upload the USA master workbook to Google Drive (drive_ingestion/snapshots/usa.json) or switch to the Models tab to inspect GDPNow and FRB/US.':'Aún no hay series cargadas en el Blackboard de EE. UU. Sube el libro maestro de EE. UU. a Google Drive (drive_ingestion/snapshots/usa.json) o cambia a la pestaña Modelos para consultar GDPNow y FRB/US.')}</p></div>`;
+    }
+    const title=isEN()?'BBVA Research USA Macro Monitor':'BBVA Research Monitor Macro Estados Unidos';
+    document.title=title;
+    document.querySelector('.mast h1').textContent=title;
+    document.querySelector('.mast .lede').textContent=isEN()
+      ? 'Macroeconomic indicators, tracking and simulation models for the United States.'
+      : 'Indicadores macroeconómicos y modelos de seguimiento y simulación de Estados Unidos.';
+    document.getElementById('stamp').textContent=DATA.meta.n_series
+      ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series' : '';
+    document.getElementById('foot').textContent=isEN()
+      ? 'BBVA Research · Macroeconomic Dashboard · United States'
+      : 'BBVA Research · Monitor macroeconómico · Estados Unidos';
   }else{
-    if(state.tab==='resumen') viewResumen(); else if(state.tab==='explorador') viewExplorer(); else if(state.tab==='bigdata') viewBigData(); else if(state.tab==='migracion') viewMigracion(); else if(state.tab==='tablas') viewTablas(); else if(state.tab==='previsiones') viewPrevisiones(); else if(state.tab==='fuentes') viewFuentes(); else viewBlock(state.tab);
+    if(state.tab==='resumen') viewResumen(); else if(state.tab==='explorador') viewExplorer(); else if(state.tab==='bigdata') viewBigData(); else if(state.tab==='tablas') viewTablas(); else if(state.tab==='previsiones') viewPrevisiones(); else if(state.tab==='fuentes') viewFuentes(); else viewBlock(state.tab);
     document.getElementById('stamp').textContent='Datos: '+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series';
     document.getElementById('foot').innerHTML=`Fuentes: INE, Banco de España, Banco Central Europeo, Comisión Europea, OCDE, Seguridad Social, SEPE, Ministerio de Vivienda y Ministerio de Economía (BDSICE). Elaboración: BBVA Research. Datos a ${esc(DATA.meta.refreshed)}.`;
     document.title=isEN()?'BBVA Research Spain Macro Monitor':'BBVA Research Monitor Macro España';
   }
   document.documentElement.lang=LANG;
   document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===LANG)));
-  tr(document.body); }
+  tr(document.body);
+  if(IS_USA) window.dispatchEvent(new CustomEvent('mme-lang-change',{detail:LANG})); }
 
 let driveData = { version: null, series: {} };
 let turkeyPublicData = { version: null, series: {} };
@@ -2512,7 +2566,7 @@ async function fetchDashboardBase(){
 }
 
 async function fetchDriveSnapshot(previousVersion){
-  const country = IS_TURKEY ? 'turkey' : 'spain';
+  const country = IS_TURKEY ? 'turkey' : IS_USA ? 'usa' : 'spain';
   const response = await fetch('drive_ingestion/snapshots/'+country+'.json', { cache: 'no-store' });
   if(response.status === 404) return null;
   if(!response.ok) throw new Error('HTTP '+response.status);
@@ -2524,7 +2578,7 @@ async function fetchDriveSnapshot(previousVersion){
   }
   const version = etag || JSON.stringify(snapshot.series);
   if(version === previousVersion) return null;
-  const frequencies = { Diaria: 'D', Mensual: 'M', Trimestral: 'Q', D: 'D', M: 'M', Q: 'Q' };
+  const frequencies = { Diaria: 'D', Semanal: 'W', Mensual: 'M', Trimestral: 'Q', D: 'D', W: 'W', M: 'M', Q: 'Q', Daily: 'D', Weekly: 'W', Monthly: 'M', Quarterly: 'Q' };
   const blocks = {
     actividad_empresarial: 'coyuntura', industria: 'coyuntura', 'encuestas_opinión': 'coyuntura',
     consumo: 'coyuntura', sector_exterior: 'exterior'
@@ -2533,20 +2587,24 @@ async function fetchDriveSnapshot(previousVersion){
   let latest = '';
   for(const [id, entry] of Object.entries(snapshot.series)){
     const frequency = frequencies[entry.frecuencia];
-    if(!/^[A-Za-z0-9_-]+$/.test(id) || !['D','M','Q'].includes(frequency) ||
+    if(!/^[A-Za-z0-9_-]+$/.test(id) || !['D','W','M','Q'].includes(frequency) ||
        !Array.isArray(entry.observaciones) || !entry.observaciones.length){
       throw new Error('Serie de Drive inválida: '+id);
     }
     const day = entry.observaciones.at(-1)[0];
     if(day > latest) latest = day;
-    const block = IS_TURKEY ? (Object.hasOwn(TURKEY_BLOCKS, entry.bloque) ? entry.bloque : 'other')
+    const rawBlock = String(entry.bloque || '').trim();
+    const block = IS_TURKEY ? (Object.hasOwn(TURKEY_BLOCKS, rawBlock) ? rawBlock : 'other')
+      : IS_USA ? (Object.hasOwn(USA_BLOCKS, rawBlock) ? rawBlock : (rawBlock || 'other'))
       : (Object.hasOwn(blocks, entry['área']) ? blocks[entry['área']] : 'actividad');
-    series[(IS_TURKEY?'drive_tr_':'drive_es_')+id] = {
+    const prefix = IS_TURKEY ? 'drive_tr_' : IS_USA ? 'drive_us_' : 'drive_es_';
+    series[prefix+id] = {
       label: entry.titulo_serie,
       unit: entry.unidad,
       freq: frequency,
       block,
-      family: entry.bloque,
+      family: rawBlock,
+      areaLabel: typeof entry['área'] === 'string' ? entry['área'].trim() : '',
       source: (entry.fuente || 'Google Drive').split(/ \| (?:Archivo interno|Internal file):/)[0],
       code: id,
       original_name: entry.subtitulo_descripcion,
@@ -2563,12 +2621,12 @@ async function reload(manual){
   const before = dashboardBase.meta.refreshed;
   if(manual) msg.textContent = isEN() ? 'Checking data…' : 'Comprobando datos…';
   const [base, drive, publicFeed] = await Promise.allSettled([
-    IS_TURKEY ? null : fetchDashboardBase(),
+    IS_EXTERNAL_MONITOR ? null : fetchDashboardBase(),
     fetchDriveSnapshot(driveData.version),
     IS_TURKEY ? TURKEY_PUBLIC.load(turkeyPublicData.version) : null
   ]);
   if(request !== reloadSequence) return;
-  const acceptedBase = !IS_TURKEY && base.status === 'fulfilled' && base.value.meta.refreshed >= before;
+  const acceptedBase = !IS_EXTERNAL_MONITOR && base.status === 'fulfilled' && base.value.meta.refreshed >= before;
   const updatedDrive = drive.status === 'fulfilled' && drive.value;
   const publicWasUnavailable = turkeyPublicUnavailable;
   turkeyPublicUnavailable = IS_TURKEY && publicFeed.status === 'rejected';
@@ -2582,17 +2640,21 @@ async function reload(manual){
   if(updatedPublic) turkeyPublicData = publicFeed.value;
   if(acceptedBase || updatedDrive || updatedPublic){
     const series = { ...dashboardBase.series, ...driveData.series, ...turkeyPublicData.series };
-    const refreshed = IS_TURKEY ? [driveData.latest, turkeyPublicData.latest].filter(Boolean).sort().at(-1) : dashboardBase.meta.refreshed;
+    const refreshed = IS_EXTERNAL_MONITOR ? [driveData.latest, IS_TURKEY ? turkeyPublicData.latest : ''].filter(Boolean).sort().at(-1) || '' : dashboardBase.meta.refreshed;
     DATA = { ...dashboardBase, series, meta: { ...dashboardBase.meta, refreshed, n_series: Object.keys(series).length } };
   }
   const changed = dashboardBase.meta.refreshed !== before || updatedDrive || updatedPublic;
-  const wasLoading = turkeyLoading||spainDriveLoading;
+  const wasLoading = turkeyLoading||usaLoading||spainDriveLoading;
   turkeyLoading = false;
+  usaLoading = false;
   spainDriveLoading = false;
   const topicApplied = IS_TURKEY && applyTurkeyTopic();
   if(changed || wasLoading || topicApplied || publicWasUnavailable !== turkeyPublicUnavailable) render();
+  if(IS_USA) window.dispatchEvent(new CustomEvent('mme-usa-refresh',{detail:{manual}}));
   const time = new Date().toLocaleTimeString(isEN() ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' });
-  const failed = IS_TURKEY ? turkeyPublicUnavailable || drive.status === 'rejected' || !DATA.meta.n_series : base.status === 'rejected';
+  const failed = IS_TURKEY ? turkeyPublicUnavailable || drive.status === 'rejected' || !DATA.meta.n_series
+    : IS_USA ? drive.status === 'rejected'
+    : base.status === 'rejected';
   if(manual && failed && !changed){
     msg.textContent = isEN() ? 'Could not refresh the dashboard data.' : 'No se pudieron actualizar los datos del dashboard.';
   }else{
@@ -2605,8 +2667,10 @@ document.getElementById('refreshBtn').addEventListener('click',()=>reload(true))
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; try{localStorage.setItem('mme-lang',LANG)}catch(e){} render(); }));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
 const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
+const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
 const h0=location.hash.slice(1);
 if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,h0)) pendingTurkeyTopic=h0;
+else if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
 else if(h0==='pizarra'||IS_TURKEY&&h0==='financiero'){state.tab='explorador';ex.view='pizarra';}
 else if(isDashboardTab(h0)) state.tab=h0;
 else if(Object.hasOwn(EXHASH,h0)){state.tab='explorador';ex.view=EXHASH[h0];}
@@ -2614,6 +2678,7 @@ window.addEventListener('hashchange',()=>{
   const k=location.hash.slice(1);
   if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,k)){openTurkeyTopic(k);return;}
   if(IS_TURKEY) pendingTurkeyTopic='';
+  if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
   if(k==='pizarra'||IS_TURKEY&&k==='financiero'){state.tab='explorador';ex.view='pizarra';render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}
 });

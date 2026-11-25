@@ -1,4 +1,6 @@
-# Estados Unidos · Modelos
+# Estados Unidos · Blackboard y Modelos
+
+El monitor `usa.html` incluye la pestaña **Blackboard** (alimentada desde `drive_ingestion/snapshots/usa.json` cuando se publica el libro maestro en la subcarpeta `USA` de Google Drive) y la pestaña **Modelos**.
 
 En la sección Modelos, las tarjetas GDPNow y FRB/US abren sus vistas, con un botón para volver al menú. La página usa la última observación GDPNow disponible de la Fed de Atlanta. Es una tasa anualizada de crecimiento trimestral del PIB real y no es una previsión oficial del FOMC. El archivo gdpnow.json inicial es una instantánea verificada; la fecha figura en la pantalla.
 
