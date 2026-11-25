@@ -160,6 +160,9 @@ table.fc td.f{font-weight:600}
 .pchip .big-reference{color:inherit;font:inherit;text-align:left;padding:0}
 .pchip .big-reference[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px}
 .big-title h3{text-transform:none;letter-spacing:normal}
+.big-chart-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px 12px}
+.big-chart-header .big-title{flex:1 1 220px}
+.big-chart-header .btn:disabled{opacity:.5;cursor:default}
 .bbmodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .bbmodes button,.bbtr button{font:500 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left}
 .bbmodes button[aria-pressed="true"],.bbtr button[aria-pressed="true"],.bbtabs button[aria-selected="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -817,7 +820,7 @@ let ro=null, roT=null; function observe(fn){ if(ro) ro.disconnect(); ro=new Resi
 
 /* table specs: 'id' | ['id',level] | '#Group label' */
 const specIds=spec=>spec.filter(x=>!(typeof x==='string'&&x[0]==='#')).map(x=>Array.isArray(x)?x[0]:x);
-const csvOf=rows=>rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+const csvOf=(rows,separator=';')=>rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(separator)).join('\n');
 const nCSV=v=>v==null?'':String(v).replace('.',',');
 function periodTable(freq,n,spec,nAnn=0,nQ=0){ const ids=specIds(spec).filter(id=>S()[id]); const dates=[...new Set(ids.filter(id=>S()[id].freq===freq).flatMap(id=>S()[id].data.map(o=>o[0])))].sort().slice(-n);
   const years=nAnn?[...new Set(ids.flatMap(id=>Object.keys(S()[id].annual||{})))].sort().slice(-nAnn):[];
@@ -1704,6 +1707,68 @@ function bigChartTitle(selected){
   if(bigState.view==='scatter') return labels.length<2?labels[0]:labels[1]+(isEN()?' vs. ':' frente a ')+labels[0];
   return labels.join(' / ');
 }
+function bigVisiblePoints(series,start,end){
+  return (series.data||[]).filter(([day,value])=>{
+    const time=ts(day);
+    return time>=start&&time<=end&&Number.isFinite(value);
+  });
+}
+function bigScatterPoints([x,y]){
+  if(!x||!y) return [];
+  const start=cutoff(), end=upperCutoff();
+  const xs=new Map(bigVisiblePoints(x,start,end).map(([day,value])=>[day,value*100]));
+  return bigVisiblePoints(y,start,end).filter(([day])=>xs.has(day)).map(([day,value])=>({d:day,x:xs.get(day),y:value*100}));
+}
+function bigHeatWindow(){
+  const rows=bigState.heatTable?.rows||[];
+  const allMonths=[...new Set(rows.flatMap(r=>Object.keys(r.monthly||{})))].sort();
+  const allWeeks=[...new Set(rows.flatMap(r=>Object.keys(r.weekly||{})))].sort();
+  const anchor=Math.min(allWeeks.length?ts(allWeeks.at(-1)):lastDateAll(),upperCutoff());
+  const start=cutoff();
+  const months=allMonths.filter(m=>{
+    const end=Date.UTC(+m.slice(0,4),+m.slice(5,7),0);
+    return end>=start&&end<=anchor;
+  }).slice(-9);
+  const weeks=allWeeks.filter(w=>ts(w)>=start&&ts(w)<=anchor).slice(-4);
+  return {rows,months,weeks};
+}
+function bigCsvRows(view,chosen){
+  if(view==='heat'){
+    const {rows,months,weeks}=bigHeatWindow();
+    if(!months.length&&!weeks.length) return [];
+    return [[isEN()?'Indicator (%)':'Indicador (%)',...months,...weeks],
+      ...rows.map(r=>[L10(r.label),...months.map(m=>r.monthly?.[m]),...weeks.map(w=>r.weekly?.[w])])];
+  }
+  const title=s=>L10(s.label)+' (%)';
+  const date=isEN()?'Date':'Fecha';
+  if(view==='scatter'){
+    const points=bigScatterPoints(chosen);
+    return points.length<2?[]:[[date,'X · '+title(chosen[0]),'Y · '+title(chosen[1])],
+      ...points.map(p=>[p.d,p.x,p.y])];
+  }
+  const start=cutoff(), end=upperCutoff();
+  const values=chosen.map(s=>new Map(bigVisiblePoints(s,start,end).map(([day,value])=>[day,value*100])));
+  const dates=[...new Set(values.flatMap(series=>[...series.keys()]))].sort();
+  return dates.length?[[date,...chosen.map(title)],...dates.map(day=>[day,...values.map(series=>series.get(day))])]:[];
+}
+function downloadBigCsv(chosen){
+  const view=bigState.view, rows=bigCsvRows(view,chosen);
+  if(rows.length<2) return;
+  const en=isEN(), locale=en?'en-GB':'es-ES';
+  const format=value=>typeof value==='number'
+    ? (Number.isFinite(value)?value.toLocaleString(locale,{useGrouping:false,maximumSignificantDigits:15}):'')
+    : value??'';
+  const csv=csvOf(rows.map(row=>row.map(format)),en?',':';').replace(/\r?\n/g,'\r\n');
+  const suffix=(en?{chart:'lines',scatter:'scatter',heat:'heat-map'}:{chart:'lineas',scatter:'dispersion',heat:'mapa-de-calor'})[view];
+  const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+  const download=document.createElement('a');
+  download.href=url;
+  download.download='big-data-'+suffix+'.csv';
+  document.body.append(download);
+  download.click();
+  download.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function viewBigData(focus=''){
  const previous=document.activeElement;
  const previousId=panel.contains(previous)?previous.id:'';
@@ -1725,7 +1790,7 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  bindBigField();
  document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
@@ -1783,15 +1848,22 @@ function viewBigData(focus=''){
    bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);
    viewBigData('big-catalog-toggle');
  }));
+ const csv=document.getElementById('big-csv');
+ csv?.addEventListener('click',()=>downloadBigCsv(chosen));
  const draw=()=>{
    if(bigState.view==='heat'){drawBigHeat();return}
-   if(bigState.view==='scatter'){drawBigScatter(chosen);return}
+   if(bigState.view==='scatter'){
+     const plotted=drawBigScatter(chosen);
+     if(csv) csv.disabled=!plotted;
+     return;
+   }
    const chart=document.getElementById('big-chart');
    if(!chart) return;
    const lines=chosen.map((s,i)=>({id:'__big_'+s.id,name:s.label,color:COLORS[i%4]}));
    const legend=document.getElementById('big-legend');
    legend.innerHTML=legendHTML(lines);
    drawChart(chart,{lines,aria:title,height:420,percentScale:true});
+   if(csv) csv.disabled=!chart.querySelector('svg');
    tr(legend); tr(chart);
  };
  draw();observe(draw);tr(panel);
@@ -1801,20 +1873,20 @@ function viewBigData(focus=''){
 }
 function drawBigScatter(chosen){
  const host=document.getElementById('big-scatter');
- if(!host) return;
+ if(!host) return false;
  if(chosen.length<2){
    host.innerHTML=`<p class="note">${isEN()?'Select two series to create the scatterplot.':'Selecciona dos series para crear el scatterplot.'}</p>`;
-   return;
+   return false;
  }
- const [X,Y]=chosen.map(s=>({...s,unit:'%'}));
- const xs=new Map(X.data.filter(([day])=>inRange(day)).map(([day,value])=>[day,value*100]));
- const pts=Y.data.filter(([day])=>xs.has(day)).map(([day,value])=>({d:day,x:xs.get(day),y:value*100}));
+ const [X,Y]=chosen.slice(0,2).map(s=>({...s,unit:'%'}));
+ const pts=bigScatterPoints(chosen);
  const keep=ex.trail;
  ex.trail=false;
  try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}
+ return pts.length>=2;
 }
 function loadBigHeat(){if(bigState.heatRequested)return;bigState.heatRequested=true;fetchBigData('bigdata_heatmap.json').then(data=>{if(!Array.isArray(data.rows))throw Error('invalid data');bigState.heatTable=data;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()}).catch(()=>{bigState.heatError=true;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()})}
-function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)return;if(!bigState.heatTable){if(bigState.heatError)host.innerHTML=`<p class="note">${isEN()?'Could not load the consumption table.':'No se pudo cargar la tabla de consumo.'}</p>`;else{host.innerHTML=`<p class="note">${isEN()?'Loading consumption table…':'Cargando tabla de consumo…'}</p>`;loadBigHeat()}return;}const rows=bigState.heatTable.rows,allMonths=[...new Set(rows.flatMap(r=>Object.keys(r.monthly||{})))].sort(),allWeeks=[...new Set(rows.flatMap(r=>Object.keys(r.weekly||{})))].sort();let anchor=allWeeks.length?ts(allWeeks[allWeeks.length-1]):lastDateAll();anchor=Math.min(anchor,upperCutoff());const months=allMonths.filter(m=>{const y=+m.slice(0,4),n=+m.slice(5,7),end=Date.UTC(y,n,0);return end<=anchor&&end>=cutoff()}).slice(-9),weeks=allWeeks.filter(w=>ts(w)<=anchor&&ts(w)>=cutoff()).slice(-4);if(!months.length&&!weeks.length){host.innerHTML=`<p class="note">${isEN()?'No data in this period.':'No hay datos en este periodo.'}</p>`;return;}const hasGap=months.length>0&&weeks.length>0;const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${1+months.length+weeks.length+(hasGap?1:0)}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th></tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${hasGap?'<td class="bigmap-spacer" aria-hidden="true"></td>':''}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th><th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th></tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
+function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)return;const csv=document.getElementById('big-csv');if(csv)csv.disabled=true;if(!bigState.heatTable){if(bigState.heatError)host.innerHTML=`<p class="note">${isEN()?'Could not load the consumption table.':'No se pudo cargar la tabla de consumo.'}</p>`;else{host.innerHTML=`<p class="note">${isEN()?'Loading consumption table…':'Cargando tabla de consumo…'}</p>`;loadBigHeat()}return;}const {rows,months,weeks}=bigHeatWindow();if(!months.length&&!weeks.length){host.innerHTML=`<p class="note">${isEN()?'No data in this period.':'No hay datos en este periodo.'}</p>`;return;}if(csv)csv.disabled=false;const hasGap=months.length>0&&weeks.length>0;const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${1+months.length+weeks.length+(hasGap?1:0)}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th></tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${hasGap?'<td class="bigmap-spacer" aria-hidden="true"></td>':''}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th><th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th></tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
 function viewMigracion(){
   panel.innerHTML=`<div class="sechead"><h2>Análisis de migración</h2></div><div class="fig"><p class="note">Sección en preparación</p></div>`;
 }
