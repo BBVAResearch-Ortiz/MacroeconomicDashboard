@@ -1,0 +1,77 @@
+{
+  "country": "USA",
+  "updated_at": "2026-11-25T18:05:54Z",
+  "sources": [
+    "FED",
+    "BLS",
+    "BEA"
+  ],
+  "series": [
+    {
+      "id": "GDPC1",
+      "name": "Real GDP (BEA)",
+      "source": "BEA / FRED",
+      "unit": "Chained 2017 USD",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    },
+    {
+      "id": "CPIAUCSL",
+      "name": "CPI All Urban Consumers (BLS)",
+      "source": "BLS / FRED",
+      "unit": "Index 1982-84=100",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    },
+    {
+      "id": "UNRATE",
+      "name": "Unemployment Rate (BLS)",
+      "source": "BLS / FRED",
+      "unit": "%",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    },
+    {
+      "id": "PAYEMS",
+      "name": "Nonfarm Payrolls (BLS)",
+      "source": "BLS / FRED",
+      "unit": "Thousands of Persons",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    },
+    {
+      "id": "FEDFUNDS",
+      "name": "Federal Funds Effective Rate (FED)",
+      "source": "Federal Reserve / FRED",
+      "unit": "%",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    },
+    {
+      "id": "DGS10",
+      "name": "10-Year Treasury Yield (FED)",
+      "source": "Federal Reserve / FRED",
+      "unit": "%",
+      "latest_date": null,
+      "latest_value": null,
+      "previous_change": null,
+      "observations": [],
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    }
+  ]
+}
