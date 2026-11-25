@@ -189,11 +189,17 @@ table.fc td.f{font-weight:600}
 .series-search-results button:not(:disabled):is(:hover,:focus-visible){background:var(--surface-2);color:var(--accent);outline:2px solid var(--accent);outline-offset:-2px}
 .series-search-results button:disabled{color:var(--muted);cursor:default}
 .series-search-results small{display:block;color:var(--muted)}
-.bblist{max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
-.bblist .bbh{font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 0;cursor:pointer}
+.bbcatalog{border:1px solid var(--rule);border-radius:6px}
+.bbcatalog>summary{padding:8px 10px;font-size:14px;cursor:pointer}
+.bbcatalog[open]>summary{border-bottom:1px solid var(--rule)}
+.bblist{max-height:340px;overflow:auto;padding:4px 8px}
+.bblist .bbh{font-weight:500;font-size:13px;color:var(--accent);padding:6px 4px;cursor:pointer}
 .bblist details details{margin-left:12px}
-.bblist label{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.3;padding:5px 4px;border-radius:4px;cursor:pointer}
-.bblist label:hover{background:var(--neutral-bg)}
+.bblist label{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.3;padding:6px 4px;border-radius:4px;cursor:pointer}
+.bblist input{flex-shrink:0;accent-color:var(--accent)}
+.bblist label:hover,.bblist label:focus-within{background:#F3F7FD}
+.bblist label:has(input:checked){background:#E7F2FF;color:var(--accent);font-weight:600}
+.bblist label:has(input:disabled){cursor:default}
 .bblist label .u{color:var(--muted);font-size:11.5px;margin-left:4px}
 .bblist input[disabled]+span{color:var(--muted)}
 .bbsel{display:flex;flex-direction:column;gap:6px}
@@ -1579,7 +1585,7 @@ function registerPlotSeries(rows,prefix){
   });
 }
 
-/* ---- Pizarra de series: one large chart; left panel with chart modes and two tabs (all series / selected) */
+/* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':'mme-bb';
 const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', fit:'lin', listOpen:false};
 try{
@@ -1619,7 +1625,7 @@ function bbList(){
   }
   return catalog(explorerGroups()).html||'<p class="note">Ninguna serie coincide con la búsqueda.</p>';
 }
-function bbSel(){ if(!bb.picks.length) return '<p class="note">No hay series elegidas. Añádelas con el desplegable.</p>';
+function bbSel(){ if(!bb.picks.length) return '';
   return `<div class="bbsel">${bb.picks.map((id,i)=>`<div class="row"><span class="sw" style="background:var(${COLORS[i%4]})"></span><span>${esc(S()[id].label)} <span class="u">${esc(S()[id].unit)}</span></span>
     ${bb.mode==='dual'?`<button type="button" data-bbax="${id}" title="Cambiar de eje">${bbAxis(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
     <button type="button" data-bbrm="${id}" aria-label="Quitar ${esc(S()[id].label)}">✕</button></div>`).join('')}</div>
@@ -1641,6 +1647,8 @@ function loadHeatExample(){
 }
 function viewBoard(){
   const searchFocused=document.activeElement?.id==='explorer-search';
+  const focusedSeries=document.activeElement?.dataset.bbp;
+  const catalogScroll=document.getElementById('bblist')?.scrollTop;
   if(bb.mode==='heat'&&!bb.heatExampleLoaded){
     if(IS_TURKEY&&bb.picks.some(id=>Object.hasOwn(S(),id))) bb.heatExampleLoaded=true;
     else loadHeatExample();
@@ -1664,9 +1672,11 @@ function viewBoard(){
      ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
      <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
-     :`<div class="bbgrp"><label class="picklab" for="bbadd">Series (${bb.picks.length}/${bbMax()})</label>
-       ${seriesPicker('bbadd',explorerGroups(bb.picks),{disabled:bb.picks.length>=bbMax(),placeholder:bb.picks.length>=bbMax()?'Máximo de series alcanzado':''})}${bbSel()}</div>`}
-     ${bb.mode!=='scatter'?`<details class="bbgrp" id="bbcatalog" ${bb.listOpen?'open':''}><summary class="picklab">${isEN()?'Browse all series':'Ver todas las series'}</summary><div id="bblist" class="bblist">${bbList()}</div></details>`:''}
+     :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
+       <details class="bbcatalog" id="bbcatalog"${bb.listOpen?' open':''}>
+         <summary>${isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
+         <div id="bblist" class="bblist">${bbList()}</div>
+       </details>${bbSel()}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${bb.mode==='scatter'?`<div class="bbgrp"><span class="picklab">Ajuste</span><div class="bbtr">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal']].map(([k,l])=>`<button type="button" data-bbf="${k}" aria-pressed="${bb.fit===k}">${l}</button>`).join('')}</div></div>`:''}
@@ -1679,13 +1689,23 @@ function viewBoard(){
   const rerender=()=>{ saveBB(); viewBoard(); };
   const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_TURKEY)bb.catalogPreference=true;saveBB();});
   const list=document.getElementById('bblist');
-  if(list) list.addEventListener('change',e=>{const input=e.target;if(!input.matches('[data-bbp]'))return;const id=input.dataset.bbp;if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax())bb.picks.push(id);else if(!input.checked)bb.picks=bb.picks.filter(x=>x!==id);rerender();});
-  if(list) list.addEventListener('toggle',e=>{
-    const family=e.target.dataset.catalogGroup;
-    if(!family) return;
-    if(e.target.open) openCatalogGroups.add(family);
-    else openCatalogGroups.delete(family);
-  },true);
+  if(list){
+    if(catalogScroll!==undefined) list.scrollTop=catalogScroll;
+    list.addEventListener('change',e=>{
+      const input=e.target;
+      if(!input.matches('[data-bbp]')) return;
+      const id=input.dataset.bbp;
+      if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax()) bb.picks.push(id);
+      else if(!input.checked) bb.picks=bb.picks.filter(x=>x!==id);
+      rerender();
+    });
+    list.addEventListener('toggle',e=>{
+      const family=e.target.dataset.catalogGroup;
+      if(!family) return;
+      if(e.target.open) openCatalogGroups.add(family);
+      else openCatalogGroups.delete(family);
+    },true);
+  }
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
   panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{ bb.mode=b.dataset.bbm; rerender(); }));
   document.getElementById('board-transform')?.addEventListener('change',e=>{bb.tr=e.target.value;rerender();});
@@ -1693,12 +1713,12 @@ function viewBoard(){
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
   panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
   const sw=document.getElementById('bbswap'); if(sw) sw.addEventListener('click',()=>{ bb.picks.reverse(); rerender(); });
-  const add=document.getElementById('bbadd'); if(add) add.addEventListener('change',()=>{ if(add.value&&bb.picks.length<bbMax()&&!bb.picks.includes(add.value)){ bb.picks.push(add.value); rerender(); } });
   [['bbx',0],['bby',1]].forEach(([k,i])=>{ const el=document.getElementById(k); if(el) el.addEventListener('change',()=>{ const p=bb.picks.slice(); const j=p.indexOf(el.value); if(j>1) p.splice(j,1); p[i]=el.value; bb.picks=p; rerender(); }); });
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'));
   draw(); observe(draw); tr(panel);
   if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
   if(transformFocused) document.getElementById('board-transform')?.focus({preventScroll:true});
+  if(focusedSeries) list?.querySelector(`[data-bbp="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
 }
 function drawBoard(plots){
   const h=document.getElementById('bbchart'), lg=document.getElementById('bblg');
