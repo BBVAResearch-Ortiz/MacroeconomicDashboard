@@ -154,6 +154,11 @@ table.fc td.f{font-weight:600}
 .series-picker,.series-levels{display:grid;min-width:0;gap:6px}
 .series-levels:empty{display:none}
 .series-picker select{width:100%;min-width:0}
+.big-catalog{border:1px solid var(--rule);border-radius:6px;padding:10px}
+.big-compare-actions{display:flex;flex-wrap:wrap;gap:6px}
+.big-compare-actions .btn,.big-catalog .btn{font-size:12px;line-height:1.3;padding:6px 9px}
+.pchip .big-reference{color:inherit;font:inherit;text-align:left;padding:0}
+.pchip .big-reference[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px}
 .big-title h3{text-transform:none;letter-spacing:normal}
 .bbmodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .bbmodes button,.bbtr button{font:500 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left}
@@ -1492,7 +1497,12 @@ function drawHeatBoard(host){
   const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=r.sd?(v-r.mean)/r.sd:0,a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
   host.innerHTML=`<p class="note">${freq==='Q'?'Trimestral':'Mensual'} · azul: sobre la media · naranja: bajo la media · intensidad: distancia a la media (σ) · gris: sin datos</p><div class="bbheat-scroll"><table class="bbheat"><thead><tr><th>Serie</th>${dates.map(d=>`<th title="${d}">${freq==='Q'?d.slice(0,4)+' T'+(Math.floor((+d.slice(5,7)-1)/3)+1):d.slice(0,7)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th title="${esc(r.src.label)}">${esc(r.src.label)}</th>${dates.map(d=>cell(r,d)).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${bb.picks.some(id=>S()[id].freq==='W')?(isEN()?'Weekly averages require at least 3 observations per month or 10 per quarter. ':'Los promedios semanales requieren al menos 3 observaciones por mes o 10 por trimestre. '):''}Los datos diarios se promedian por mes o trimestre y los mensuales por trimestre; se requieren 15 días por mes, 40 por trimestre o los tres meses. La media y desviación típica se calculan por serie en el periodo visible; una serie constante tiene z = 0.</p>`;
 }
-let BIGDATA=__BIGDATA__; const bigState={view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,scope:'national',geoGroup:''};
+let BIGDATA=__BIGDATA__;
+const bigState={
+  view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
+  geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
+  scope:'national',geoGroup:'',catalogOpen:false,query:'',variant:'',reference:'',compare:null
+};
 async function fetchBigData(path){
   let response = await fetch('drive_ingestion/snapshots/bigdata/'+path, { cache: 'no-store' });
   if(response.status===404) response = await fetch(path, { cache: 'no-store' });
@@ -1508,29 +1518,28 @@ function loadBigNational(){
   }).catch(()=>{ /* The embedded release stays available. */ });
 }
 function loadGeoIndex(){if(bigState.indexRequested)return;bigState.indexRequested=true;fetchBigData('bigdata_geo/index.json').then(d=>{bigState.geoIndex=d.groups||{};if(state.tab==='bigdata')viewBigData()}).catch(()=>{bigState.indexError=true;if(state.tab==='bigdata')viewBigData()})}
-async function loadGeoArea(group,id){
-  bigState.geoAreas[group]=id;
+function fetchGeoArea(group,id){
   const key=group+'|'+id;
+  if(bigState.geoCache[key]) return Promise.resolve(bigState.geoCache[key]);
+  if(bigState.geoLoading[key]) return bigState.geoLoading[key];
   const area=(bigState.geoIndex?.[group]||[]).find(a=>a.id===id);
-  if(!area||bigState.geoCache[key]||bigState.geoLoading[key]){
-    viewBigData();
-    return;
-  }
-  bigState.geoLoading[key]=true;
+  if(!area) return Promise.resolve([]);
   delete bigState.geoErrors[key];
-  viewBigData();
-  try{
-    const payload=await Promise.all(area.files.map(f=>{
-      if(!/^(ccaa|provincial|urbano)\/(nominal|real)\/[a-f0-9]{20}\.json$/.test(f)) throw Error('invalid file');
-      return fetchBigData('bigdata_geo/'+f);
-    }));
-    bigState.geoCache[key]=payload.flatMap(x=>Array.isArray(x.series)?x.series:[]);
-  }catch(e){
+  const pending=Promise.all(area.files.map(async f=>{
+    if(!/^(ccaa|provincial|urbano)\/(nominal|real)\/[a-f0-9]{20}\.json$/.test(f)) throw Error('invalid file');
+    return fetchBigData('bigdata_geo/'+f);
+  })).then(payload=>{
+    const series=payload.flatMap(x=>Array.isArray(x.series)?x.series:[]);
+    bigState.geoCache[key]=series;
+    return series;
+  }).catch(()=>{
     bigState.geoErrors[key]=true;
-  }finally{
+    return [];
+  }).finally(()=>{
     delete bigState.geoLoading[key];
-    if(state.tab==='bigdata') viewBigData();
-  }
+  });
+  bigState.geoLoading[key]=pending;
+  return pending;
 }
 const BIG_TERRITORY_GROUPS={CCAA:'Comunidades autónomas',Provincial:'Provincias',Urbano:'Áreas urbanas'};
 const CONSUMPTION_CHANNELS=new Set(['card','debit','transfer','cash','rent','card online','card offline']);
@@ -1565,37 +1574,128 @@ function bigPath(s,territorial){
   }
   return [s.group||'Otras series',variant];
 }
-function bigControls(entries){
-  const full=bigState.selected.length>=4, territorial=bigState.scope==='territory';
-  const scope=`<label class="picklab" for="big-scope">Ámbito</label>
+const BIG_SEARCH_ALIASES=[
+  ['Hostelería','Restaurantes','Restaurant & Hotels'],
+  ['Alimentación','Alimentos','Food & Beverage'],
+  ['Moda','Ropa y calzado','Clothing & FootWear'],
+  ['Hogar','Vivienda','Housing & Utilities'],
+  ['Mobiliario','Furnishing & House Equipment'],
+  ['Salud','Health'], ['Transporte','Transport'], ['Comunicación','Info & Communication'],
+  ['Ocio','Leisure'], ['Educación','Education'], ['Alcohol y tabaco','Alcohol & Tobacco'],
+  ['Seguros','Insurance & Fin. Service'], ['Total Consumo','Total coicops','Total consumption'],
+  ['Tarjeta','card'], ['Efectivo','cash'], ['Transferencia','transfer']
+];
+const bigNormalize=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const bigAliases=new Map(BIG_SEARCH_ALIASES.flatMap(names=>names.map(name=>[bigNormalize(name),names.map(bigNormalize)])));
+const bigMetric=s=>s.label.split(' · ').at(-2)||s.label;
+const bigVariant=s=>s.label.match(/ · (Nominal|Real)$/)?.[1]||'';
+function bigEntries(){
+  const national=Array.isArray(BIGDATA.series)?BIGDATA.series:[];
+  const regional=Object.entries(bigState.geoCache).flatMap(([key,series])=>{
+    const area=key.split('|')[1];
+    return series.map(s=>({...s,area}));
+  });
+  return national.concat(regional);
+}
+function bigMatch(s,reference,kind){
+  if(s.id===reference.id||s.group!==reference.group||bigVariant(s)!==bigVariant(reference)) return false;
+  const a=bigNormalize(bigMetric(s)), b=bigNormalize(bigMetric(reference));
+  const sameMetric=a===b||(bigAliases.get(a)||[]).includes(b);
+  return kind==='territory'?s.area!==reference.area&&sameMetric:s.area===reference.area&&!sameMetric;
+}
+function bigMatchesQuery(s,query){
+  const metric=bigNormalize(bigMetric(s));
+  const words=bigNormalize(query).split(' ').filter(Boolean);
+  const names=[s.label,L10(s.label),s.group,L10(s.group),...(bigAliases.get(metric)||[])].join(' ');
+  const search=bigNormalize(names);
+  return words.every(word=>search.includes(word));
+}
+function bigSeriesField(entries){
+  const {scope,geoGroup:group,geoAreas,compare,query,variant}=bigState;
+  const territorial=scope==='territory', area=geoAreas[group], key=group+'|'+area;
+  if(territorial&&!area) return '';
+  const reference=entries.find(s=>s.id===compare?.reference);
+  const inScope=entries.filter(s=>territorial?s.group===group&&s.area===area:!s.area);
+  let available=inScope.filter(s=>!bigState.selected.includes(s.id));
+  if(compare&&reference) available=available.filter(s=>bigMatch(s,reference,compare.kind));
+  else if(variant) available=available.filter(s=>bigVariant(s)===variant);
+  available=available.filter(s=>bigMatchesQuery(s,query));
+  let placeholder='';
+  if(territorial&&bigState.geoLoading[key]) placeholder=isEN()?'Loading…':'Cargando…';
+  else if(territorial&&bigState.geoErrors[key]) placeholder=isEN()?'Could not load series. Choose the territory again.':'No se pudieron cargar las series. Vuelve a elegir el territorio.';
+  else if(!available.length) placeholder=isEN()?'No matching series':'No hay series que coincidan';
+  const byId=new Map(available.map(s=>[s.id,s]));
+  const tree=seriesTree(available,id=>query.trim()||compare?[]:bigPath(byId.get(id),territorial));
+  const id=compare?'big-add-comparison':territorial?'big-add-territory':'big-add-national';
+  return seriesPicker(id,tree,{placeholder,attrs:'data-big-add'});
+}
+function bigCatalog(entries,reference){
+  const full=bigState.selected.length>=4;
+  const compare=bigState.compare, territorial=bigState.scope==='territory';
+  const showTerritory=compare?.kind==='territory';
+  const canCompareCategory=reference&&entries.some(s=>!bigState.selected.includes(s.id)&&bigMatch(s,reference,'category'));
+  const actions=reference&&!full&&!compare?`<div class="big-compare-actions">
+    ${reference.area?`<button class="btn ghost" type="button" data-big-compare="territory">${isEN()?'Compare with another territory':'Comparar con otro territorio'}</button>`:''}
+    ${canCompareCategory?`<button class="btn ghost" type="button" data-big-compare="category">${isEN()?'Compare with another category':'Comparar con otra categoría'}</button>`:''}
+  </div>`:'';
+  const toggle=`<button type="button" class="btn ghost" id="big-catalog-toggle" aria-controls="big-catalog" aria-expanded="${bigState.catalogOpen}"${full?' disabled':''}>${isEN()?'Add series':'Añadir series'}</button>`;
+  if(!bigState.catalogOpen||full) return toggle+actions+'<div id="big-catalog" hidden></div>';
+  const group=bigState.geoGroup, id=bigState.geoAreas[group]||'';
+  const areas=(bigState.geoIndex?.[group]||[]).filter(a=>!showTerritory||a.id!==reference?.area);
+  const areaPicker=territorial&&group&&(!compare||showTerritory)?`<select id="big-territory" class="axsel" aria-label="${esc(L10(BIG_TERRITORY_GROUPS[group]))}"${areas.length?'':' disabled'}>
+    <option value="">${esc(L10('Seleccionar territorio…'))}</option>
+    ${areas.map(a=>`<option value="${esc(a.id)}"${a.id===id?' selected':''}>${esc(a.label)}</option>`).join('')}
+  </select>`:'';
+  const scope=!compare?`<label class="picklab" for="big-scope">Ámbito</label>
     <select id="big-scope" class="axsel">
       <option value="national"${territorial?'':' selected'}>Nacional</option>
       <option value="territory"${territorial?' selected':''}>Series territoriales</option>
-    </select>`;
-  const group=bigState.geoGroup, groupLabel=BIG_TERRITORY_GROUPS[group];
-  const id=bigState.geoAreas[group]||'', key=group+'|'+id;
-  const areas=bigState.geoIndex?.[group]||[];
-  const territoryControls=territorial?`<select id="big-territory-type" class="axsel" aria-label="Tipo de territorio"${bigState.geoIndex?'':' disabled'}>
+    </select>
+    ${territorial?`<select id="big-territory-type" class="axsel" aria-label="Tipo de territorio"${bigState.geoIndex?'':' disabled'}>
       <option value="">${bigState.indexError?'No se pudieron cargar los territorios':bigState.geoIndex?'Seleccionar tipo de territorio…':'Cargando…'}</option>
       ${Object.entries(BIG_TERRITORY_GROUPS).map(([type,label])=>`<option value="${type}"${group===type?' selected':''}>${esc(L10(label))} (${bigState.geoIndex?.[type]?.length||0})</option>`).join('')}
-    </select>${groupLabel?`<select id="big-territory" data-geo-area="${group}" class="axsel" aria-label="${esc(groupLabel)}"${areas.length?'':' disabled'}>
-      <option value="">Seleccionar territorio…</option>
-      ${areas.map(a=>`<option value="${esc(a.id)}"${a.id===id?' selected':''}>${esc(a.label)}</option>`).join('')}
     </select>`:''}`:'';
-  let picker='';
-  if(!territorial||id){
-    const items=territorial?(bigState.geoCache[key]||[]):entries.filter(s=>!Object.hasOwn(BIG_TERRITORY_GROUPS,s.group));
-    const available=items.filter(s=>!bigState.selected.includes(s.id));
-    let placeholder='';
-    if(full) placeholder='Máximo de series alcanzado';
-    else if(bigState.geoLoading[key]&&territorial) placeholder='Cargando…';
-    else if(bigState.geoErrors[key]&&territorial) placeholder='No se pudieron cargar las series';
-    else if(!available.length) placeholder='Datos no disponibles.';
-    const byId=new Map(available.map(s=>[s.id,s]));
-    const tree=seriesTree(available,id=>bigPath(byId.get(id),territorial));
-    picker=seriesPicker(territorial?'big-add-territory':'big-add-national',tree,{disabled:full,placeholder,attrs:'data-big-add'});
+  const filter=!compare?`<select id="big-variant" class="axsel" aria-label="${isEN()?'Real or nominal':'Real o nominal'}">
+    <option value="">${isEN()?'Real and nominal':'Real y nominal'}</option>
+    ${['Real','Nominal'].map(value=>`<option${bigState.variant===value?' selected':''}>${value}</option>`).join('')}
+  </select>`:'';
+  const search=(!territorial||id)&&!showTerritory?`<input id="big-search" class="bbsearch" type="search" value="${esc(bigState.query)}"
+    placeholder="${isEN()?'Search series…':'Buscar series…'}" aria-label="${isEN()?'Search series':'Buscar series'}">`:'';
+  const comparison=compare&&reference?`<div class="big-compare-actions"><span class="note">${isEN()?'Comparing with':'Comparando con'} ${esc(L10(reference.label))}</span>
+    <button type="button" class="btn ghost" id="big-compare-cancel">${isEN()?'Cancel comparison':'Cancelar comparación'}</button></div>`:'';
+  return `${toggle}${actions}<div class="bbgrp big-catalog" id="big-catalog">
+    ${comparison}${scope}${areaPicker}${search}${filter}
+    <div id="big-series-field">${bigSeriesField(entries)}</div>
+  </div>`;
+}
+function addBigSeries(id,focus=true){
+  if(!id||bigState.selected.includes(id)||bigState.selected.length>=4) return false;
+  bigState.selected.push(id);
+  bigState.reference=id;
+  bigState.compare=null;
+  bigState.catalogOpen=false;
+  bigState.query='';
+  viewBigData(focus?'big-catalog-toggle':'');
+  return true;
+}
+async function selectBigTerritory(id){
+  const group=bigState.geoGroup, compare=bigState.compare;
+  bigState.geoAreas[group]=id;
+  const pending=id&&fetchGeoArea(group,id);
+  viewBigData('big-territory');
+  if(!pending) return;
+  await pending;
+  if(state.tab!=='bigdata'||bigState.geoGroup!==group||bigState.geoAreas[group]!==id||bigState.compare!==compare) return;
+  if(compare?.kind==='territory'){
+    const entries=bigEntries(), reference=entries.find(s=>s.id===compare.reference);
+    const matches=reference?entries.filter(s=>s.area===id&&!bigState.selected.includes(s.id)&&bigMatch(s,reference,'territory')):[];
+    if(matches.length===1&&addBigSeries(matches[0].id)) return;
   }
-  return `<div class="bbgrp">${scope}${territoryControls}${picker}</div>`;
+  viewBigData('big-territory');
+}
+function bindBigField(){
+  bindSeriesPickers();
+  panel.querySelector('[data-big-add]')?.addEventListener('change',e=>addBigSeries(e.target.value));
 }
 function bigChartTitle(selected){
   if(bigState.view==='heat') return isEN()?'Spain: consumption indicators':'España: indicadores de consumo';
@@ -1604,18 +1704,85 @@ function bigChartTitle(selected){
   if(bigState.view==='scatter') return labels.length<2?labels[0]:labels[1]+(isEN()?' vs. ':' frente a ')+labels[0];
   return labels.join(' / ');
 }
-function viewBigData(){
- loadBigNational();if(bigState.scope==='territory')loadGeoIndex();const entries=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).concat(Object.values(bigState.geoCache).flat());bigState.selected=bigState.selected.filter(id=>entries.some(s=>s.id===id)).slice(0,4);if(!bigState.selected.length&&entries.length&&!bigState.initialized){bigState.selected=[entries[0].id];bigState.initialized=true;}
+function viewBigData(focus=''){
+ const previous=document.activeElement;
+ const previousId=panel.contains(previous)?previous.id:'';
+ const searchSelection=previousId==='big-search'?[previous.selectionStart,previous.selectionEnd]:null;
+ loadBigNational();
+ if(bigState.catalogOpen&&bigState.scope==='territory') loadGeoIndex();
+ const entries=bigEntries();
+ bigState.selected=bigState.selected.filter(id=>entries.some(s=>s.id===id)).slice(0,4);
+ if(!bigState.selected.length&&entries.length&&!bigState.initialized){bigState.selected=[entries[0].id];bigState.initialized=true;}
  entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
  const chosen=bigState.selected.map(id=>entries.find(s=>s.id===id));
+ const reference=chosen.find(s=>s.id===bigState.reference)||chosen.at(-1);
+ bigState.reference=reference?.id||'';
+ if(bigState.compare&&bigState.compare.reference!==bigState.reference) bigState.compare=null;
  const title=bigChartTitle(chosen);
- const controls=bigControls(entries);
- const selected=chosen.map(s=>`<span class="pchip">${esc(s.label)}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`).join('');
+ const controls=bigCatalog(entries,reference);
+ const selected=chosen.map((s,i)=>{
+   const label=chosen.length>1?`<button type="button" class="big-reference" data-big-reference="${esc(s.id)}"
+     aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
+   return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
+ }).join('');
  panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${rangeCtl()}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}"><div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(isEN()?'Values shown as percentages.':'Valores expresados en porcentaje.')}</div></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="lg" id="big-legend"></div><div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
- bindRange();bindSeriesPickers();
- document.getElementById('big-scope').addEventListener('change',e=>{bigState.scope=e.target.value;viewBigData();document.getElementById('big-scope').focus()});
- document.getElementById('big-territory-type')?.addEventListener('change',e=>{bigState.geoGroup=e.target.value;viewBigData();document.getElementById('big-territory-type').focus()});
- const swap=document.getElementById('big-swap');if(swap)swap.addEventListener('click',()=>{if(bigState.selected.length>=2){[bigState.selected[0],bigState.selected[1]]=[bigState.selected[1],bigState.selected[0]];viewBigData()}});panel.querySelectorAll('[data-big-view]').forEach(b=>b.addEventListener('click',()=>{bigState.view=b.dataset.bigView;viewBigData()}));panel.querySelectorAll('[data-geo-area]').forEach(el=>el.addEventListener('change',()=>loadGeoArea(el.dataset.geoArea,el.value)));panel.querySelectorAll('[data-big-add]').forEach(add=>add.addEventListener('change',()=>{if(add.value&&!bigState.selected.includes(add.value)&&bigState.selected.length<4)bigState.selected.push(add.value);viewBigData()}));panel.querySelectorAll('[data-big-remove]').forEach(b=>b.addEventListener('click',()=>{bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);viewBigData()}));
+ bindRange();
+ bindBigField();
+ document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
+   bigState.catalogOpen=!bigState.catalogOpen;
+   if(!bigState.catalogOpen) bigState.compare=null;
+   viewBigData(bigState.catalogOpen?'big-search':'big-catalog-toggle');
+ });
+ document.getElementById('big-scope')?.addEventListener('change',e=>{
+   bigState.scope=e.target.value;
+   bigState.query='';
+   viewBigData();
+ });
+ document.getElementById('big-territory-type')?.addEventListener('change',e=>{
+   bigState.geoGroup=e.target.value;
+   viewBigData();
+ });
+ document.getElementById('big-territory')?.addEventListener('change',e=>selectBigTerritory(e.target.value));
+ const updateField=()=>{
+   const field=document.getElementById('big-series-field');
+   field.innerHTML=bigSeriesField(bigEntries());
+   bindBigField();
+   tr(field);
+ };
+ document.getElementById('big-search')?.addEventListener('input',e=>{bigState.query=e.target.value;updateField();});
+ document.getElementById('big-variant')?.addEventListener('change',e=>{bigState.variant=e.target.value;updateField();});
+ panel.querySelectorAll('[data-big-compare]').forEach(b=>b.addEventListener('click',()=>{
+   const kind=b.dataset.bigCompare;
+   bigState.compare={kind,reference:reference.id};
+   bigState.catalogOpen=true;
+   bigState.query='';
+   bigState.scope=reference.area?'territory':'national';
+   if(reference.area){
+     bigState.geoGroup=reference.group;
+     bigState.geoAreas[reference.group]=kind==='territory'?'':reference.area;
+   }
+   viewBigData(kind==='territory'?'big-territory':'big-add-comparison');
+ }));
+ document.getElementById('big-compare-cancel')?.addEventListener('click',()=>{
+   bigState.compare=null;
+   bigState.catalogOpen=false;
+   viewBigData('big-catalog-toggle');
+ });
+ panel.querySelectorAll('[data-big-reference]').forEach(b=>b.addEventListener('click',()=>{
+   bigState.reference=b.dataset.bigReference;
+   viewBigData();
+   [...panel.querySelectorAll('[data-big-reference]')].find(el=>el.dataset.bigReference===bigState.reference)?.focus();
+ }));
+ document.getElementById('big-swap')?.addEventListener('click',()=>{
+   if(bigState.selected.length<2) return;
+   [bigState.selected[0],bigState.selected[1]]=[bigState.selected[1],bigState.selected[0]];
+   viewBigData();
+ });
+ panel.querySelectorAll('[data-big-view]').forEach(b=>b.addEventListener('click',()=>{bigState.view=b.dataset.bigView;viewBigData();}));
+ panel.querySelectorAll('[data-big-remove]').forEach(b=>b.addEventListener('click',()=>{
+   bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);
+   viewBigData('big-catalog-toggle');
+ }));
  const draw=()=>{
    if(bigState.view==='heat'){drawBigHeat();return}
    if(bigState.view==='scatter'){drawBigScatter(chosen);return}
@@ -1628,6 +1795,9 @@ function viewBigData(){
    tr(legend); tr(chart);
  };
  draw();observe(draw);tr(panel);
+ const next=document.getElementById(focus||previousId)||document.getElementById(previousId);
+ next?.focus({preventScroll:true});
+ if(searchSelection&&next?.id==='big-search') next.setSelectionRange(...searchSelection);
 }
 function drawBigScatter(chosen){
  const host=document.getElementById('big-scatter');
