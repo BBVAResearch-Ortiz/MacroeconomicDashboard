@@ -1555,16 +1555,8 @@ function transformationPlan(ids,entries,scope,kind,fullHistory=false){
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
-  const options=[...plan.options].map(([kind,rows])=>{
-    const documented=rows.filter(r=>r.status==='documented').length;
-    const calculated=rows.filter(r=>r.status==='calculated').length;
-    const available=rows.filter(r=>r.series).length;
-    const status=[
-      documented?documented+' doc.':null,
-      calculated?calculated+' calc.':null,
-      available<rows.length?`${available}/${rows.length} series`:null
-    ].filter(Boolean).join(' / ');
-    const name=SERIES_TRANSFORMS.names(kind,en)+(status?' · '+status:'');
+  const options=[...plan.options.keys()].map(kind=>{
+    const name=SERIES_TRANSFORMS.names(kind,en);
     return `<option value="${kind}"${kind===plan.selected?' selected':''}>${esc(name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
