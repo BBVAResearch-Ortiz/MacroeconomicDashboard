@@ -90,9 +90,50 @@ test('a ministry timeout imports the verified trade series without overwriting s
   const saved = {[id]: {...verified[id], observaciones: [[latest, 999]]}};
   const rows = fetch('2026-11-26', saved);
   assert.equal(rows.length, 23);
-  assert.equal(rows.flatMap(row => row.data).length, 45);
+  const points = Object.entries(verified).filter(([key]) => key.startsWith('TR_TRADE_M_'))
+    .reduce((total, [, row]) => total + row.observaciones.length, 0);
+  assert.equal(rows.flatMap(row => row.data).length, points - 1);
   assert.ok(rows.every(row => row.entry.source_url.startsWith('https://ticaret.gov.tr/')));
   assert.ok(rows.find(row => row.id === id).data.every(([day]) => day !== latest));
   assert.equal(calls.length, 3);
   assert.match(calls[0], /^https:\/\/dabm\.ticaret\.gov\.tr\//);
+});
+
+test('trade history validates consecutive months and the expected publication month', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const read = vm.runInNewContext(script + '\nreadTurkeyTradeHistory_');
+  const header = [
+    ['Aylara Göre Dış Ticaret (Milyon Dolar)'],
+    ['Yıl', 'AY', 'İhracat', 'İthalat', 'Hacim', 'Denge', 'Karşılama Oranı(%)']
+  ];
+  const rows = [['Monthly', [...header, [2013, 1, 10, 15, 25, -5, 66.7], [2013, 2, 20, 15, 35, 5, 133.3]]]];
+  assert.equal(JSON.stringify(read(rows, '2013-02-01')[3]), JSON.stringify([['2013-01-01', -5], ['2013-02-01', 5]]));
+  assert.throws(() => read(rows, '2013-03-01'), /omite el mes/);
+  rows[0][1][3][1] = 3;
+  assert.throws(() => read(rows, '2013-03-01'), /falta o se repite/);
+});
+
+test('weekly BDDK rejects incorrect sectors and selects the total of the requested indicator', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const {chart, bulletin} = vm.runInNewContext(script + '\n({chart:readTurkeyWeeklyBank_,bulletin:readTurkeyWeeklyBulletin_})', {
+    dashboardDate_: () => true
+  });
+  const report = {Baslik:'Tüketici Kredileri (TRY) [Toplam] [Sektör]', XEkseni:['20.11.2026'], YEkseni:[1234]};
+  assert.equal(chart(report, '2026-11-26', 'Tüketici Kredileri')[0][1], 1234);
+  assert.throws(() => chart({...report, Baslik:report.Baslik.replace('Sektör', 'Bankalar')}, '2026-11-26', 'Tüketici Kredileri'));
+  const row = `Milyon TL <td data-label="TOPLAM" onclick="ShowModalGraph('1.0.3','TRY',3)">1.234,5</td>`;
+  assert.equal(bulletin(row, '20.11.2026', '2026-11-26', '1.0.3')[1], 1234.5);
+  assert.throws(() => bulletin(row, '20.11.2026', '2026-11-26', '1.0.4'));
+});
+
+test('the central government budget converts thousands of TRY and excludes totals and future months', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const read = vm.runInNewContext(script + '\nreadTurkeyBudget_');
+  const report = ['Bütçe Gelir Tabloları', 'gelirleri', [['REVENUE', 'Budget revenue', 'merkezi yonetim gelirleri']]];
+  const months = 'Ocak Şubat Mart Nisan Mayıs Haziran Temmuz Ağustos Eylül Ekim Kasım Aralık'.split(' ');
+  const rows = [['', '2026 YILI MERKEZİ YÖNETİM BÜTÇE GELİRLERİ'], ['', '(Bin TL)'],
+    ['', '', ...months, 'TOPLAM'], ['', 'Merkezi Yönetim Gelirleri', 2000, 3500, ...Array(10).fill(''), 5500]];
+  assert.equal(JSON.stringify(read([['Detay2',rows]],report,2026,'2026-01-29')), JSON.stringify([[['2026-01-01',2]]]));
+  rows[1][1] = '(Milyon TL)';
+  assert.throws(() => read([['Detay2',rows]],report,2026,'2026-01-29'), /unidad distinta/);
 });

@@ -2,6 +2,8 @@ const TURKEY_PRODUCER = {
   timezone: 'Europe/Istanbul',
   treasuryPage: 'https://en.hmb.gov.tr/public-finance',
   treasuryCatalogue: 'https://en.hmb.gov.tr/portal/v2/pages?slug=public-finance',
+  budgetPage: 'https://muhasebat.hmb.gov.tr/merkezi-yonetim-butce-istatistikleri',
+  budgetApi: 'https://muhasebat.hmb.gov.tr/portal/v2/',
   weekly: 'https://www.bddk.org.tr/BultenHaftalik',
   monthly: 'https://www.bddk.org.tr/BultenAylik/tr/',
   trade: 'https://ticaret.gov.tr/istatistikler/bakanlik-istatistikleri/dis-ticaret-istatistikleri/',
@@ -20,6 +22,16 @@ const TURKEY_MONTHLY_REPORTS = [
   ['TR_BDDK_M_LOANS', 'Total bank loans', 3, 'Toplam Krediler'],
   ['TR_BDDK_M_DEPOSITS', 'Total bank deposits', 9, 'Toplam Mevduat']
 ];
+const TURKEY_WEEKLY_REPORTS = [
+  ['LOANS', 'Total bank loans', '1.0.1', 'Toplam Krediler'],
+  ['CONSUMER_LOANS', 'Consumer loans', '1.0.3', 'Tüketici Kredileri'],
+  ['HOUSING_LOANS', 'Housing loans', '1.0.4', 'Konut'],
+  ['VEHICLE_LOANS', 'Vehicle loans', '1.0.5', 'Taşıt'],
+  ['PERSONAL_LOANS', 'Personal loans', '1.0.6', 'İhtiyaç'],
+  ['PERSONAL_CREDIT_CARDS', 'Personal credit card balances', '1.0.8', 'Bireysel Kredi Kartları'],
+  ['COMMERCIAL_LOANS', 'Commercial and other loans', '1.0.12', 'Ticari ve Diğer Krediler'],
+  ['SME_LOANS', 'SME loans', '1.0.11', 'KOBİ Kredileri']
+];
 const TURKEY_TRADE_MONTHS = 'ocak subat mart nisan mayis haziran temmuz agustos eylul ekim kasim aralik'.split(' ');
 const TURKEY_TRADE_ITEMS = [
   ['EXPORTS', 'Goods exports', 'ihracat', 'Millones de USD'],
@@ -36,6 +48,35 @@ const TURKEY_TRADE_FILES = [
   ['15', 'EX_GOLD', 'excluding gold', 'altin haric dis ticaret verileri']
 ];
 const TURKEY_TRADE_BEC_GROUPS = ['Capital goods', 'Intermediate goods', 'Consumer goods', 'Other goods'];
+const TURKEY_BUDGET_REPORTS = [
+  ['Bütçe Gelir Tabloları', 'gelirleri', [
+    ['REVENUE', 'Central government budget revenue', 'merkezi yonetim gelirleri'],
+    ['GENERAL_REVENUE', 'General budget revenue', 'genel butce gelirleri'],
+    ['TAX', 'Tax revenue', 'i-vergi gelirleri'],
+    ['INCOME_TAX', 'Personal income tax', 'a) gelir vergisi'],
+    ['CORPORATE_TAX', 'Corporate income tax', 'b) kurumlar vergisi'],
+    ['DOMESTIC_VAT', 'Domestic VAT', 'a) dahilde alinan katma deger vergisi'],
+    ['IMPORT_VAT', 'Import VAT', 'b) ithalde alinan katma deger vergisi'],
+    ['EXCISE', 'Special consumption tax', 'b) ozel tuketim vergisi'],
+    ['CUSTOMS_DUTIES', 'Customs duties', 'a) gumruk vergileri'],
+    ['ENTERPRISE_PROPERTY', 'Enterprise and property revenue', 'ii-tesebbus ve mulkiyet gelirleri'],
+    ['CAPITAL_REVENUE', 'Capital revenue', 'v-sermaye gelirleri']
+  ]],
+  ['Bütçe Gider Tabloları', 'giderleri', [
+    ['EXPENDITURE', 'Central government budget expenditure', 'merkezi yonetim butce giderleri (a+b)'],
+    ['NON_INTEREST', 'Non-interest expenditure', 'a) faiz haric butce giderleri'],
+    ['PERSONNEL', 'Personnel expenditure', '1. personel giderleri'],
+    ['SOCIAL_PREMIUMS', 'Government social insurance contributions', '2. sosyal guvenlik kurumlarina devlet primi giderleri'],
+    ['GOODS_SERVICES', 'Purchases of goods and services', '3. mal ve hizmet alim giderleri'],
+    ['CURRENT_TRANSFERS', 'Current transfers', '4. cari transferler'],
+    ['CAPITAL_EXPENDITURE', 'Capital expenditure', '5. sermaye giderleri'],
+    ['CAPITAL_TRANSFERS', 'Capital transfers', '6. sermaye transferleri'],
+    ['LENDING', 'Lending', '7. borc verme'],
+    ['INTEREST', 'Interest expenditure', 'b. faiz giderleri'],
+    ['DOMESTIC_INTEREST', 'Domestic debt interest', 'a) ic borc faiz odemeleri'],
+    ['FOREIGN_INTEREST', 'External debt interest', 'b) dis borc faiz odemeleri']
+  ]]
+];
 
 function previewTurkeyWorkbook() {
   runTurkeyWorkbook_(false);
@@ -76,7 +117,16 @@ function runTurkeyWorkbook_(publish) {
       const previous = parseDashboardSheets_(dictionaryRows, observationRows, timezone);
       const sources = [
         ['Tesoro', () => fetchTurkeyTreasury_(today)],
-        ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series.TR_BDDK_W_LOANS)],
+        ['Presupuesto central · Detay2', () => {
+          try {
+            return fetchTurkeyBudget_(today, previous.series);
+          } catch (error) {
+            console.log('Presupuesto central · acceso directo incompleto: ' + error.message);
+            return fetchTurkeyVerifiedSeries_(previous.series, [], today, 'Presupuesto central',
+              (id, row) => id.startsWith('TR_HMB_BUDGET_M_') && row.source_url === TURKEY_PRODUCER.budgetPage);
+          }
+        }],
+        ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series)],
         ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)],
         ['Comercio exterior · cifras principales', () => fetchTurkeyTrade_(today, previous.series)]
       ];
@@ -211,6 +261,42 @@ function readTurkeyTradeBec_(sheets, year, month, heading) {
   });
 }
 
+function readTurkeyTradeHistory_(sheets, through) {
+  const rows = turkeyTradeRows_(sheets, 'aylara gore dis ticaret');
+  const headings = ['yil', 'ay', 'ihracat', 'ithalat', 'hacim', 'denge', 'karsilama orani(%)'];
+  const header = rows.findIndex(row => headings.every((heading, index) => turkeyTradeText_(row[index]) === heading));
+  if (header < 0) throw new Error('Comercio exterior: columnas inesperadas en el histórico.');
+  const points = rows.slice(header + 1).filter(([year]) => Number.isInteger(year)).map(([year, month, ...values]) => {
+    if (!Number.isInteger(month) || month < 1 || month > 12 || year < 2013 || values.length < 5 ||
+        !values.slice(0, 5).every(Number.isFinite)) throw new Error('Comercio exterior: fila mensual inválida.');
+    const day = turkeyTradePoint_(year, month, 0)[0];
+    return [day, values.slice(0, 5)];
+  }).filter(([day]) => day <= through).sort(([a], [b]) => a.localeCompare(b));
+  let expected = '2013-01-01';
+  for (const [day] of points) {
+    if (day !== expected) throw new Error('Comercio exterior: falta o se repite el mes ' + expected + '.');
+    const [year, month] = day.split('-').map(Number);
+    expected = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  }
+  if (points.at(-1)?.[0] !== through) throw new Error('Comercio exterior: el histórico omite el mes del boletín.');
+  return TURKEY_TRADE_ITEMS.map((_, i) => points.map(([day, values]) => [day, values[i]]));
+}
+
+function loadTurkeyTradeHistory_(page, live, previous, year, month) {
+  const summary = TURKEY_TRADE_ITEMS.map(([code]) => live.find(series => series.id === 'TR_TRADE_M_' + code));
+  if (summary.some(series => !series)) return;
+  if (summary.every(series => previous[series.id]?.observaciones[0]?.[0] === '2013-01-01')) return;
+  const url = turkeyTradeWorkbookLink_(page.html, '02').replace('https://ticaret.gov.tr', page.host);
+  const blob = turkeyResponse_(UrlFetchApp.fetch(url, { muteHttpExceptions: true }), 'Excel de comercio por mes')
+    .getBlob().setContentType(DASHBOARD_UPLOAD.xlsx);
+  const history = withDashboardSpreadsheet_(blob, 'Foreign trade by month', workbook => readTurkeyTradeHistory_(
+    workbook.getSheets().map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]), turkeyTradePoint_(year, month, 0)[0]));
+  summary.forEach((series, i) => {
+    const known = new Set([...(previous[series.id]?.observaciones || []), ...series.data].map(([day]) => day));
+    series.data = [...history[i].filter(([day]) => !known.has(day)), ...series.data].sort(([a], [b]) => a.localeCompare(b));
+  });
+}
+
 function fetchTurkeyTradeFile_(page, bulletin, file, year, month) {
   const [number, variant, qualifier, heading] = file;
   const url = turkeyTradeWorkbookLink_(page.html, number).replace('https://ticaret.gov.tr', page.host);
@@ -246,13 +332,12 @@ function fetchTurkeyTradePage_(bulletin) {
   throw new Error(errors.join(' | '));
 }
 
-function fetchTurkeyVerifiedTrade_(previous, live, today) {
+function fetchTurkeyVerifiedSeries_(previous, live, today, topic, accepts) {
   const response = turkeyResponse_(UrlFetchApp.fetch(TURKEY_PRODUCER.verified, { muteHttpExceptions: true }), 'Copia verificada de Türkiye');
   const records = JSON.parse(response.getContentText()).series || {};
   const byId = new Map(live.map(series => [series.id, series]));
-  const verified = Object.entries(records).filter(([id, row]) => /^TR_TRADE_M_[A-Z0-9_]+$/.test(id)
-    && row.bloque === 'EXTERNAL_TRADE' && /^https:\/\/ticaret\.gov\.tr\//.test(row.source_url || ''));
-  if (!verified.length) throw new Error('La copia verificada no contiene series de comercio exterior.');
+  const verified = Object.entries(records).filter(([id, row]) => accepts(id, row));
+  if (!verified.length) throw new Error('La copia verificada no contiene series de ' + topic + '.');
   let latest = '';
   for (const [id, row] of verified) {
     const current = byId.get(id), saved = previous[id];
@@ -263,11 +348,12 @@ function fetchTurkeyVerifiedTrade_(previous, live, today) {
     if (!data.length) continue;
     const verifiedSeries = turkeySeries_(id, row.titulo_serie, row.subtitulo_descripcion, 'Monthly', row.bloque, row['área'],
       row.fuente, row.source_url, data, row.unidad);
+    if (row.transformacion_y_calculo) verifiedSeries.entry.transformacion_y_calculo = row.transformacion_y_calculo;
     const savedDate = saved?.observaciones?.at(-1)?.[0];
     const entry = current?.entry || (savedDate > verifiedDate ? saved : verifiedSeries.entry);
     byId.set(id, { id, entry, data: [...verifiedSeries.data, ...(current?.data || [])].sort(([a], [b]) => a.localeCompare(b)) });
   }
-  console.log('Comercio exterior · copia verificada hasta ' + latest + '. Se conservan las observaciones ya guardadas.');
+  console.log(topic + ' · copia verificada hasta ' + latest + '. Se conservan las observaciones ya guardadas.');
   return [...byId.values()];
 }
 
@@ -290,6 +376,11 @@ function fetchTurkeyTrade_(today, previous = {}) {
           return [];
         }
       });
+      try {
+        loadTurkeyTradeHistory_(page, live, previous, reportYear, reportMonth);
+      } catch (error) {
+        console.log('Comercio exterior · histórico: ' + error.message);
+      }
       if (live.length === TURKEY_TRADE_ITEMS.length * 3 + TURKEY_TRADE_BEC_GROUPS.length * 2) return live;
     } catch (error) {
       errors.push(reportYear + '-' + String(reportMonth).padStart(2, '0') + ': ' + error.message);
@@ -297,7 +388,8 @@ function fetchTurkeyTrade_(today, previous = {}) {
     if (offset === 1 || live.length) {
       console.log('Comercio exterior · acceso directo incompleto: ' + errors.join(' | '));
       try {
-        return fetchTurkeyVerifiedTrade_(previous, live, today);
+        return fetchTurkeyVerifiedSeries_(previous, live, today, 'Comercio exterior',
+          (id, row) => /^TR_TRADE_M_[A-Z0-9_]+$/.test(id) && row.bloque === 'EXTERNAL_TRADE' && row.source_url?.startsWith(TURKEY_PRODUCER.trade));
       } catch (error) {
         errors.push(error.message);
       }
@@ -305,6 +397,87 @@ function fetchTurkeyTrade_(today, previous = {}) {
     if (live.length) return live;
   }
   throw new Error(errors.join(' | '));
+}
+
+function turkeyBudgetGroup_(html, year) {
+  const section = new RegExp(String.raw`data-name="${year} Merkezi Yönetim Konsolide Bütçe İstatistikleri"[^>]*>[^<]*</a>([\s\S]*?)(?=data-name="\d{4} |$)`, 'i');
+  const block = html.match(section)?.[1] || '';
+  return TURKEY_BUDGET_REPORTS.map(([label]) => {
+    const id = new RegExp('data-name="' + label + '"\\s+data-id="(\\d+)"').exec(block)?.[1];
+    if (!id) throw new Error('Presupuesto ' + year + ': falta ' + label + '.');
+    return id;
+  });
+}
+
+function readTurkeyBudget_(sheets, report, year, today) {
+  const [, kind, items] = report;
+  const title = year + ' yili merkezi yonetim butce ' + kind;
+  const found = sheets.filter(([, rows]) => rows.some(row =>
+    row.some(cell => turkeyTradeText_(cell).startsWith(title))));
+  if (found.length !== 1) throw new Error('Presupuesto ' + year + ': título o año inesperado.');
+  const rows = found[0][1];
+  if (!rows.some(row => row.some(cell => turkeyTradeText_(cell) === '(bin tl)'))) {
+    throw new Error('Presupuesto ' + year + ': unidad distinta de miles de TRY.');
+  }
+  const header = rows.find(row => TURKEY_TRADE_MONTHS.every(month => row.some(cell => turkeyTradeText_(cell) === month)));
+  if (!header) throw new Error('Presupuesto ' + year + ': faltan los encabezados mensuales.');
+  const columns = TURKEY_TRADE_MONTHS.map(month => header.findIndex(cell => turkeyTradeText_(cell) === month));
+  return items.map(([, , label]) => {
+    const matched = rows.filter(row => turkeyTradeText_(row[1]) === label);
+    if (matched.length !== 1) throw new Error('Presupuesto ' + year + ': partida ausente o duplicada: ' + label);
+    return columns.flatMap((column, i) => {
+      const value = matched[0][column];
+      const day = turkeyTradePoint_(year, i + 1, 0)[0];
+      if (day > today || value == null || value === '') return [];
+      if (!Number.isFinite(value)) throw new Error('Presupuesto ' + year + ': importe inválido en ' + day);
+      return [[day, value / 1000]];
+    });
+  });
+}
+
+function fetchTurkeyBudget_(today, previous = {}) {
+  const config = TURKEY_PRODUCER;
+  const catalogueUrl = config.budgetApi + 'pages?slug=merkezi-yonetim-butce-istatistikleri';
+  const catalogue = JSON.parse(turkeyResponse_(UrlFetchApp.fetch(catalogueUrl, { muteHttpExceptions: true }), 'Catálogo presupuesto').getContentText());
+  const content = catalogue[0]?.content?.rendered || '';
+  const year = +today.slice(0, 4);
+  const years = previous.TR_HMB_BUDGET_M_REVENUE?.observaciones[0]?.[0] <= (year - 1) + '-01-01' ? [year] : [year - 1, year];
+  const series = {};
+  const source = 'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Presupuesto del Gobierno central';
+  for (const reportYear of years) {
+    const ids = turkeyBudgetGroup_(content, reportYear);
+    TURKEY_BUDGET_REPORTS.forEach((report, index) => {
+      const [label, kind, fields] = report;
+      const endpoint = config.budgetApi + 'files?id=' + ids[index] + '&name=' + encodeURIComponent(label);
+      const listing = JSON.parse(turkeyResponse_(UrlFetchApp.fetch(endpoint, { muteHttpExceptions: true }), 'Catálogo Detay2').getContentText());
+      const urls = new Set((listing.content || '').match(/https:\/\/ms\.hmb\.gov\.tr\/uploads\/[\w/.-]*Detay2[\w.-]*\.xlsx?(?=["'])/gi) || []);
+      if (urls.size !== 1) throw new Error('Presupuesto ' + reportYear + ': falta el Excel Detay2 de ' + kind + '.');
+      const url = [...urls][0];
+      const file = turkeyResponse_(UrlFetchApp.fetch(url, { muteHttpExceptions: true }), 'Presupuesto Detay2').getBlob()
+        .setContentType(/\.xlsx$/i.test(url) ? DASHBOARD_UPLOAD.xlsx : config.xls);
+      const data = withDashboardSpreadsheet_(file, 'Central government budget', workbook => readTurkeyBudget_(
+        workbook.getSheets().map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]), report, reportYear, today));
+      fields.forEach(([key, title], i) => {
+        const target = series[key] ||= { title, data: [] };
+        target.data.push(...data[i]);
+      });
+    });
+  }
+  for (const [key, title, expenses] of [['BALANCE', 'Budget balance', 'EXPENDITURE'],
+    ['PRIMARY_BALANCE', 'Primary budget balance', 'NON_INTEREST']]) {
+    const spending = new Map(series[expenses].data);
+    series[key] = { title, data: series.REVENUE.data.filter(([day]) => spending.has(day))
+      .map(([day, value]) => [day, value - spending.get(day)]) };
+  }
+  return Object.entries(series).map(([id, { title, data }]) => {
+    const derived = ['BALANCE', 'PRIMARY_BALANCE'].includes(id);
+    const result = turkeySeries_('TR_HMB_BUDGET_M_' + id, title,
+      'Central government budget · monthly actuals (Detay2)', 'Monthly', 'CENTRAL_GOVERNMENT_BUDGET', 'public_finances',
+      source, config.budgetPage, data);
+    if (derived) result.entry.transformacion_y_calculo = id === 'BALANCE'
+      ? 'Ingresos menos gastos.' : 'Ingresos menos gastos sin intereses.';
+    return result;
+  });
 }
 
 function fetchTurkeyTreasury_(today) {
@@ -360,21 +533,36 @@ function fetchTurkeyWeekly_(today, previous) {
   const release = page.match(/"tarih":\s*'(\d{2}\.\d{2}\.\d{4})'/)?.[1];
   if (!release) throw new Error('BDDK semanal: falta la fecha del boletín.');
   const endpoint = source + '/tr/Home/KiyaslamaJsonGetir';
-  const { url, ...options } = turkeyBankRequest_(endpoint,
-    { dil: 'tr', tarih: release, id: '1.0.1', parabirimi: 'TRY', sutun: 3, tarafKodu: '10001', gun: 90 });
-  let data;
+  const requests = TURKEY_WEEKLY_REPORTS.map(([, , id]) => turkeyBankRequest_(endpoint,
+    { dil: 'tr', tarih: release, id, parabirimi: 'TRY', sutun: 3, tarafKodu: '10001', gun: 90 }));
+  let responses = [];
   try {
-    const response = turkeyResponse_(UrlFetchApp.fetch(url, options), 'BDDK histórico semanal');
-    data = readTurkeyWeeklyBank_(JSON.parse(response.getContentText()), today);
-    if (!data.length || data.some(([, value]) => !Number.isFinite(value))) throw new Error('Histórico sin valores válidos.');
+    responses = UrlFetchApp.fetchAll(requests);
   } catch (error) {
-    const point = readTurkeyWeeklyBulletin_(page, release, today);
-    const existing = previous?.observaciones.find(([day]) => day === point[0]);
-    data = [existing || point];
-    console.log('BDDK semanal · ' + error.message + (existing ? ' Se conserva el dato guardado de ' : ' Se usa el último dato del boletín de ') + point[0] + '.');
+    console.log('BDDK semanal · histórico no disponible: ' + error.message);
   }
-  return [turkeySeries_('TR_BDDK_W_LOANS', 'Total bank loans', 'Banking sector · Toplam Krediler (1.0.1)',
-    'Weekly', 'BANKING', 'banking', 'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal', source, data)];
+  const series = TURKEY_WEEKLY_REPORTS.flatMap(([key, title, code, label], index) => {
+    const id = 'TR_BDDK_W_' + key;
+    let data;
+    try {
+      if (!responses[index]) throw new Error('Histórico no disponible.');
+      const response = turkeyResponse_(responses[index], 'BDDK histórico semanal');
+      data = readTurkeyWeeklyBank_(JSON.parse(response.getContentText()), today, label);
+      if (!data.length || data.some(([, value]) => !Number.isFinite(value))) throw new Error('Histórico sin valores válidos.');
+    } catch (error) {
+      try {
+        const point = readTurkeyWeeklyBulletin_(page, release, today, code);
+        data = [previous[id]?.observaciones.find(([day]) => day === point[0]) || point];
+      } catch (bulletinError) {
+        console.log(id + ' · ' + error.message + ' ' + bulletinError.message);
+        return [];
+      }
+    }
+    return [turkeySeries_(id, title, 'Banking sector · ' + label + ' (' + code + ')',
+      'Weekly', 'BANKING', 'banking', 'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal', source, data)];
+  });
+  if (!series.length) throw new Error('BDDK semanal: no se pudo validar ninguna serie.');
+  return series;
 }
 
 function turkeyWeekDate_(date) {
@@ -385,18 +573,21 @@ function turkeyWeekDate_(date) {
   return day;
 }
 
-function readTurkeyWeeklyBulletin_(page, release, today) {
+function readTurkeyWeeklyBulletin_(page, release, today, code) {
   const date = turkeyWeekDate_(release);
-  const cell = page.match(/<td\b(?=[^>]*\bdata-label="TOPLAM")(?=[^>]*ShowModalGraph\(\s*'1\.0\.1'\s*,\s*'TRY'\s*,\s*3\s*\))[^>]*>([^<]+)<\/td>/i)?.[1]?.trim();
+  const graph = "ShowModalGraph\\(\\s*'" + code.replace(/\./g, '\\.') + "'\\s*,\\s*'TRY'\\s*,\\s*3\\s*\\)";
+  const pattern = new RegExp('<td\\b(?=[^>]*\\bdata-label="TOPLAM")(?=[^>]*' + graph + ')[^>]*>([^<]+)</td>', 'i');
+  const cell = page.match(pattern)?.[1]?.trim();
   if (!cell || !/Milyon TL/.test(page) || date > today || !/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/.test(cell)) {
-    throw new Error('BDDK semanal: no se pudo verificar el último crédito total del boletín.');
+    throw new Error('BDDK semanal: no se pudo verificar el último dato de ' + code + '.');
   }
   return [date, Number(cell.replace(/\./g, '').replace(',', '.'))];
 }
 
-function readTurkeyWeeklyBank_(report, today) {
+function readTurkeyWeeklyBank_(report, today, label) {
   const { Baslik: title, XEkseni: dates, YEkseni: values } = report;
-  if (!/^Toplam Krediler\b.*\(TRY\).*\[Toplam\].*\[Sektör\]/.test(title || '') ||
+  const name = turkeyTradeText_(title || '');
+  if (!name.includes(turkeyTradeText_(label)) || !/\(try\).*\[toplam\].*\[sektor\]/.test(name) ||
       !Array.isArray(dates) || !Array.isArray(values) || dates.length !== values.length) {
     throw new Error('BDDK semanal: respuesta inesperada para el crédito total del sector.');
   }

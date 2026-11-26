@@ -1408,14 +1408,14 @@ ${isEN()?`  <div class="prose">
 const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por la producción',
   HIGH_FREQUENCY_ACTIVITY:'Actividad de alta frecuencia',LABOUR_MARKET:'Mercado laboral',
   PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',BANKING:'Estadísticas bancarias',
-  TREASURY_CASH:'Caja del Tesoro',INFLATION:'Inflación',BALANCE_OF_PAYMENTS:'Balanza de pagos',
+  TREASURY_CASH:'Caja del Tesoro',CENTRAL_GOVERNMENT_BUDGET:'Presupuesto del Gobierno central',INFLATION:'Inflación',BALANCE_OF_PAYMENTS:'Balanza de pagos',
   EXTERNAL_TRADE:'Comercio exterior',INTEREST_RATES:'Tipos de interés',other:'Otras series'};
 const TURKEY_THEME_TABS=[{k:'actividad',l:'Actividad'},{k:'coyuntura',l:'Coyuntura'},{k:'empleo',l:'Empleo'},
   {k:'precios',l:'Precios'},{k:'credito',l:'Créditos y depósitos'},{k:'publico',l:'Sector público'},
   {k:'exterior',l:'Sector exterior'},{k:'financiero',l:'Financiero'}];
 const TURKEY_THEME_BY_BLOCK={GDP_EXPENDITURE:'actividad',GDP_PRODUCTION:'actividad',HIGH_FREQUENCY_ACTIVITY:'coyuntura',
   PMI_CAPACITY:'coyuntura',CONFIDENCE:'coyuntura',LABOUR_MARKET:'empleo',INFLATION:'precios',BANKING:'credito',
-  TREASURY_CASH:'publico',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',INTEREST_RATES:'financiero'};
+  TREASURY_CASH:'publico',CENTRAL_GOVERNMENT_BUDGET:'publico',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',INTEREST_RATES:'financiero'};
 const TURKEY_SOURCE_ALIASES={
   'Tesoro de Turquía (HMB) · Treasury Cash Realizations':'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro',
   'BDDK / BRSA · boletín semanal':'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal',
@@ -1433,6 +1433,10 @@ Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producció
   'Depósitos bancarios totales':'Total bank deposits','Semanal':'Weekly','Mensual':'Monthly',
   'Millones de USD':'USD millions',
   'Ministerio de Comercio de Türkiye · Boletín de comercio exterior':'Ministry of Trade of Türkiye · Foreign Trade Bulletin',
+  'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Presupuesto del Gobierno central':'Ministry of Treasury and Finance of Türkiye (HMB) · Central government budget',
+  'Presupuesto del Gobierno central':'Central government budget',
+  'Ingresos menos gastos.':'Revenue minus expenditure.',
+  'Ingresos menos gastos sin intereses.':'Revenue minus non-interest expenditure.',
   'Consumo, gasto público e inversión':'Consumption, government spending and investment',
   'Agricultura, industria y construcción':'Agriculture, industry and construction',
   'Exportaciones e importaciones':'Exports and imports'});
@@ -3102,6 +3106,7 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-lang-change',{detail:LANG})); }
 
 let driveData = { version: null, series: {} };
+let turkeyVerifiedSnapshot;
 let reloadSequence = 0;
 
 async function fetchDashboardBase(){
@@ -3168,9 +3173,27 @@ async function readDriveSnapshot(country,previousVersion){
 }
 async function fetchDriveSnapshot(previousVersion){
   const country=IS_TURKEY?'turkey':IS_USA?'usa':'spain';
-  if(!IS_TURKEY||previousVersion) return readDriveSnapshot(country,previousVersion);
-  const current=await readDriveSnapshot(country,null).catch(()=>null);
-  return current||readDriveSnapshot('turkey-verified',null);
+  if(!IS_TURKEY) return readDriveSnapshot(country,previousVersion);
+  const current=await readDriveSnapshot(country,previousVersion).catch(error=>{
+    if(previousVersion) throw error;
+    return null;
+  });
+  if(!current&&previousVersion) return null;
+  turkeyVerifiedSnapshot ||= readDriveSnapshot('turkey-verified',null).catch(()=>{
+    turkeyVerifiedSnapshot=null;
+    return null;
+  });
+  const verified=await turkeyVerifiedSnapshot;
+  if(!current||!verified) return current||verified;
+  const series={...verified.series,...current.series};
+  for(const [id,row] of Object.entries(current.series)){
+    const backup=verified.series[id];
+    if(!backup) continue;
+    const points=new Map(backup.data.map(point=>[point[0],point]));
+    row.data.forEach(point=>points.set(point[0],point));
+    series[id]={...row,data:[...points.values()].sort(([a],[b])=>a.localeCompare(b))};
+  }
+  return {...current,series,latest:[current.latest,verified.latest].sort().at(-1)};
 }
 
 async function reload(manual){

@@ -1,5 +1,6 @@
 """Browser regression tests against the checked-in pages and data."""
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -175,7 +176,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.route('**/snapshots/turkey.json', lambda route: route.fulfill(json=example))
         page.goto(f'{ORIGIN}/turquia.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
-        expect(page.locator('#stamp')).to_contain_text('29 series')
+        expect(page.locator('#stamp')).to_contain_text('61 series')
         expect(page.locator('#foot a')).to_have_count(3)
         source = page.locator('#bbchart .source-publisher').first
         expect(source).to_contain_text('Ministry of Treasury and Finance of Türkiye')
@@ -185,6 +186,20 @@ class DashboardBrowserTests(unittest.TestCase):
         csv = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Treasury Cash Realizations', csv)
         self.assertIn('https://en.hmb.gov.tr/public-finance', csv)
+
+    def test_turkiye_combines_new_live_values_with_verified_history(self):
+        page = self.start_page()
+        verified = json.loads((ROOT / 'drive_ingestion/snapshots/turkey-verified.json').read_text(encoding='utf-8'))
+        code = 'TR_TRADE_M_EXPORTS'
+        entry = {**verified['series'][code], 'observaciones': [['2026-10-01', 25885]]}
+        page.route('**/snapshots/turkey.json', lambda route: route.fulfill(json={'series': {code: entry}}))
+        page.goto(f'{ORIGIN}/turquia.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        expect(page.locator('#stamp')).to_contain_text('61 series')
+        points = page.evaluate("DATA.series.drive_tr_TR_TRADE_M_EXPORTS.data")
+        self.assertEqual(len(points), 166)
+        self.assertEqual(points[0][:2], ['2013-01-01', 12263])
+        self.assertEqual(points[-1][:2], ['2026-10-01', 25885])
 
 
 if __name__ == '__main__':
