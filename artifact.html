@@ -206,9 +206,11 @@ table.fc td.f{font-weight:600}
 .pchip .big-reference{color:inherit;font:inherit;text-align:left;padding:0}
 .pchip .big-reference[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px}
 .big-title h3{text-transform:none;letter-spacing:normal}
-.transform-control{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:2px 0}
-.transform-field{display:flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:100%}
-.transform-control select{max-width:100%}
+.transform-control{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:end;gap:8px}
+.transform-field{display:grid;gap:4px;min-width:0}
+.transform-field>select.axsel{min-width:0;max-width:none;text-overflow:ellipsis}
+.transform-field>.picklab{font-size:10px;letter-spacing:.06em}
+#bblg:empty{display:none}
 .transform-sources{display:flex;flex-wrap:wrap;gap:4px 8px}
 .transform-sources span{font-size:12px;color:var(--muted)}
 .transform-sources b{font-weight:600}

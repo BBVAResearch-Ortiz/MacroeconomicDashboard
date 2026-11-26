@@ -230,6 +230,21 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('[data-status=calculated]')).to_contain_text('percentage points')
         expect(page.locator('#bbchart svg')).to_be_visible()
 
+    def test_transform_and_seasonality_share_a_row(self):
+        page = self.start_page()
+        for width in (1180, 390, 320):
+            with self.subTest(width=width):
+                page.set_viewport_size({'width': width, 'height': 900})
+                page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+                self.assert_blackboard(page, 'en')
+                for mode in ('lines', 'scatter'):
+                    page.locator(f'[data-bbm={mode}]').click()
+                    transform = page.locator('#board-transform').bounding_box()
+                    seasonal = page.locator('#board-transform-seasonal').bounding_box()
+                    self.assertAlmostEqual(transform['y'], seasonal['y'], delta=1)
+                    self.assertLess(transform['x'] + transform['width'], seasonal['x'])
+                    self.assertLessEqual(seasonal['x'] + seasonal['width'], width)
+
     def test_big_data_catalogue_and_csv_header(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#bigdata')
