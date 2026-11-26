@@ -32,6 +32,14 @@ La ficha «DSGE FRB-NY» de la sección Modelos muestra las previsiones que publ
 - Es un cálculo propio, no un escenario de la Fed: los parámetros por defecto no tienen por qué coincidir con su estimación actual, y las bandas no se recalculan.
 - `dsge_irf.jl` regenera el archivo (instrucciones de instalación en su cabecera). Solo hace falta si cambian el modelo o los parámetros; no depende de los datos de cada trimestre.
 
+## CPI Nowcasting (Fed de Cleveland)
+
+La ficha «CPI Nowcasting» muestra el nowcast de inflación que publica la Fed de Cleveland (CPI y PCE, general y subyacente); aquí no se ejecuta el modelo.
+
+- `update_inflation_nowcast.py` descarga los tres archivos públicos de la Fed de Cleveland (mes, trimestre e interanual) y escribe `inflation_nowcast.json`: seis meses de referencia con la trayectoria diaria del nowcast, tres trimestres y el historial de 36 meses de nowcast final frente a dato publicado.
+- El workflow `update-data.yml` lo ejecuta cada día hábil. La página incrusta el último archivo y además lo vuelve a pedir al abrirse, así que basta con que el workflow actualice el JSON.
+- El error absoluto medio del historial se calcula en la página a partir de ese archivo.
+
 ## Catálogo de series (FRED)
 
 `scripts/fetch_usa_apis.py` descarga 55 series de FRED. El campo `bloque` de cada serie decide su categoría en el desplegable del Blackboard, que solo muestra estas ocho, sin subcategorías:
