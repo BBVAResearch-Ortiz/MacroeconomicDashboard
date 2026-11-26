@@ -209,6 +209,8 @@ table.fc td.f{font-weight:600}
 @media(min-width:901px){.board-layout{grid-template-columns:260px minmax(0,1fr)}}
 @media(max-width:900px){.board-layout>.bbside{position:static}}
 .board-figure{margin:0;min-width:0}
+.board-figure .board-chart-title{margin:0;font:600 16px/1.25 var(--sans);color:var(--chart-ink);text-transform:none;letter-spacing:normal;overflow-wrap:anywhere}
+.bbgallery>.board-chart-title{margin-bottom:6px}
 .board-layout .board-figure.fig{gap:6px;padding:clamp(8px,1vw,14px)}
 .board-layout .board-figure>.chart-range{margin:0}
 .board-figure .period-controls{flex-wrap:wrap}
@@ -319,10 +321,12 @@ table.fc td.f{font-weight:600}
 .mcol .pickrow{flex-direction:column;align-items:stretch;gap:12px}
 .mcol .pickrow .picks{flex:0 0 auto}
 .warnline{font-size:13px;color:var(--flag);background:var(--flag-bg);border-radius:6px;padding:8px 12px;margin:0 0 12px;max-width:80ch}
-.fig>.scatter-analysis{order:2;display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--chart-grid)}
+.scatter-analysis{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--chart-grid)}
 .scatter-analysis .fit-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
 .scatter-analysis .seg{flex-wrap:wrap}
-.scatter-analysis dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px 16px;margin:6px 0}
+.scatter-analysis dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;margin:6px 0}
+.scatter-analysis .figure-csv-footer{justify-content:flex-start}
+#bb-scatter-sources:empty{display:none}
 .scatter-analysis dt{font-size:12px;color:var(--muted)}
 .scatter-analysis dd{margin:2px 0 0;color:var(--chart-ink);font-variant-numeric:tabular-nums;font-weight:600}
 .chk{display:inline-flex;gap:8px;align-items:center;font-size:13.5px;color:var(--ink);cursor:pointer;padding:8px 0}
@@ -800,14 +804,15 @@ function seriesSourceMarkup(series){
 function bindChartSources(host,series){
   const figure=host.closest('figure');
   if(!figure) return;
+  const container=(figure.dataset.sourcesSlot&&document.getElementById(figure.dataset.sourcesSlot))||figure;
   const rows=[...new Set(series)].filter(s=>s?.source).map(s=>
     `<li><span class="series-source-name">${esc(L10(s.label))}</span>${seriesSourceMarkup(s)}</li>`).join('');
-  const existing=figure.querySelector(':scope > .series-chart-sources');
+  const existing=container.querySelector(':scope > .series-chart-sources');
   if(!rows){existing?.remove();return;}
   const details=existing||document.createElement('details');
   details.className='series-chart-sources';
   details.innerHTML=`<summary>${isEN()?'Sources by series':'Fuentes por serie'}</summary><ul>${rows}</ul>`;
-  if(!existing) figure.insertBefore(details,figure.querySelector(':scope > .figure-csv-footer, :scope > figcaption'));
+  if(!existing) container.insertBefore(details,container.querySelector(':scope > .figure-csv-footer, :scope > figcaption'));
 }
 function chartReadings(host,series,percentScale){
   const title=isEN()?'Latest visible readings':'Últimos datos visibles';
@@ -1867,7 +1872,7 @@ function drawScatter(host,pts,f,X,Y,fit,trail=false,height){
 }
 
 /* -------------------------------------------------------------- shell */
-const transformKinds=Object.keys(SERIES_TRANSFORMS.kinds);
+const transformKinds=Object.keys(SERIES_TRANSFORMS.kinds).filter(kind=>kind!=='delta');
 Object.assign(EN,Object.fromEntries(transformKinds.map(kind=>[
   SERIES_TRANSFORMS.names(kind,false),SERIES_TRANSFORMS.names(kind,true)
 ])));
@@ -1972,7 +1977,9 @@ function scatterControls(plan){
     <div class="fit-tools"><div class="seg" role="group" aria-label="${isEN()?'Fit':'Ajuste'}">
       ${SCATTER_FITS.map(([kind,label])=>`<button type="button" data-bbf="${kind}" aria-pressed="${bb.fit===kind}">${label}</button>`).join('')}
     </div><label class="chk"><input type="checkbox" id="bb-trail"${bb.trail?' checked':''}> Unir puntos en orden temporal</label></div>
-    <div id="bb-fit-stats" aria-live="polite"></div></section>`;
+    <div id="bb-fit-stats" aria-live="polite"></div>
+    <div id="bb-scatter-sources"></div><div class="figure-csv-footer" id="bb-scatter-csv"></div>
+  </section>`;
 }
 function renderScatterStats(host,points,fit){
   const {pts,f,X,Y}=points;
@@ -2175,19 +2182,37 @@ function loadHeatExample(){
   bb.picks=exIds().filter(id=>S()[id].freq==='M').slice(0,8);
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
-function usaBoardFigureTitle(series,mixedFrequencies){
+function boardComparisonTitle(rows,catalog){
+  const ids=rows.filter(row=>row.series).map(row=>row.id);
+  if(!ids.length) return '';
+  const names=ids.map(id=>L10(S()[id].label).replace(/\s*\((?=[^()]*(?:\bcvec\b|\bbruto\b|\bgross\b|\braw\b|sin ajustar|unadjusted|seasonally adjusted))[^()]*\)\s*$/i,''));
+  const firstName=normalizeSearch(names[0]);
+  const family=catalog.byId.get(ids[0])?.p.family;
+  if(names.every(name=>normalizeSearch(name)===firstName)||family&&ids.every(id=>catalog.byId.get(id)?.p.family===family)){
+    return names[0];
+  }
+  const groups=ids.map(id=>explorerPath(id).slice(0,2));
+  const [area,block]=groups[0];
+  if(groups.every(path=>path[0]===area)){
+    return L10(block&&groups.every(path=>path[1]===block)?block:area);
+  }
+  const areas=[...new Set(groups.map(([area])=>L10(area)))];
+  const comparison=areas.slice(0,2).join(' vs. ');
+  return areas.length>2?`${comparison} + ${areas.length-2}`:comparison;
+}
+function usaBoardFigureTitle(series,mixedFrequencies,comparisonTitle){
   if(!series.length) return bb.picks.length
     ? {title:isEN()?'No compatible series':'No hay series compatibles',subtitle:''}
     : {title:'Pizarra vacía',subtitle:'Elige series en el panel de la izquierda'};
   const [x,y]=series;
   if(bb.mode==='scatter') return y
-    ? {title:`${y.label} frente a ${x.label}`,subtitle:`X: ${unitLabel(x.unit)} · Y: ${unitLabel(y.unit)} · ${isEN()?'Full history':'Historia completa'}`}
-    : {title:x.label,subtitle:'Dispersión: elige una segunda serie para el eje Y'};
-  if(bb.mode==='heat') return {title:'Mapa de calor',subtitle:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
+    ? {title:comparisonTitle,subtitle:`X: ${unitLabel(x.unit)} · Y: ${unitLabel(y.unit)} · ${isEN()?'Full history':'Historia completa'}`}
+    : {title:comparisonTitle,subtitle:'Dispersión: elige una segunda serie para el eje Y'};
+  if(bb.mode==='heat') return {title:comparisonTitle,subtitle:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
   const mode=BB_MODES.find(([key])=>key===bb.mode)?.[1];
   const units=[...new Set(series.map(s=>s.unit==='% PIB'?'% del PIB':s.unit))];
   const conversion=mixedFrequencies?' · las series de mayor frecuencia se promedian a la menor':'';
-  return {title:series.map(s=>s.label).join(' / '),subtitle:`${mode} · ${units.join(' · ')}${conversion}`};
+  return {title:comparisonTitle,subtitle:`${mode} · ${units.join(' · ')}${conversion}`};
 }
 let openScatterLink=false;
 function chooseScatterPair(catalog,kind,adjustment){
@@ -2242,7 +2267,9 @@ function viewBoard(){
   const mixedUnits=['lines','bars','stack'].includes(bb.mode)&&units.size>1;
   const mixedFrequencies=['bars','stack'].includes(bb.mode)&&new Set(series.map(s=>s.freq)).size>1;
   const gallery=bb.mode==='multiples';
-  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(series,mixedFrequencies):null;
+  const scatter=bb.mode==='scatter';
+  const comparisonTitle=boardComparisonTitle(plan.rows,catalog);
+  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(series,mixedFrequencies,comparisonTitle):null;
   const usaIds=IS_USA&&!gallery?registerPlotSeries(plan.rows,'__plot_board_').map(({id})=>id):[];
   const transformFocused=document.activeElement?.id;
   const tree=explorerGroups();
@@ -2256,15 +2283,16 @@ function viewBoard(){
      ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:transformationControls('board-transform',plan,false)}
      ${!IS_USA&&bb.mode==='scatter'?bb.picks.map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join(''):''}
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
+     ${scatter?scatterControls(plan):''}
    </aside>
-   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${IS_USA?' data-csv-slot="bb-csv"':''}>
-     ${usaHeading?`<div class="figure-csv-title"><h3>${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:''}
+   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-csv-slot="bb-scatter-csv" data-sources-slot="bb-scatter-sources"':IS_USA?' data-csv-slot="bb-csv"':''}>
+     ${usaHeading?`<div class="figure-csv-title"><h3 class="board-chart-title">${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:
+       comparisonTitle?`<h3 class="board-chart-title">${esc(comparisonTitle)}</h3>`:''}
      ${bb.mode==='scatter'?`<div class="board-image-tools">${downloadImage}</div>`:chartRangeCtl(IS_USA,downloadImage)}
      <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
      ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
      ${!IS_USA&&mixedFrequencies?`<p class="note board-chart-note">${isEN()?'Higher-frequency series are averaged to match the lowest frequency.':'Las series de mayor frecuencia se promedian a la menor.'}</p>`:''}
-     ${bb.mode==='scatter'?scatterControls(plan):''}
-     ${IS_USA?(usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''):'<div class="figure-csv-footer"></div>'}
+     ${scatter?'':IS_USA?(usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''):'<div class="figure-csv-footer"></div>'}
    </figure></div>`;
   bindRange();
   if(bb.mode!=='scatter') bindExplorerSearch();

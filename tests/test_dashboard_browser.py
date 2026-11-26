@@ -285,21 +285,22 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('[data-bbm]')).to_have_count(7)
         chart = page.locator('#bbchart')
         analysis = page.get_by_role('region', name='Scatterplot analysis')
-        self.assertGreaterEqual(analysis.bounding_box()['y'], chart.bounding_box()['y'] + chart.bounding_box()['height'])
+        self.assertEqual(page.locator('.bbside .scatter-analysis').count(), 1)
+        analysis_box = analysis.bounding_box()
+        self.assertLessEqual(analysis_box['x'] + analysis_box['width'], chart.bounding_box()['x'])
         expect(analysis.get_by_role('button', name='Linear', exact=True)).to_have_attribute('aria-pressed', 'true')
         analysis.get_by_role('button', name='Quadratic').click()
         expect(page.locator('#bb-fit-stats')).to_contain_text('Quadratic R²')
         analysis.get_by_role('button', name='Non-linear (LOWESS)').click()
         expect(page.locator('#bb-fit-stats')).to_contain_text('LOWESS R²')
         transform = page.locator('.board-layout > aside').get_by_label('Transformation')
-        expect(transform.locator('option[value=delta]')).to_have_text(
-            'Change from previous observation'
-        )
-        transform.select_option('delta')
+        expect(transform.locator('option[value=delta]')).to_have_count(0)
+        transform.select_option('z')
         expect(page.locator('[data-status=calculated], [data-status=documented]')).to_have_count(0)
         expect(chart.locator('svg')).to_be_visible()
+        expect(analysis.locator('.series-chart-sources summary')).to_have_text('Sources by series')
         with page.expect_download() as pending:
-            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
+            analysis.get_by_role('button', name='Download CSV').click()
         downloaded = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Calculated here.', downloaded)
         self.assertIn('Source URL', downloaded)
@@ -376,7 +377,8 @@ class DashboardBrowserTests(unittest.TestCase):
         figure = page.locator('.board-figure')
         chart = figure.locator('#bbchart')
         tooltip = chart.locator('.tip')
-        expect(figure.locator('h3, .chart-readings, .chart-reading-value')).to_have_count(0)
+        expect(figure.locator('h3.board-chart-title')).to_be_visible()
+        expect(figure.locator('.chart-readings, .chart-reading-value')).to_have_count(0)
         expect(tooltip).to_be_hidden()
         chart.locator('#hit').hover()
         expect(tooltip).to_be_visible()
@@ -388,6 +390,21 @@ class DashboardBrowserTests(unittest.TestCase):
         bounds = chart.bounding_box()
         self.assertGreater(bounds['height'], 380)
         self.assertGreaterEqual(footer.bounding_box()['y'], bounds['y'] + bounds['height'])
+
+    def test_blackboard_title_uses_the_indicator_or_groups(self):
+        page = self.start_page()
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        title = page.locator('h3.board-chart-title')
+        cases = [
+            (['IPI_GEN_RAW', 'IPI_GEN_CVEC_INE'], re.compile(r'IPI.*general index', re.I)),
+            (['IPI_GEN_RAW', 'IPI_ENE_RAW'], 'Industrial production (IPI)'),
+            (['IPI_GEN_RAW', 'IASS_GEN_RAW'], 'Industry vs. Business activity'),
+        ]
+        for picks, expected in cases:
+            with self.subTest(picks=picks):
+                page.evaluate("(ids) => {bb.picks=ids.map(id=>'drive_es_'+id); viewBoard();}", picks)
+                expect(title).to_have_text(expected)
 
     def test_blackboard_downloads_a_png_from_chart_and_heat_map(self):
         page = self.start_page(viewport={'width': 1440, 'height': 900})
@@ -447,15 +464,17 @@ class DashboardBrowserTests(unittest.TestCase):
         page = self.start_page()
         page.add_init_script("""
             localStorage.setItem('mme-bb', JSON.stringify({
-                picks:['drive_es_IPI_GEN_RAW'], adjustment:'adjusted'
+                picks:['drive_es_IPI_GEN_RAW'], adjustment:'adjusted', tr:'delta'
             }))
         """)
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         select = page.locator('#board-transform')
         expect(select.locator('option[value=yoy]')).to_have_text('Year-on-year change')
-        expect(select.locator('option[value=delta]')).to_have_text('Change from previous observation')
-        select.select_option('delta')
+        expect(select).to_have_value('original')
+        expect(select.locator('option[value=delta]')).to_have_count(0)
+        expect(select.locator('option[value=z]')).to_have_text('Standardised')
+        select.select_option('z')
         expect(page.locator('[data-status=calculated], [data-status=documented]')).to_have_count(0)
         with page.expect_download() as pending:
             page.locator('.board-figure > .figure-csv-footer .csv-action').click()
