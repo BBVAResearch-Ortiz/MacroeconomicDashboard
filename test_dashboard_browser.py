@@ -547,6 +547,87 @@ class DashboardBrowserTests(unittest.TestCase):
         page.reload()
         expect(page.get_by_role('tab').nth(1)).to_have_attribute('aria-selected', 'true')
 
+    def test_usa_models_include_the_new_york_fed_dsge(self):
+        published = json.loads((ROOT / 'dsge_frbny.json').read_text(encoding='utf-8'))
+        current, previous = published['table']['current'], published['table']['previous']
+        number = lambda value: f'{round(value, 1) + 0:.1f}'.replace('.', ',')
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#modelos')
+        tiles = page.locator('#model-tiles .model-tile')
+        expect(tiles.locator('h2')).to_have_text(['GDPNow', 'FRB/US', 'DSGE FRB-NY'])
+        tiles.nth(2).click()
+        detail = page.locator('#model-dsge')
+        expect(detail).to_be_visible()
+        expect(page.locator('#model-gdpnow')).to_be_hidden()
+        expect(detail.locator('#dsge-headline strong')).to_have_text(
+            [f"{number(current['rows'][key][0][0])} %" for key in ('gdp', 'core_pce', 'rstar')])
+        expect(detail.locator('#dsge-stamp')).to_contain_text('18 de septiembre de 2026')
+        expect(detail).to_contain_text('aquí no se ejecuta el modelo')
+        expect(detail.locator('#dsge-source')).to_have_attribute('href', published['source_url'])
+        # Three fan charts, two revision charts and the table: three rows of two.
+        cards = detail.locator('#dsge-gallery > .card')
+        expect(cards).to_have_count(6)
+        boxes = [cards.nth(i).bounding_box() for i in range(6)]
+        self.assertEqual(len({round(box['y']) for box in boxes}), 3)
+        self.assertLess(boxes[0]['x'] + boxes[0]['width'], boxes[1]['x'])
+        # Bands are switchable; the default shows 50, 68 and 90 percent.
+        gdp = detail.locator('[data-dsge-chart=gdp]')
+        expect(gdp.locator('[data-dsge-band]')).to_have_count(3)
+        detail.get_by_role('button', name='80 %', exact=True).click()
+        expect(detail.locator('[data-dsge-chart=gdp] [data-dsge-band]')).to_have_count(4)
+        expect(detail.get_by_role('button', name='80 %', exact=True)).to_be_focused()
+        detail.get_by_role('button', name='80 %', exact=True).click()
+        # Hovering the last quarter reads the published mean and 68 percent band.
+        fan = published['fans']['gdp']
+        hit = gdp.locator('[data-dsge-hit]')
+        box = hit.bounding_box()
+        hit.hover(position={'x': box['width'] - 1, 'y': box['height'] / 2})
+        readout = gdp.locator('[data-dsge-readout]')
+        last = fan['dates'][-1]
+        quarter = f"T{(int(last[5:7]) + 2) // 3} {last[:4]}"
+        low, high = fan['bands']['68'][-1]
+        expect(readout).to_contain_text(f"{quarter} · previsión {number(fan['forecast'][-1])}")
+        expect(readout).to_contain_text(f"68 %: {number(low)} a {number(high)}")
+        page.mouse.move(5, 5)
+        expect(readout).to_contain_text('Pasa el cursor')
+        # The period switch adds the history back to 2021.
+        short = gdp.locator('[data-dsge-history]').get_attribute('d')
+        detail.get_by_role('button', name='Desde 2021').click()
+        self.assertGreater(len(detail.locator('[data-dsge-chart=gdp] [data-dsge-history]').get_attribute('d')), len(short))
+        for chart in ('rev-gdp', 'rev-core_pce'):
+            expect(detail.locator(f'[data-dsge-chart="{chart}"] [data-dsge-previous]')).to_have_count(1)
+        # Every figure of the published table appears unchanged, next to the previous release.
+        for key in ('gdp', 'core_pce', 'rstar'):
+            for index, year in enumerate(current['years']):
+                cells = detail.locator(f'[data-dsge-row="{key}-{year}"] td').all_inner_texts()
+                expected = [str(year)] + [f'{number(row[0])} ({number(row[1])}; {number(row[2])})'
+                                          for row in (current['rows'][key][index], previous['rows'][key][index])]
+                self.assertEqual([cell.strip() for cell in cells], expected)
+        scroll = detail.locator('.dsge-scroll')
+        self.assertLessEqual(scroll.evaluate('el => el.scrollWidth'), scroll.evaluate('el => el.clientWidth'))
+        page.locator('[data-lang=en]').click()
+        expect(detail.locator('[data-dsge-chart=gdp] h2')).to_have_text('GDP growth')
+        expect(detail.locator('#dsge-stamp')).to_contain_text('18 September 2026')
+        detail.locator('[data-close-model]').click()
+        expect(page.locator('#model-tiles')).to_be_visible()
+        # A direct link opens the model, like the other two.
+        page.goto(f'{ORIGIN}/usa.html?lang=es#dsge')
+        expect(page.locator('#model-dsge')).to_be_visible()
+
+    def test_usa_dsge_reloads_a_newer_release(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        newer = json.loads((ROOT / 'dsge_frbny.json').read_text(encoding='utf-8'))
+        newer['table']['previous'] = newer['table']['current']
+        newer['table']['current'] = json.loads(json.dumps(newer['table']['current']))
+        newer['table']['current']['release'] = newer['release'] = '2026-12-11'
+        newer['table']['current']['rows']['gdp'][0] = [9.9, 8.8, 11.1]
+        page.route('**/dsge_frbny.json', lambda route: route.fulfill(json=newer))
+        page.goto(f'{ORIGIN}/usa.html?lang=es#dsge')
+        detail = page.locator('#model-dsge')
+        expect(detail.locator('#dsge-headline strong').first).to_have_text('9,9 %')
+        expect(detail.locator('#dsge-stamp')).to_contain_text('11 de diciembre de 2026')
+        expect(detail.locator('.dsge-table thead th')).to_have_text(['Año', 'dic 2026', 'sept 2026'])
+
     def test_usa_confidence_bands(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/usa.html?lang=es#explorador')

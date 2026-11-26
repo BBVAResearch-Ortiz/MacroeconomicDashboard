@@ -41,6 +41,31 @@ USA_MODELS_STYLE = """<style>
 .usa-models .model-detail{margin-top:8px}
 .usa-models .model-back{background:none;border:0;padding:0;color:var(--accent);font:600 13px/1.5 var(--sans);cursor:pointer;margin-bottom:18px}
 .usa-models .gdp-detail{max-width:740px}
+.usa-models .dsge-headline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0 6px}
+.usa-models .dsge-headline div{min-width:0}
+.usa-models .dsge-headline strong{display:block;font:700 clamp(24px,3vw,34px)/1.1 var(--serif);color:var(--accent)}
+.usa-models .dsge-headline span{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+.usa-models .dsge-key{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin:8px 0 0}
+.usa-models .dsge-key span{display:inline-flex;align-items:center;gap:6px}
+.usa-models .dsge-key i{display:inline-block;width:16px;height:3px;background:var(--accent)}
+.usa-models .dsge-key i.band{height:10px;opacity:.16;border-radius:2px}
+.usa-models .dsge-key i.prev{background:none;border-top:2px dashed #8a94a6;height:0}
+.usa-models .dsge-key i{background:#1464ff}
+.usa-models .dsge-key i.hist{background:#060e46}
+.usa-models .dsge-key i.band{background:#001391}
+.usa-models .dsge-controls{display:flex;flex-wrap:wrap;gap:14px 32px;margin-top:20px}
+.usa-models .dsge-controls .sim-switch{margin-top:6px}
+.usa-models .dsge-label{display:block;font:500 11px/1.2 var(--mono,ui-monospace,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.usa-models .dsge-readout{font-size:12px;color:var(--ink);margin:6px 0 0;min-height:2.9em}
+.usa-models [data-dsge-hit]{cursor:crosshair}
+.usa-models .dsge-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.usa-models .dsge-table th,.usa-models .dsge-table td{padding:7px 8px;border-bottom:1px solid #dce4ed;text-align:right;white-space:nowrap}
+.usa-models .dsge-table th:first-child,.usa-models .dsge-table td:first-child{text-align:left;white-space:normal}
+.usa-models .dsge-table thead th{background:#f1f5fa;color:#001489;font-size:12px}
+.usa-models .dsge-table tbody th{font-weight:600;color:#060e46;padding-top:12px;border-bottom:0}
+.usa-models .dsge-table .band{color:var(--muted);font-size:12px}
+.usa-models .dsge-scroll{overflow-x:auto}
+@media(max-width:600px){.usa-models .dsge-headline{grid-template-columns:1fr}}
 .usa-models .sim-section>.model-back{display:block}
 .usa-models .gdp-component-table th,.usa-models .gdp-component-table td{padding:10px 12px;border-bottom:1px solid #dce4ed}
 .usa-models .gdp-component-table th{background:#f1f5fa;color:#001489;font-size:13px}
@@ -59,12 +84,14 @@ USA_MODELS_STYLE = """<style>
 
 USA_MODELS_HTML = """<section class="wrap usa-models" id="usa-models-host" hidden>
 <div class="sechead"><h2 data-es="Modelos de seguimiento y simulación" data-en="Tracking and simulation models">Modelos de seguimiento y simulación</h2></div>
-<div class="cards" id="model-tiles"><button type="button" class="card model-tile" data-open-model="gdpnow" aria-controls="model-gdpnow"><span class="badge">FEDERAL RESERVE BANK OF ATLANTA</span><h2>GDPNow</h2><p class="note" data-es="Estimación del crecimiento del PIB real." data-en="Real GDP growth estimate.">Estimación del crecimiento del PIB real.</p><span class="model-action" data-es="Abrir modelo →" data-en="Open model →">Abrir modelo →</span></button><button type="button" class="card model-tile" data-open-model="frbus" aria-controls="model-frbus"><span class="badge">FEDERAL RESERVE BOARD</span><h2>FRB/US</h2><p class="note" data-es="Comparar escenarios macroeconómicos precalculados." data-en="Compare precomputed macroeconomic scenarios.">Comparar escenarios macroeconómicos precalculados.</p><span class="model-action" data-es="Abrir modelo →" data-en="Open model →">Abrir modelo →</span></button></div>
+<div class="cards" id="model-tiles"><button type="button" class="card model-tile" data-open-model="gdpnow" aria-controls="model-gdpnow"><span class="badge">FEDERAL RESERVE BANK OF ATLANTA</span><h2>GDPNow</h2><p class="note" data-es="Estimación del crecimiento del PIB real." data-en="Real GDP growth estimate.">Estimación del crecimiento del PIB real.</p><span class="model-action" data-es="Abrir modelo →" data-en="Open model →">Abrir modelo →</span></button><button type="button" class="card model-tile" data-open-model="frbus" aria-controls="model-frbus"><span class="badge">FEDERAL RESERVE BOARD</span><h2>FRB/US</h2><p class="note" data-es="Comparar escenarios macroeconómicos precalculados." data-en="Compare precomputed macroeconomic scenarios.">Comparar escenarios macroeconómicos precalculados.</p><span class="model-action" data-es="Abrir modelo →" data-en="Open model →">Abrir modelo →</span></button><button type="button" class="card model-tile" data-open-model="dsge" aria-controls="model-dsge"><span class="badge">FEDERAL RESERVE BANK OF NEW YORK</span><h2>DSGE FRB-NY</h2><p class="note" data-es="Previsiones publicadas del modelo DSGE de la Fed de Nueva York." data-en="Published forecasts from the New York Fed DSGE model.">Previsiones publicadas del modelo DSGE de la Fed de Nueva York.</p><span class="model-action" data-es="Abrir modelo →" data-en="Open model →">Abrir modelo →</span></button></div>
+<section class="model-detail" id="model-dsge" hidden><button type="button" class="model-back" data-close-model data-es="← Volver a modelos" data-en="← Back to models">← Volver a modelos</button><article class="card gdp-detail"><span class="badge">FEDERAL RESERVE BANK OF NEW YORK</span><h2>DSGE FRB-NY</h2><p class="note" data-es="Previsión del modelo de equilibrio general dinámico y estocástico (DSGE) de la Fed de Nueva York." data-en="Forecast from the New York Fed dynamic stochastic general equilibrium (DSGE) model.">Previsión del modelo de equilibrio general dinámico y estocástico (DSGE) de la Fed de Nueva York.</p><div class="dsge-headline" id="dsge-headline"></div><p class="note" id="dsge-stamp"></p><p class="note" data-es="Cifras publicadas por la Fed de Nueva York, actualizadas automáticamente con cada publicación; aquí no se ejecuta el modelo. No es una previsión oficial de la Fed de Nueva York, sino un insumo de su proceso de previsión." data-en="Figures published by the New York Fed, updated automatically with each release; the model is not run here. It is not an official New York Fed forecast, only an input to its forecasting process.">Cifras publicadas por la Fed de Nueva York, actualizadas automáticamente con cada publicación; aquí no se ejecuta el modelo. No es una previsión oficial de la Fed de Nueva York, sino un insumo de su proceso de previsión.</p><a id="dsge-source" href="#" target="_blank" rel="noopener" data-es="Fuente: Fed de Nueva York, gráficos interactivos ↗" data-en="Source: New York Fed interactive charts ↗">Fuente: Fed de Nueva York, gráficos interactivos ↗</a> · <a id="dsge-posts" href="#" target="_blank" rel="noopener" data-es="Notas de Liberty Street Economics ↗" data-en="Liberty Street Economics posts ↗">Notas de Liberty Street Economics ↗</a></article><div class="dsge-controls" id="dsge-controls"></div><div class="gdp-gallery" id="dsge-gallery"></div></section>
 <section class="model-detail" id="model-gdpnow" hidden><button type="button" class="model-back" data-close-model data-es="← Volver a modelos" data-en="← Back to models">← Volver a modelos</button><article class="card gdp-detail"><span class="badge">FEDERAL RESERVE BANK OF ATLANTA</span><h2>GDPNow</h2><p class="note" data-es="Estimación del crecimiento trimestral anualizado del PIB real." data-en="Model estimate of annualized quarterly real GDP growth.">Estimación del crecimiento trimestral anualizado del PIB real.</p><div class="number" id="value">—</div><div class="date" id="period"></div><p class="note" id="gdp-stamp"></p><p class="note" data-es="Estimación mecánica del modelo; no es una previsión oficial del FOMC." data-en="A model estimate, not an official FOMC forecast.">Estimación mecánica del modelo; no es una previsión oficial del FOMC.</p><a href="https://www.atlantafed.org/research-and-data/data/gdpnow" target="_blank" rel="noopener" data-es="Fuente y metodología ↗" data-en="Source and methodology ↗">Fuente y metodología ↗</a><p><button type="button" class="model-back" onclick="document.getElementById('gdp-breakdown-chart').scrollIntoView({behavior:'smooth',block:'center'})" data-es="Ver gráficos de componentes ↓" data-en="View component charts ↓">Ver gráficos de componentes ↓</button></p></article><div class="gdp-gallery"><article class="card" style="margin-top:18px"><h2 data-es="Evolución de la estimación" data-en="Estimate over time">Evolución de la estimación</h2><p class="note" data-es="Crecimiento trimestral anualizado del PIB real. Sitúa el cursor sobre cada punto para ver la fecha y la publicación asociada." data-en="Annualized quarterly real GDP growth. Hover over a point to see its date and associated release.">Crecimiento trimestral anualizado del PIB real. Sitúa el cursor sobre cada punto para ver la fecha y la publicación asociada.</p><p class="note" id="gdp-tracking-note"></p><div id="gdp-tracking-chart" style="width:100%"></div><p class="note">Federal Reserve Bank of Atlanta · <a href="https://www.atlantafed.org/-/media/Project/Atlanta/FRBA/Documents/research-and-data/data/gdpnow/GDPTrackingModelDataAndForecasts.xlsx" target="_blank" rel="noopener" data-es="Libro oficial de datos ↗" data-en="Official data workbook ↗">Libro oficial de datos ↗</a></p></article><article class="card" style="margin-top:18px"><h2 data-es="Contribuciones de los componentes al crecimiento del PIB" data-en="Component contributions to GDP growth">Contribuciones de los componentes al crecimiento del PIB</h2><p class="note" data-es="Cada barra muestra las aportaciones al crecimiento trimestral anualizado. La línea muestra la estimación GDPNow." data-en="Each bar shows contributions to annualized quarterly growth. The line shows the GDPNow estimate.">Cada barra muestra las aportaciones al crecimiento trimestral anualizado. La línea muestra la estimación GDPNow.</p><div class="gdp-breakdown-legend"></div><div id="gdp-breakdown-chart"></div><p class="note" data-es="Barras: puntos porcentuales. Línea: crecimiento en %. Fuente: Fed de Atlanta." data-en="Bars: percentage points. Line: growth in %. Source: Atlanta Fed.">Barras: puntos porcentuales. Línea: crecimiento en %. Fuente: Fed de Atlanta.</p></article><article class="card" style="margin-top:18px"><h2 data-es="Revisiones de las contribuciones" data-en="Changes in component contributions">Revisiones de las contribuciones</h2><p class="note" data-es="Variación entre cada publicación y la anterior. La línea representa la revisión total de GDPNow." data-en="Change between each release and the previous one. The line shows the total revision to GDPNow.">Variación entre cada publicación y la anterior. La línea representa la revisión total de GDPNow.</p><div class="gdp-breakdown-legend"></div><div id="gdp-breakdown-change"></div><p class="note" data-es="Revisiones en puntos porcentuales. Fuente: Fed de Atlanta." data-en="Revisions in percentage points. Source: Atlanta Fed.">Revisiones en puntos porcentuales. Fuente: Fed de Atlanta.</p></article><article class="card"><h2 data-es="Crecimiento de los componentes" data-en="Component growth">Crecimiento de los componentes</h2><p class="note" data-es="Crecimiento trimestral anualizado de los componentes principales. La fecha seleccionada se cambia en la tabla inferior." data-en="Annualized quarterly growth of main components. Change the selected date in the table below.">Crecimiento trimestral anualizado de los componentes principales. La fecha seleccionada se cambia en la tabla inferior.</p><p class="note" id="gdp-growth-date"></p><div id="gdp-growth-chart"></div><p class="note" data-es="Porcentaje trimestral anualizado. Fuente: Fed de Atlanta." data-en="Annualized quarterly percent. Source: Atlanta Fed.">Porcentaje trimestral anualizado. Fuente: Fed de Atlanta.</p></article></div><article class="card gdp-components" style="margin-top:18px"><h2 data-es="Componentes del PIB" data-en="GDP components">Componentes del PIB</h2><p class="note" data-es="Estimaciones del trimestre. Selecciona una fecha de publicación para consultar los componentes." data-en="Quarterly estimates. Select a release date to inspect the components.">Estimaciones del trimestre. Selecciona una fecha de publicación para consultar los componentes.</p><label for="gdp-component-date" data-es="Fecha de la estimación" data-en="Estimate date">Fecha de la estimación</label> <select id="gdp-component-date"></select><div style="overflow-x:auto;margin-top:14px"><table style="width:100%;border-collapse:collapse;text-align:left" class="gdp-component-table"><thead><tr><th data-es="Componente" data-en="Component">Componente</th><th data-es="Crecimiento anualizado" data-en="Annualized growth">Crecimiento anualizado</th><th data-es="Contribución al PIB" data-en="Contribution to GDP">Contribución al PIB</th></tr></thead><tbody id="gdp-component-body"></tbody></table></div><p class="note" data-es="Crecimiento en % intertrimestral anualizado; contribuciones en puntos porcentuales (pp). Las filas con sangría forman parte de los agregados superiores y no deben sumarse de nuevo. La inversión privada incluye existencias; las importaciones restan al PIB." data-en="Growth is annualized quarter-on-quarter, in %; contributions are in percentage points (pp). Indented rows are included in their parent aggregates and should not be added again. Private investment includes inventories; imports subtract from GDP.">Crecimiento en % intertrimestral anualizado; contribuciones en puntos porcentuales (pp). Las filas con sangría forman parte de los agregados superiores y no deben sumarse de nuevo. La inversión privada incluye existencias; las importaciones restan al PIB.</p><p class="note">Fuente / Source: Federal Reserve Bank of Atlanta · GDPNow</p></article></section>
 <section class="sim-section" id="model-frbus" aria-label="FRB/US" hidden><button type="button" class="model-back" data-close-model data-es="← Volver a modelos" data-en="← Back to models">← Volver a modelos</button><h2 data-es="FRB/US: escenarios ilustrativos" data-en="FRB/US: illustrative scenarios">FRB/US: escenarios ilustrativos</h2><p class="note" data-es="Simulaciones calculadas con el modelo FRB/US y la trayectoria pública LONGBASE; 2040T1–2045T4. No son previsiones oficiales de la Reserva Federal. Los shocks de consumo y vivienda modifican residuos de ecuaciones. El shock de tipos durante cuatro trimestres se aplica repetidamente a la ecuación de política: no fija la trayectoria del tipo." data-en="Simulations computed with FRB/US and the public LONGBASE baseline; 2040Q1–2045Q4. These are not official Federal Reserve forecasts. Consumption and housing shocks change equation residuals. The four-quarter rate shock is repeatedly applied to the policy equation; it does not fix the path of the rate.">Simulaciones calculadas con el modelo FRB/US y la trayectoria pública LONGBASE; 2040T1–2045T4. No son previsiones oficiales de la Reserva Federal. Los shocks de consumo y vivienda modifican residuos de ecuaciones. El shock de tipos durante cuatro trimestres se aplica repetidamente a la ecuación de política: no fija la trayectoria del tipo.</p><div class="sim-controls"><h3 data-es="Seleccionar escenarios" data-en="Select scenarios">Seleccionar escenarios</h3><div class="scenario-list" id="scenario-list"></div><div class="sim-switch" role="group" aria-label="Visualización / Display"><button type="button" data-sim-mode="levels" aria-pressed="true" data-es="Trayectorias" data-en="Paths">Trayectorias</button><button type="button" data-sim-mode="delta" aria-pressed="false" data-es="Diferencia respecto a la base" data-en="Difference from baseline">Diferencia respecto a la base</button></div></div><div id="sim-legend" class="sim-legend"></div><div class="sim-grid" id="sim-grid"></div><p class="note" data-es="Datos precalculados en el Mac del usuario. Cambiar la selección no ejecuta de nuevo el modelo. Fuente: Federal Reserve Board, modelo FRB/US; cálculos de escenarios propios." data-en="Precomputed on the user's Mac. Changing the selection does not rerun the model. Source: Federal Reserve Board, FRB/US model; scenario calculations by the user.">Datos precalculados en el Mac del usuario. Cambiar la selección no ejecuta de nuevo el modelo. Fuente: Federal Reserve Board, modelo FRB/US; cálculos de escenarios propios.</p></section>
 </section>"""
 
 USA_MODELS_SCRIPTS = """<script id="frbus-embedded" type="application/json">__FRBUS__</script>
+<script id="dsge-frbny-data" type="application/json">__DSGE_FRBNY__</script>
 <script id="gdpnow-tracking-data" type="application/json">__GDPNOW_TRACKING__</script>
 <script>
 (function(){
@@ -129,7 +156,104 @@ USA_MODELS_SCRIPTS = """<script id="frbus-embedded" type="application/json">__FR
   renderSimulation();
 
   const tiles=document.getElementById('model-tiles');
-  const models={gdpnow:document.getElementById('model-gdpnow'),frbus:document.getElementById('model-frbus')};
+  // DSGE FRB-NY: previsiones publicadas por la Fed de Nueva York (no se ejecuta el modelo).
+  let dsge=null;try{dsge=JSON.parse(document.getElementById('dsge-frbny-data').textContent);}catch(err){}
+  const dsgeTile=host.querySelector('[data-open-model="dsge"]');
+  const dsgeState={bands:new Set([50,68,90]),span:'recent'};
+  const DSGE_VARS=[['gdp','Crecimiento del PIB','GDP growth'],['core_pce','Inflación PCE subyacente','Core PCE inflation'],['rstar','Tipo de interés natural real','Real natural rate of interest']];
+  const dsgeValid=d=>!!(d&&d.table&&d.table.current&&d.table.current.rows&&d.fans&&DSGE_VARS.every(([k])=>d.fans[k]&&Array.isArray(d.fans[k].dates)&&d.fans[k].dates.length));
+  function renderDsge(){
+    if(!dsgeValid(dsge)){dsgeTile.hidden=true;return;}
+    dsgeTile.hidden=false;
+    const lang=getLang(), es=lang==='es', locale=es?'es-ES':'en-US';
+    const n=v=>v==null?'—':((Math.round(v*10)/10)||0).toLocaleString(locale,{minimumFractionDigits:1,maximumFractionDigits:1});
+    const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const day=d=>new Date(d.slice(0,10)+'T00:00:00').toLocaleDateString(es?'es-ES':'en-GB',{day:'numeric',month:'long',year:'numeric'});
+    const vintage=d=>new Date(d+'T00:00:00').toLocaleDateString(es?'es-ES':'en-GB',{month:'short',year:'numeric'});
+    const quarter=d=>(es?'T':'Q')+Math.ceil(+d.slice(5,7)/3)+' '+d.slice(0,4);
+    const name=k=>{const v=DSGE_VARS.find(x=>x[0]===k);return es?v[1]:v[2];};
+    const pct=b=>b+(es?' %':'%');
+    const table=dsge.table, cur=table.current, prev=table.previous, years=cur.years;
+    const curLabel=vintage(cur.release), prevLabel=prev&&prev.release?vintage(prev.release):'';
+    document.getElementById('dsge-source').href=dsge.source_url;
+    document.getElementById('dsge-posts').href=dsge.posts_url;
+    document.getElementById('dsge-headline').innerHTML=DSGE_VARS.map(([k])=>`<div><strong>${n(cur.rows[k][0][0])} %</strong><span>${esc(name(k))} · ${es?'4T ':'Q4 '}${years[0]}</span></div>`).join('');
+    document.getElementById('dsge-stamp').textContent=(es?'Última publicación de la Fed de Nueva York: ':'Latest New York Fed release: ')+day(dsge.release)+(dsge.fetched_at?(es?' · comprobado el ':' · checked on ')+day(dsge.fetched_at):'');
+    const pills=(items,attr,on)=>items.map(([value,label])=>`<button type="button" ${attr}="${value}" aria-pressed="${on(value)}">${label}</button>`).join('');
+    document.getElementById('dsge-controls').innerHTML=`<div><span class="dsge-label">${es?'Bandas de probabilidad':'Probability bands'}</span><div class="sim-switch" role="group" aria-label="${es?'Bandas de probabilidad':'Probability bands'}">${pills(dsge.bands.map(b=>[b,pct(b)]),'data-dsge-band-toggle',b=>dsgeState.bands.has(b))}</div></div>
+      <div><span class="dsge-label">${es?'Periodo':'Period'}</span><div class="sim-switch" role="group" aria-label="${es?'Periodo':'Period'}">${pills([['recent',es?'Últimos 3 años y previsión':'Last 3 years and forecast'],['all',es?'Desde 2021':'Since 2021']],'data-dsge-span',v=>dsgeState.span===v)}</div></div>`;
+    const W=520,H=260,pl=44,pr=14,pt=14,pb=30;
+    const frame=(dates,values,draw)=>{
+      const finite=values.filter(v=>v!=null);
+      let lo=Math.min(...finite,0), hi=Math.max(...finite);
+      const span=hi-lo, step=span>40?10:span>16?4:span>8?2:1;
+      lo=Math.floor(lo/step)*step; hi=Math.ceil(hi/step)*step; if(hi===lo) hi=lo+step;
+      const x=i=>pl+i*(W-pl-pr)/Math.max(1,dates.length-1), y=v=>pt+(hi-v)/(hi-lo)*(H-pt-pb);
+      let g='';
+      for(let t=lo;t<=hi+1e-9;t+=step) g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}" stroke="${t===0?'#8a94a6':'#e2e6ea'}"/><text x="${pl-8}" y="${y(t)+4}" text-anchor="end">${t.toLocaleString(locale)}</text>`;
+      dates.forEach((d,i)=>{if(d.slice(5,7)==='03') g+=`<line x1="${x(i)}" x2="${x(i)}" y1="${H-pb}" y2="${H-pb+4}" stroke="#8a94a6"/><text x="${x(i)}" y="${H-8}" text-anchor="middle">${d.slice(0,4)}</text>`;});
+      return g+draw(x,y);
+    };
+    const path=(values,x,y)=>{let d='',open=false;values.forEach((v,i)=>{if(v==null){open=false;return;}d+=(open?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1);open=true;});return d;};
+    const svg=(label,inner)=>`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" style="width:100%;height:auto">${inner}<line data-dsge-cursor x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="#8a94a6" stroke-dasharray="3 3" visibility="hidden"/><rect data-dsge-hit x="${pl}" y="${pt}" width="${W-pl-pr}" height="${H-pt-pb}" fill="transparent"/></svg>`;
+    const first=series=>series.forecast.findIndex(v=>v!=null);
+    const from=(series,start)=>dsgeState.span==='all'?0:Math.max(0,start-12);
+    const hint=es?'Pasa el cursor por el gráfico para ver los valores de cada trimestre.':'Hover over the chart to see the values for each quarter.';
+    const charts={};
+    const fanCard=k=>{
+      const fan=dsge.fans[k], start=first(fan), a=from(fan,start), shown=[...dsgeState.bands].sort((p,q)=>q-p);
+      const dates=fan.dates.slice(a), history=fan.history.slice(a), forecast=fan.forecast.slice(a);
+      const bands=shown.map(b=>[b,fan.bands[String(b)].slice(a)]);
+      const values=[...history,...forecast,...bands.flatMap(([,rows])=>rows.flat())];
+      const inner=frame(dates,values,(x,y)=>{
+        let g=bands.map(([b,rows])=>`<path data-dsge-band="${b}" d="${rows.map((r,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(r[1]).toFixed(1)).join(' ')} ${rows.map((r,i)=>'L'+x(i).toFixed(1)+','+y(r[0]).toFixed(1)).reverse().join(' ')} Z" fill="#001391" opacity="0.11"/>`).join('');
+        g+=`<line x1="${x(start-a)}" x2="${x(start-a)}" y1="${pt}" y2="${H-pb}" stroke="#8a94a6" stroke-dasharray="4 4"/>`;
+        g+=`<path data-dsge-history d="${path(history,x,y)}" fill="none" stroke="#060e46" stroke-width="2.2" stroke-linejoin="round"/><path data-dsge-mean d="${path(forecast,x,y)}" fill="none" stroke="#1464ff" stroke-width="2.4" stroke-linejoin="round"/>`;
+        return g;
+      });
+      charts[k]={dates,read:i=>{const mean=forecast[i]!=null?forecast[i]:history[i];
+        return `<b>${quarter(dates[i])}</b> · ${forecast[i]!=null&&i>start-a?(es?'previsión':'forecast'):(es?'dato':'actual')} ${n(mean)}`+(i>start-a?bands.slice().reverse().map(([b,rows])=>` · ${pct(b)}: ${n(rows[i][0])} ${es?'a':'to'} ${n(rows[i][1])}`).join(''):'');}};
+      const unit=k==='rstar'?(es?'Porcentaje.':'Percent.'):(es?'Variación en cuatro trimestres, %.':'Four-quarter percent change.');
+      return `<article class="card" data-dsge-chart="${k}"><h2>${esc(name(k))}</h2><p class="note">${unit} ${es?'Media y bandas de probabilidad.':'Mean and probability bands.'}</p>${svg(name(k),inner)}<p class="dsge-readout" data-dsge-readout>${hint}</p><p class="dsge-key"><span><i class="hist"></i>${es?'Dato':'Actual'}</span><span><i></i>${es?'Previsión (media)':'Forecast (mean)'}</span>${shown.length?`<span><i class="band"></i>${es?'Bandas ':'Bands '}${shown.slice().reverse().map(pct).join(', ')}</span>`:''}</p></article>`;
+    };
+    const revisionCard=k=>{
+      const rev=dsge.revisions&&dsge.revisions[k]; if(!rev||!Array.isArray(rev.dates)) return '';
+      const start=rev.current.findIndex(v=>v!=null), a=from(rev,start);
+      const dates=rev.dates.slice(a), history=rev.history.slice(a), now=rev.current.slice(a), before=rev.previous.slice(a);
+      const inner=frame(dates,[...history,...now,...before],(x,y)=>`<path data-dsge-history d="${path(history,x,y)}" fill="none" stroke="#060e46" stroke-width="2.2" stroke-linejoin="round"/><path data-dsge-previous d="${path(before,x,y)}" fill="none" stroke="#8a94a6" stroke-width="1.8" stroke-dasharray="5 4"/><path data-dsge-mean d="${path(now,x,y)}" fill="none" stroke="#1464ff" stroke-width="2.4" stroke-linejoin="round"/>`);
+      const id='rev-'+k;
+      charts[id]={dates,read:i=>`<b>${quarter(dates[i])}</b>`+(history[i]!=null?` · ${es?'dato':'actual'} ${n(history[i])}`:'')+(now[i]!=null?` · ${es?'previsión actual':'current forecast'} ${n(now[i])}`:'')+(before[i]!=null?` · ${es?'anterior':'previous'} ${n(before[i])}`:'')};
+      return `<article class="card" data-dsge-chart="${id}"><h2>${esc(name(k))}: ${es?'revisión de la previsión':'forecast revision'}</h2><p class="note">${es?'Variación trimestral anualizada, %. Previsión actual frente a la anterior.':'Quarter-to-quarter percent change, annualized. Current versus previous forecast.'}</p>${svg(name(k),inner)}<p class="dsge-readout" data-dsge-readout>${hint}</p><p class="dsge-key"><span><i class="hist"></i>${es?'Dato':'Actual'}</span><span><i></i>${es?'Previsión actual':'Current forecast'}</span><span><i class="prev"></i>${es?'Previsión anterior':'Previous forecast'}</span></p></article>`;
+    };
+    const cell=r=>r?`${n(r[0])} <span class="band">(${n(r[1])}; ${n(r[2])})</span>`:'—';
+    const tableCard=`<article class="card" data-dsge-chart="table"><h2>${es?'Comparación de previsiones':'Forecast comparison'}</h2><p class="note">${es?'4T/4T (tipo natural: 4T). Media y, entre paréntesis, banda del ':'Q4/Q4 (natural rate: Q4). Mean and, in parentheses, the '}${pct(table.band)}${es?'.':' band.'}</p><div class="dsge-scroll"><table class="dsge-table"><thead><tr><th>${es?'Año':'Year'}</th><th>${curLabel}</th>${prev?`<th>${prevLabel}</th>`:''}</tr></thead><tbody>${DSGE_VARS.map(([k])=>`<tr class="group"><th scope="rowgroup" colspan="${prev?3:2}">${esc(name(k))}</th></tr>`+years.map((yr,i)=>{const old=prev&&prev.rows&&prev.rows[k]&&prev.years?prev.rows[k][prev.years.indexOf(yr)]:null;return `<tr data-dsge-row="${k}-${yr}"><td>${yr}</td><td>${cell(cur.rows[k][i])}</td>${prev?`<td>${cell(old)}</td>`:''}</tr>`;}).join('')).join('')}</tbody></table></div></article>`;
+    const gallery=document.getElementById('dsge-gallery');
+    gallery.innerHTML=DSGE_VARS.map(([k])=>fanCard(k)).join('')+revisionCard('gdp')+revisionCard('core_pce')+tableCard;
+    gallery.querySelectorAll('[data-dsge-hit]').forEach(hit=>{
+      const card=hit.closest('[data-dsge-chart]'), info=charts[card.dataset.dsgeChart], cursor=card.querySelector('[data-dsge-cursor]'), readout=card.querySelector('[data-dsge-readout]');
+      const move=event=>{const box=hit.getBoundingClientRect(); const i=Math.max(0,Math.min(info.dates.length-1,Math.round((event.clientX-box.left)/box.width*(info.dates.length-1))));
+        const px=pl+i*(W-pl-pr)/Math.max(1,info.dates.length-1); cursor.setAttribute('x1',px); cursor.setAttribute('x2',px); cursor.setAttribute('visibility','visible'); readout.innerHTML=info.read(i);};
+      hit.addEventListener('pointermove',move); hit.addEventListener('pointerdown',move);
+      hit.addEventListener('pointerleave',()=>{cursor.setAttribute('visibility','hidden'); readout.textContent=hint;});
+    });
+  }
+  document.getElementById('dsge-controls').addEventListener('click',event=>{
+    const button=event.target.closest('button'); if(!button) return;
+    if(button.dataset.dsgeBandToggle){const b=+button.dataset.dsgeBandToggle; dsgeState.bands.has(b)?dsgeState.bands.delete(b):dsgeState.bands.add(b);}
+    else if(button.dataset.dsgeSpan) dsgeState.span=button.dataset.dsgeSpan; else return;
+    const selector=button.dataset.dsgeBandToggle?`[data-dsge-band-toggle="${button.dataset.dsgeBandToggle}"]`:`[data-dsge-span="${button.dataset.dsgeSpan}"]`;
+    renderDsge(); document.querySelector('#dsge-controls '+selector)?.focus();
+  });
+  function fetchDsge(){
+    if(location.protocol==='file:')return;
+    fetch('dsge_frbny.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(x=>{if(dsgeValid(x)&&(!dsgeValid(dsge)||x.release>=dsge.release)){dsge=x;renderDsge();}}).catch(()=>{});
+  }
+  window.addEventListener('mme-lang-change',renderDsge);
+  window.addEventListener('mme-usa-refresh',fetchDsge);
+  renderDsge();
+  fetchDsge();
+
+  const models={gdpnow:document.getElementById('model-gdpnow'),frbus:document.getElementById('model-frbus'),dsge:document.getElementById('model-dsge')};
   function showModel(key,changeURL){
     const active=Object.hasOwn(models,key)?key:'';
     tiles.hidden=!!active;
@@ -263,6 +387,9 @@ if frbus_file.exists() and gdpnow_file.exists() and tracking_file.exists():
     frbus_raw = json.dumps(json.loads(frbus_file.read_text(encoding="utf-8")), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     tracking_raw = json.dumps(json.loads(tracking_file.read_text(encoding="utf-8")), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     gdp_raw = json.loads(gdpnow_file.read_text(encoding="utf-8"))
+    dsge_file = Path("dsge_frbny.json")
+    dsge_raw = (json.dumps(json.loads(dsge_file.read_text(encoding="utf-8")), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+                if dsge_file.exists() else "null")
     gdp_snap = json.dumps({
         "value": gdp_raw.get("value"),
         "quarter": gdp_raw.get("quarter"),
@@ -281,6 +408,7 @@ if frbus_file.exists() and gdpnow_file.exists() and tracking_file.exists():
                       '<main><div class=\"wrap\" id=\"panel\" role=\"tabpanel\"></div></main>\n' + USA_MODELS_HTML, 1)
     scripts = (USA_MODELS_SCRIPTS
                .replace("__FRBUS__", frbus_raw)
+               .replace("__DSGE_FRBNY__", dsge_raw)
                .replace("__GDPNOW_TRACKING__", tracking_raw)
                .replace("__GDPNOW_SNAPSHOT__", gdp_snap))
     usa = usa.replace('</body></html>', scripts + '\n</body></html>', 1)

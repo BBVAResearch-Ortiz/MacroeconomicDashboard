@@ -3161,7 +3161,7 @@ function openLegacyBoard(hash){
   }
   return true;
 }
-const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
+const USA_MODEL_HASHES=new Set(['gdpnow','frbus','dsge']);
 const h0=location.hash.slice(1);
 if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
 else if(!openLegacyBoard(h0)&&isDashboardTab(h0)) state.tab=h0;

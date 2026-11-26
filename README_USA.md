@@ -15,3 +15,13 @@ python actualizar_frbus.py /ruta/resultados.json
 ```
 
 El actualizador valida la consistencia de la base y las diferencias y actualiza usa.html y frbus_resultados.json. Suba ambos archivos. GitHub Pages es estático: ejecutar PyFRB/US para un escenario arbitrario requiere un servicio de cálculo o una adaptación contrastada para navegador.
+
+## DSGE de la Fed de Nueva York
+
+La ficha «DSGE FRB-NY» de la sección Modelos muestra las previsiones que publica la Fed de Nueva York; aquí no se ejecuta el modelo.
+
+- `update_dsge_frbny.py` descarga los CSV que alimentan los gráficos interactivos oficiales (`newyorkfed.org/research/policy/dsge#/interactive`) y escribe `dsge_frbny.json`: tabla 4T/4T con banda del 68 %, abanicos trimestrales con bandas del 50 al 90 % y la revisión frente a la previsión anterior.
+- Cuando cambia la fecha de publicación, la tabla anterior se conserva como comparación.
+- El flujo `update-data.yml` lo ejecuta los días laborables; la página también relee `dsge_frbny.json` al abrirse y con «Actualizar datos».
+- La Fed publica una previsión por trimestre (marzo, junio, septiembre y diciembre).
+
