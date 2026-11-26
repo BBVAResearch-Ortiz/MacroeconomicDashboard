@@ -502,6 +502,13 @@ class DashboardBrowserTests(unittest.TestCase):
         gdp = page.locator('#bbchart table.bbheat tbody tr').first.locator('td:not(.bbmissing)')
         self.assertGreaterEqual(gdp.count(), 6)
         self.assertEqual(gdp.count() % 3, 0)
+        # The heat map has no cap on the number of series: every series in the catalogue fits.
+        total = page.evaluate('''() => { const ids = Object.keys(S()).filter(id => !id.startsWith('__') && S()[id].block !== 'aux');
+            bb.picks = ids; viewBoard(); return ids.length; }''')
+        self.assertGreater(total, 8)
+        expect(page.locator('#bbchart table.bbheat tbody tr')).to_have_count(total)
+        expect(page.locator('.bbside .picklab', has_text='Series (')).to_have_text(f'Series ({total})')
+        page.evaluate('() => { bb.picks = bb.picks.slice(0, 3); viewBoard(); }')
         page.locator('[data-bbm=dual]').click()
         # The scatterplot keeps the menus in the left panel too.
         page.locator('[data-bbm=scatter]').click()

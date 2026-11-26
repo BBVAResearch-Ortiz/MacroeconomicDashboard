@@ -2082,7 +2082,8 @@ function renderScatterStats(host,points,fit){
 }
 Object.assign(EN,{'Ordenada en el origen':'Intercept',semanal:'weekly',
   'Diferencia respecto al dato anterior':'Change from previous observation'});
-const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bbGallery())?8:4);
+// USA: el mapa de calor no limita el número de series.
+const bbMax=()=>bb.mode==='scatter'?2:(IS_USA&&bb.mode==='heat')?Infinity:((bb.mode==='heat'||bbGallery())?8:4);
 function assignBoardAxes(){
   let assigned=false;
   bb.picks.forEach((id,index)=>{
@@ -2350,7 +2351,7 @@ function viewBoard(){
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
      ${bb.mode==='scatter'?`${scatterCatalogs.map((axis,index)=>scatterAxisCatalog(axis,index,tree)).join('')}
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
-     :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
+     :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}${Number.isFinite(bbMax())?'/'+bbMax():''})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      ${IS_USA?'':`<div class="bbgrp"><span class="picklab">Modalidad de gráfico</span>${boardModes()}</div>`}
      ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:''}
