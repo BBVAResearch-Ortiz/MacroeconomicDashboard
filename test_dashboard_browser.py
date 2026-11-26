@@ -412,6 +412,12 @@ class DashboardBrowserTests(unittest.TestCase):
         # Rule 1: the title never wraps; the full text stays available as a tooltip.
         self.assertLess(title.bounding_box()['height'], 2 * title.evaluate('t => parseFloat(getComputedStyle(t).fontSize)'))
         self.assertEqual(title.get_attribute('title'), title.text_content())
+        # Titles start with the country, omit the source and join series with an ampersand.
+        self.assertRegex(title.text_content(), r'^USA: ')
+        self.assertNotRegex(title.text_content(), r'\(|/|BEA|FED|BLS')
+        self.assertIn(' & ', title.text_content())
+        # The subtitle is shown in parentheses.
+        self.assertEqual(figure.locator('.sub').evaluate('s => getComputedStyle(s, "::before").content + getComputedStyle(s, "::after").content'), '"(" ")"'.replace(' ', ''))
         # Rule 2: inside the card only title, subtitle and the period tiles precede the chart.
         tiles = figure.locator('.period-controls').bounding_box()
         chart = page.locator('#bbchart').bounding_box()
@@ -422,36 +428,175 @@ class DashboardBrowserTests(unittest.TestCase):
         for selector in ('#board-transform', '#board-transform-seasonal'):
             control = page.locator(selector).bounding_box()
             self.assertLessEqual(control['x'] + control['width'], box['x'])
+        # The left panel does not list the "Documentada" status of each series.
+        self.assertNotIn('Documentada', page.locator('.bbside').inner_text())
+        expect(page.locator('.bbside [data-status=documented]').first).to_be_hidden()
         expect(figure.locator('.csv-action')).to_have_count(0)
         csv_button = page.locator('#bb-csv .csv-action').bounding_box()
-        self.assertLessEqual(csv_button['y'] + csv_button['height'], box['y'])
+        # The CSV download sits below the whole chart card, aligned to its right edge.
+        self.assertGreaterEqual(csv_button['y'], box['y'] + box['height'])
+        self.assertAlmostEqual(csv_button['x'] + csv_button['width'], box['x'] + box['width'], delta=2)
+        expect(page.locator('.board-head .csv-action')).to_have_count(0)
         with page.expect_download():
             page.locator('#bb-csv .csv-action').click()
         # Chart types sit on the Blackboard heading row, not in the left panel.
         heading = page.locator('.board-head h2').bounding_box()
         modes = page.locator('.board-head [data-bbm]')
-        expect(modes).to_have_count(7)
+        expect(modes).to_have_count(8)
         expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
         first_mode = modes.first.bounding_box()
         self.assertLess(first_mode['y'], heading['y'] + heading['height'])
         self.assertGreater(first_mode['y'] + first_mode['height'], heading['y'])
+        # The chart types start right above the chart card, as grey tiles.
+        self.assertAlmostEqual(first_mode['x'], box['x'], delta=2)
+        pressed = page.locator('.board-head [data-bbm][aria-pressed=true]')
+        idle = page.locator('.board-head [data-bbm][aria-pressed=false]').first
+        self.assertEqual(idle.evaluate('b => getComputedStyle(b).backgroundColor'), 'rgb(243, 245, 246)')
+        self.assertEqual(pressed.evaluate('b => getComputedStyle(b).backgroundColor'), 'rgb(0, 19, 145)')
+        self.assertEqual(pressed.evaluate('b => getComputedStyle(b).color'), 'rgb(255, 255, 255)')
+        # The period tiles keep the shared dashboard style.
+        self.assertEqual(figure.locator('.seg button[aria-pressed=false]').first.evaluate('b => getComputedStyle(b).backgroundColor'), 'rgb(243, 245, 246)')
+        # "Choose dates" follows the last period tile instead of sitting at the far right.
+        last_tile = figure.locator('.seg button').last.bounding_box()
+        choose = figure.locator('.chart-date-range summary').bounding_box()
+        self.assertLess(choose['x'] - (last_tile['x'] + last_tile['width']), 16)
         # Rule 3: a plain legend (swatch and name) below the plot, at full width.
         plot = page.locator('#bbchart .chart-plot').bounding_box()
         readings = page.locator('#bbchart .chart-readings').bounding_box()
         self.assertGreaterEqual(readings['y'], plot['y'] + plot['height'])
         self.assertAlmostEqual(readings['width'], plot['width'], delta=2)
-        coverage = figure.locator('.date-coverage').bounding_box()
-        self.assertGreaterEqual(coverage['y'], readings['y'] + readings['height'])
+        # The "En pantalla / Datos disponibles" line is not shown.
+        expect(figure.locator('.date-coverage')).to_be_hidden()
         self.assertLess(readings['height'], 60)
         expect(page.locator('#bbchart .chart-reading-label')).to_have_count(3)
         for hidden in ('.chart-reading-value', '.chart-readings time', '.chart-reading-source'):
             expect(page.locator(f'#bbchart {hidden}').first).to_be_hidden()
         page.locator('#bbchart svg').first.hover()
         expect(page.locator('#bbchart .chart-reading-value').first).to_be_visible()
+        # Two axes: no "Izq./Dcha." above the axes and no mode name in the subtitle;
+        # units read left axis first, then right axis.
+        page.locator('[data-bbm=dual]').click()
+        expect(page.locator('#bbchart [data-axis-tick=right]').first).to_be_visible()
+        expect(page.locator('#bbchart [data-axis-label]')).to_have_count(0)
+        self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Billions of USD · Index 2017=100')
+        expect(page.locator('#bbchart .chart-reading-label').first).to_contain_text('(eje izq.)')
+        page.locator('[data-bbax]').nth(2).click()
+        self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Index 2017=100 · Billions of USD')
+        self.assertRegex(figure.locator('h3').text_content(), r'^USA: Real GDP, Industrial Production Index & Personal Consumption Expenditures$')
+        page.locator('[data-bbax]').nth(2).click()
         # The scatterplot keeps the menus in the left panel too.
         page.locator('[data-bbm=scatter]').click()
         expect(page.locator('.bbside #board-transform')).to_be_visible()
         expect(page.locator('figure.bbfig #board-transform')).to_have_count(0)
+
+    def test_home_starts_with_summary_and_forecasts(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        for lang, open_label, pending in (('es', 'Ver monitor', 'En preparación'), ('en', 'View dashboard', 'Coming soon')):
+            with self.subTest(lang=lang):
+                page.goto(f'{ORIGIN}/index.html')
+                page.locator(f'[data-lang={lang}]').click()
+                cards = page.locator('.card')
+                expect(cards).to_have_count(12)
+                expect(cards.first.locator('.country')).to_have_text('Summary & Forecasts')
+                expect(cards.first.locator('.status')).to_have_text(open_label)
+                expect(page.locator('.card.featured .status')).to_have_text([open_label] * 4)
+                self.assertEqual(page.locator('.card.featured .country').all_text_contents()[1], 'USA')
+                expect(page.locator('.card:not(.featured) .status')).to_have_text([pending] * 8)
+                # Three full rows of four tiles.
+                boxes = [card.bounding_box() for card in cards.all()]
+                self.assertEqual(len({round(box['y']) for box in boxes}), 3)
+        cards.first.click()
+        expect(page).to_have_url(re.compile(r'/summary\.html\?lang=en$'))
+        expect(page.locator('h1')).to_have_text('Summary & Forecasts')
+
+    def test_summary_and_forecasts_page(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/summary.html?lang=es')
+        tabs = page.get_by_role('tab')
+        expect(tabs).to_have_text(['Summary', 'Forecasts'])
+        expect(tabs.first).to_have_attribute('aria-selected', 'true')
+        summary = page.locator('#panel-summary')
+        expect(page.locator('#panel-forecasts')).to_be_hidden()
+        expect(summary.locator('tbody tr[data-geo]')).to_have_count(10)
+        usa = summary.locator('tr[data-geo=usa] td')
+        # GDP 2025, 2026, 2027 · inflation · policy rate, as published by BBVA Research.
+        self.assertEqual([cell.strip() for cell in usa.all_inner_texts()],
+                         ['2,10', '2,40▲', '2,20●', '2,80', '3,20●', '2,40●', '3,75', '4,25●', '4,25●'])
+        expect(usa.nth(1).locator('.risk')).to_have_attribute('title', 'Al alza')
+        self.assertEqual(summary.locator('tr[data-geo=espana] td').nth(6).inner_text().strip(), '—')
+        self.assertEqual(summary.locator('tr[data-geo=turquia] td').nth(2).inner_text().strip(), '—')
+        expect(summary).to_contain_text('Materias primas')
+        expect(summary.locator('a[href="https://www.bbvaresearch.com/previsiones/"]')).to_be_visible()
+
+        tabs.nth(1).click()
+        forecasts = page.locator('#panel-forecasts')
+        expect(summary).to_be_hidden()
+        expect(forecasts.locator('[data-geo-pick]')).to_have_count(11)
+        expect(forecasts.locator('h2')).to_have_text('Estados Unidos')
+        expect(forecasts.locator('tbody tr')).to_have_count(7)
+        forecasts.get_by_role('button', name='Argentina').click()
+        expect(forecasts.locator('.sub')).to_contain_text('25 ago 2026')
+        row = forecasts.locator('tbody tr', has_text='Tipo de cambio ARS/USD (fdp)')
+        self.assertEqual(row.locator('td').all_inner_texts(), ['1.032,50', '1.459,40', '1.665,00', 'Al alza', '2.082,00', 'Al alza'])
+        forecasts.get_by_role('button', name='Materias primas').click()
+        expect(forecasts.locator('tbody tr')).to_have_count(3)
+
+        page.locator('[data-lang=en]').click()
+        expect(forecasts.locator('tbody tr').first).to_contain_text('Brent oil price')
+        expect(forecasts.locator('tbody tr').first).to_contain_text('90.10')
+        page.reload()
+        expect(page.get_by_role('tab').nth(1)).to_have_attribute('aria-selected', 'true')
+
+    def test_usa_confidence_bands(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#explorador')
+        self.assert_blackboard(page, 'es')
+        page.get_by_role('button', name='Confidence Bands', exact=True).click()
+        minis = page.locator('#bbchart .bbmini')
+        expect(minis).to_have_count(3)
+        first = minis.first
+        expect(first.locator('.chart-bands rect')).to_have_count(2)
+        stats = first.locator('.chart-bands').evaluate('g => ({mean: +g.dataset.mean, sd: +g.dataset.sd, n: +g.dataset.n})')
+        # Recompute mean and sample standard deviation from the CSV of the same chart.
+        with page.expect_download() as download:
+            first.locator('.csv-action').click()
+        with open(download.value.path(), encoding='utf-8-sig', newline='') as downloaded:
+            reader = csv.DictReader(downloaded, delimiter=';')
+            value_column = 'Valor' if 'Valor' in reader.fieldnames else 'Value'
+            values = [float(row[value_column].replace('.', '').replace(',', '.')) for row in reader]
+        self.assertEqual(len(values), stats['n'])
+        mean = sum(values) / len(values)
+        sd = (sum((v - mean) ** 2 for v in values) / (len(values) - 1)) ** 0.5
+        self.assertAlmostEqual(stats['mean'], mean, delta=abs(mean) * 1e-6)
+        self.assertAlmostEqual(stats['sd'], sd, delta=sd * 1e-6)
+        # The two bands are centred on the mean and the outer one is twice as tall.
+        inner = first.locator('[data-band="1"]').bounding_box()
+        outer = first.locator('[data-band="2"]').bounding_box()
+        mean_line = first.locator('[data-band="mean"]').bounding_box()
+        self.assertAlmostEqual(outer['height'], 2 * inner['height'], delta=1.5)
+        self.assertAlmostEqual(mean_line['y'], inner['y'] + inner['height'] / 2, delta=1.5)
+        expect(first.locator('.band-key')).to_contain_text('±2σ')
+        expect(first.locator('[data-band-z]')).to_contain_text('σ')
+        # Two columns, never one full-width chart.
+        a, b = minis.nth(0).bounding_box(), minis.nth(1).bounding_box()
+        self.assertAlmostEqual(a['y'], b['y'], delta=1)
+        self.assertLess(a['x'] + a['width'], b['x'])
+
+    def test_usa_series_menu_lists_only_the_main_categories(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        for lang, expected in (
+            ('es', ['Actividad (3)', 'Empleo (3)', 'Precios (2)', 'Monetario (3)', 'Fiscal (0)', 'Exterior (0)', 'Vivienda (0)']),
+            ('en', ['Activity (3)', 'Employment (3)', 'Prices (2)', 'Monetary (3)', 'Fiscal (0)', 'External (0)', 'Housing (0)']),
+        ):
+            with self.subTest(lang=lang):
+                page.goto(f'{ORIGIN}/usa.html?lang={lang}#explorador')
+                self.assert_blackboard(page, lang)
+                groups = page.locator('.bbside .bbcatalog [data-catalog-group]')
+                expect(groups.locator('> summary')).to_have_text(expected)
+                # No nested subcategories: series hang directly from each category.
+                expect(page.locator('.bbside [data-catalog-group] [data-catalog-group]')).to_have_count(0)
+                groups.nth(3).locator('> summary').click()
+                expect(groups.nth(3).locator('[data-catalog-pick]')).to_have_count(3)
 
     def test_other_blackboards_keep_their_layout(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
@@ -463,6 +608,7 @@ class DashboardBrowserTests(unittest.TestCase):
                 expect(page.locator('figure.bbfig')).to_have_count(0)
                 expect(page.locator('#bb-csv')).to_have_count(0)
                 expect(page.locator('.bbside [data-bbm]')).to_have_count(7)
+                expect(page.locator('[data-bbm=bands]')).to_have_count(0)
                 expect(page.locator('#bbchart .chart-reading-value').first).to_be_visible()
                 expect(page.locator('figure.fig #board-transform')).to_be_visible()
                 expect(page.locator('figure.fig > .figure-csv-header .csv-action')).to_be_visible()
