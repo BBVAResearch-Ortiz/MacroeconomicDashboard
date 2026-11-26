@@ -192,8 +192,6 @@ table.fc td.f{font-weight:600}
 .stack{display:flex;flex-direction:column;gap:28px}
 .tblfig .tblwrap{border:0;border-radius:0}
 .subnav{margin:4px 0 6px}
-.turkey-topics{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
-.turkey-topics a{text-decoration:none;line-height:1.3}
 .pchip .axbtn{font-size:11.5px;border:1px solid var(--rule);border-radius:4px;padding:2px 6px;color:var(--accent)}
 .mcol{display:flex;flex-direction:column;gap:0;min-width:0}
 .bbwrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:32px;align-items:start}
@@ -317,8 +315,7 @@ footer .wrap{padding-block:0 32px}
 <footer><div class="wrap" id="foot"></div></footer>
 
 <script id="embedded-data" type="application/json">__DATA__</script>
-<script src="turkey_public.js"></script>
-<script src="series_transforms.js?v=5"></script>
+<script src="series_transforms.js?v=6"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1134,8 +1131,7 @@ function viewResumen(){
   draw(); observe(draw);
 }
 function viewTurkeyOverview(){
-  const ids=[...turkeyCashIds(),TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),...turkeyIds('BDDK_W_LOANS','BDDK_M_DEPOSITS'),
-    TURKEY_PUBLIC.idFor('TR_TRADE_BALANCE_12M'),TURKEY_PUBLIC.idFor('TR_DEPOSIT')].filter(id=>S()[id]);
+  const ids=[...turkeyCashIds(),...turkeyBankIds()].filter(id=>S()[id]);
   useRangeCoverage(ids.map(id=>S()[id]));
   panel.innerHTML=`<div class="sechead"><h2>Resumen</h2>${rangeCtl()}</div><div class="grid3">${ids.map((id,i)=>ovCard(id,i,'data-g')).join('')}</div>`;
   bindRange();
@@ -1348,23 +1344,23 @@ ${isEN()?`  <div class="prose">
 const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por la producción',
   HIGH_FREQUENCY_ACTIVITY:'Actividad de alta frecuencia',LABOUR_MARKET:'Mercado laboral',
   PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',BANKING:'Estadísticas bancarias',
-  TREASURY_CASH:'Caja del Tesoro',...TURKEY_PUBLIC.blocks,other:'Otras series'};
+  TREASURY_CASH:'Caja del Tesoro',INFLATION:'Inflación',BALANCE_OF_PAYMENTS:'Balanza de pagos',
+  EXTERNAL_TRADE:'Comercio exterior',INTEREST_RATES:'Tipos de interés',other:'Otras series'};
 const TURKEY_THEME_TABS=[{k:'actividad',l:'Actividad'},{k:'coyuntura',l:'Coyuntura'},{k:'empleo',l:'Empleo'},
   {k:'precios',l:'Precios'},{k:'credito',l:'Créditos y depósitos'},{k:'publico',l:'Sector público'},
   {k:'exterior',l:'Sector exterior'},{k:'financiero',l:'Financiero'}];
 const TURKEY_THEME_BY_BLOCK={GDP_EXPENDITURE:'actividad',GDP_PRODUCTION:'actividad',HIGH_FREQUENCY_ACTIVITY:'coyuntura',
   PMI_CAPACITY:'coyuntura',CONFIDENCE:'coyuntura',LABOUR_MARKET:'empleo',INFLATION:'precios',BANKING:'credito',
   TREASURY_CASH:'publico',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',INTEREST_RATES:'financiero'};
-Object.assign(EN,TURKEY_PUBLIC.translations);
-const TURKEY_TOPICS={
-  tr_cpi:{block:'INFLATION',ids:['TR_CPI_HEADLINE','TR_CPI_CORE_B','TR_CPI_CORE_C']},
-  tr_rates:{block:'INTEREST_RATES',ids:['TR_COMMERCIAL','TR_CONSUMER','TR_DEPOSIT']},
-  tr_bop:{block:'BALANCE_OF_PAYMENTS',ids:['TR_BOP_CAD_12M','TR_BOP_FIN_12M','TR_BOP_RES_12M']},
-  tr_trade:{block:'EXTERNAL_TRADE',ids:['TR_TRADE_EXPORT_12M','TR_TRADE_IMPORT_12M','TR_TRADE_BALANCE_12M']}
+const TURKEY_SOURCE_ALIASES={
+  'Tesoro de Turquía (HMB) · Treasury Cash Realizations':'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro',
+  'BDDK / BRSA · boletín semanal':'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal',
+  'BDDK / BRSA · boletín mensual':'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín mensual'
 };
-let pendingTurkeyTopic='';
-let turkeyPublicUnavailable=false;
 Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producción':'GDP by production',
+  [TURKEY_SOURCE_ALIASES['Tesoro de Turquía (HMB) · Treasury Cash Realizations']]:'Ministry of Treasury and Finance of Türkiye (HMB) · Treasury Cash Realizations',
+  [TURKEY_SOURCE_ALIASES['BDDK / BRSA · boletín semanal']]:'Banking Regulation and Supervision Agency (BDDK) · Weekly Bulletin',
+  [TURKEY_SOURCE_ALIASES['BDDK / BRSA · boletín mensual']]:'Banking Regulation and Supervision Agency (BDDK) · Monthly Bulletin',
   'Actividad de alta frecuencia':'High-frequency activity','Mercado laboral':'Labour market',
   'PMI y utilización de capacidad':'PMI and capacity utilisation',Confianza:'Confidence','Otras series':'Other series',
   'Estadísticas bancarias':'Banking statistics','Caja del Tesoro':'Treasury cash','Millones de TRY':'TRY millions',
@@ -1387,14 +1383,15 @@ const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',co
   vivienda:'Vivienda',credito:'Créditos y depósitos',publico:'Sector público',exterior:'Sector exterior',financiero:'Financiero'};
 const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
 const turkeyCashIds=()=>turkeyIds('HMB_M_CASH_BALANCE','HMB_M_CASH_REVENUE','HMB_M_CASH_EXPENDITURE');
+const turkeyBankIds=()=>turkeyIds('BDDK_W_LOANS','BDDK_M_LOANS','BDDK_M_DEPOSITS');
 const turkeyStackPresets={
   spending:{label:'Consumo, gasto público e inversión',bars:turkeyIds('Q_EXP_RAW_C','Q_EXP_RAW_G','Q_EXP_RAW_I'),line:''},
   production:{label:'Agricultura, industria y construcción',bars:turkeyIds('Q_PROD_RAW_AGRICULTURE','Q_PROD_RAW_INDUSTRY','Q_PROD_RAW_CONSTRUCTION'),line:''},
   trade:{label:'Exportaciones e importaciones',bars:turkeyIds('Q_EXP_RAW_X','Q_EXP_RAW_M'),line:''}
 };
 const explorerDefaults=IS_TURKEY?{
-  picks:[...turkeyCashIds(),TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),TURKEY_PUBLIC.idFor('TR_DEPOSIT')],
-  mpicks:turkeyCashIds(), mpicks2:[turkeyCashIds()[0],TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE')],
+  picks:[...turkeyCashIds(),...turkeyBankIds()],
+  mpicks:turkeyCashIds(), mpicks2:turkeyBankIds().slice(1),
   spicks:[], sline:'', spicks2:[], sline2:'',
   sx:turkeyCashIds()[1], sy:turkeyCashIds()[2]
 }:IS_USA?{
@@ -1493,7 +1490,6 @@ function explorerPath(id){
   if(IS_TURKEY){
     const theme=TURKEY_THEME_TABS.find(tab=>tab.k===TURKEY_THEME_BY_BLOCK[s.block]);
     const path=theme?[theme.l,block]:[block];
-    if(id.startsWith('public_tr_')) return [...path,s.family].filter(Boolean);
     if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [...path,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
     if(s.block==='BANKING') return [...path,s.freq==='W'?'Semanal':'Mensual'];
     return path;
@@ -1758,37 +1754,9 @@ function toFreq(data,from,to){ if(from===to&&to!=='W') return data.map(o=>[o[0],
   data.forEach(([d,v])=>{ const k=periodKey(d,to); const a=g.get(k)||[0,0]; a[0]+=v; a[1]++; g.set(k,a); });
   return [...g.entries()].filter(([,a])=>a[1]>=need).map(([k,a])=>[k,a[0]/a[1]]).sort((a,b)=>a[0]<b[0]?-1:1); }
 
-function turkeyTopics(){
-  const links=Object.entries(TURKEY_TOPICS).map(([key,topic])=>`<a class="btn ghost" data-turkey-topic="${key}" href="#${key}">${esc(L10(TURKEY_BLOCKS[topic.block]))}</a>`);
-  const status=turkeyPublicUnavailable
-    ? (Object.keys(turkeyPublicData.series).length
-      ? (isEN()?'The public feed could not be refreshed. The last loaded observations are shown.':'No se pudo actualizar la fuente pública. Se muestran las últimas observaciones cargadas.')
-      : (isEN()?'The public feed is temporarily unavailable.':'La fuente pública no está disponible temporalmente.'))
-    : pendingTurkeyTopic ? (isEN()?'Loading public indicators…':'Cargando indicadores públicos…') : '';
-  return `<nav class="turkey-topics" aria-label="${isEN()?'Public indicators':'Indicadores públicos'}">${links.join('')}</nav>${status?`<p class="note" role="status">${status}</p>`:''}`;
-}
-function applyTurkeyTopic(){
-  const topic=TURKEY_TOPICS[pendingTurkeyTopic];
-  const ids=topic?.ids.map(TURKEY_PUBLIC.idFor);
-  if(!ids?.every(id=>Object.hasOwn(S(),id))) return false;
-  pendingTurkeyTopic='';
-  ex.view='pizarra';
-  bb.mode='lines';
-  bb.tr='original';
-  bb.adjustment=null;
-  bb.picks=ids;
-  return true;
-}
-function openTurkeyTopic(key){
-  pendingTurkeyTopic=key;
-  state.tab='explorador';
-  applyTurkeyTopic();
-  render();
-}
 function exHeader(){ return `<div class="sechead"><h2>Blackboard</h2>
    ${ex.view==='pizarra'||ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
   <div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>
-  ${IS_TURKEY?turkeyTopics():''}
   ${ex.view==='pizarra'?'':sectionSearch('explorer-search',true)}`; }
 const axisOf=(id,i)=>ex.axis2[id]||(i===0?'L':'R');
 function pickRow(list,key,max){ const col=i=>COLORS[i%4];
@@ -1798,13 +1766,6 @@ function pickRow(list,key,max){ const col=i=>COLORS[i%4];
    ${seriesPicker('add-'+key,explorerGroups(list),{disabled:full,placeholder:full?`Máximo ${word} series: quita una para añadir otra`:'',attrs:`data-add-series data-key="${key}"`})}</div></div>`; }
 function bindExplorerViews(){
   panel.querySelectorAll('[data-ev]').forEach(b=>b.addEventListener('click',()=>{ex.view=b.dataset.ev; saveEx(); viewExplorer();}));
-  panel.querySelectorAll('[data-turkey-topic]').forEach(link=>link.addEventListener('click',e=>{
-    if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey) return;
-    const key=link.dataset.turkeyTopic;
-    if(location.hash!=='#'+key) return;
-    e.preventDefault();
-    openTurkeyTopic(key);
-  }));
 }
 function ensureExternalExplorerPicks(){
   if(!IS_USA) return;
@@ -3034,7 +2995,9 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     document.getElementById('stamp').textContent=DATA.meta.n_series
       ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series'+
         (workbookTime?' · '+publicationLabel+workbookTime:'') : '';
-    document.getElementById('foot').innerHTML=`${isEN()?'Sources: Türkiye macro master workbook, CBRT EVDS and TurkStat via':'Fuentes: libro maestro de Turquía, CBRT EVDS y TurkStat a través de'} <a href="${TURKEY_PUBLIC.site}">Batuhan Barlas · Türkiye Macro Monitor</a>.`;
+    document.getElementById('foot').innerHTML=`${isEN()?'Sources':'Fuentes'}:
+      <a href="https://en.hmb.gov.tr/public-finance">${isEN()?'Ministry of Treasury and Finance of Türkiye (HMB)':'Ministerio de Tesoro y Finanzas de Türkiye (HMB)'}</a> ·
+      <a href="https://www.bddk.org.tr/Veri/Detay/74">${isEN()?'Banking Regulation and Supervision Agency (BDDK)':'Agencia de Regulación y Supervisión Bancaria (BDDK)'}</a>.`;
   }else if(IS_USA){
     const mainWrap=panel.closest('main');
     const modelsHost=document.getElementById('usa-models-host');
@@ -3070,7 +3033,6 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-lang-change',{detail:LANG})); }
 
 let driveData = { version: null, series: {} };
-let turkeyPublicData = { version: null, series: {} };
 let reloadSequence = 0;
 
 async function fetchDashboardBase(){
@@ -3081,8 +3043,7 @@ async function fetchDashboardBase(){
   return data;
 }
 
-async function fetchDriveSnapshot(previousVersion){
-  const country = IS_TURKEY ? 'turkey' : IS_USA ? 'usa' : 'spain';
+async function readDriveSnapshot(country,previousVersion){
   const response = await fetch('drive_ingestion/snapshots/'+country+'.json', { cache: 'no-store' });
   if(response.status === 404) return null;
   if(!response.ok) throw new Error('HTTP '+response.status);
@@ -3115,6 +3076,7 @@ async function fetchDriveSnapshot(previousVersion){
       : IS_USA ? (Object.hasOwn(USA_BLOCKS, rawBlock) ? rawBlock : (rawBlock || 'other'))
       : (Object.hasOwn(blocks, entry['área']) ? blocks[entry['área']] : 'actividad');
     const prefix = IS_TURKEY ? 'drive_tr_' : IS_USA ? 'drive_us_' : 'drive_es_';
+    const source=(entry.fuente || 'Google Drive').split(/ \| (?:Archivo interno|Internal file):/)[0];
     series[prefix+id] = {
       label: entry.titulo_serie,
       unit: entry.unidad,
@@ -3122,7 +3084,7 @@ async function fetchDriveSnapshot(previousVersion){
       block,
       family: rawBlock,
       areaLabel: typeof entry['área'] === 'string' ? entry['área'].trim() : '',
-      source: (entry.fuente || 'Google Drive').split(/ \| (?:Archivo interno|Internal file):/)[0],
+      source: IS_TURKEY&&Object.hasOwn(TURKEY_SOURCE_ALIASES,source)?TURKEY_SOURCE_ALIASES[source]:source,
       link: /^https:\/\//i.test(entry.source_url||'')?entry.source_url:null,
       code: id,
       original_name: entry.subtitulo_descripcion,
@@ -3135,16 +3097,21 @@ async function fetchDriveSnapshot(previousVersion){
   if(IS_TURKEY&&!latest) return null;
   return { version, series, latest, updatedAt, sourceName:snapshot.origen?.name };
 }
+async function fetchDriveSnapshot(previousVersion){
+  const country=IS_TURKEY?'turkey':IS_USA?'usa':'spain';
+  if(!IS_TURKEY||previousVersion) return readDriveSnapshot(country,previousVersion);
+  const current=await readDriveSnapshot(country,null).catch(()=>null);
+  return current||readDriveSnapshot('turkey-verified',null);
+}
 
 async function reload(manual){
   const request = ++reloadSequence;
   const msg = document.getElementById('liveMsg');
   const before = dashboardBase.meta.refreshed;
   if(manual) msg.textContent = isEN() ? 'Checking data…' : 'Comprobando datos…';
-  const [base, drive, publicFeed, big] = await Promise.allSettled([
+  const [base, drive, big] = await Promise.allSettled([
     IS_EXTERNAL_MONITOR ? null : fetchDashboardBase(),
     fetchDriveSnapshot(driveData.version),
-    IS_TURKEY ? TURKEY_PUBLIC.load(turkeyPublicData.version) : null,
     !IS_EXTERNAL_MONITOR&&(manual||state.tab==='bigdata') ? refreshBigData() : null
   ]);
   if(request !== reloadSequence) return;
@@ -3153,32 +3120,26 @@ async function reload(manual){
     JSON.stringify(base.value.series)!==JSON.stringify(dashboardBase.series));
   const acceptedBase = availableBase && (baseChanged || SOURCE_NOTE!=='data.json de este sitio');
   const updatedDrive = drive.status === 'fulfilled' && drive.value;
-  const publicWasUnavailable = turkeyPublicUnavailable;
-  turkeyPublicUnavailable = IS_TURKEY && publicFeed.status === 'rejected';
-  const updatedPublic = IS_TURKEY && publicFeed.status === 'fulfilled' && publicFeed.value &&
-    (!turkeyPublicData.version || publicFeed.value.version >= turkeyPublicData.version);
   if(acceptedBase){
     dashboardBase = { ...base.value, forecasts: base.value.forecasts || dashboardBase.forecasts };
     SOURCE_NOTE = 'data.json de este sitio';
   }
   if(updatedDrive) driveData = drive.value;
-  if(updatedPublic) turkeyPublicData = publicFeed.value;
-  if(acceptedBase || updatedDrive || updatedPublic){
-    const series = { ...dashboardBase.series, ...driveData.series, ...turkeyPublicData.series };
-    const refreshed = IS_EXTERNAL_MONITOR ? [driveData.latest, IS_TURKEY ? turkeyPublicData.latest : ''].filter(Boolean).sort().at(-1) || '' : dashboardBase.meta.refreshed;
+  if(acceptedBase || updatedDrive){
+    const series = { ...dashboardBase.series, ...driveData.series };
+    const refreshed = IS_EXTERNAL_MONITOR ? driveData.latest || '' : dashboardBase.meta.refreshed;
     DATA = { ...dashboardBase, series, meta: { ...dashboardBase.meta, refreshed, n_series: Object.keys(series).length } };
   }
-  const macroChanged = baseChanged || updatedDrive || updatedPublic;
+  const macroChanged = baseChanged || updatedDrive;
   const changed=macroChanged||big.value?.changed;
   const wasLoading = turkeyLoading||usaLoading||spainDriveLoading;
   turkeyLoading = false;
   usaLoading = false;
   spainDriveLoading = false;
-  const topicApplied = IS_TURKEY && applyTurkeyTopic();
-  if(acceptedBase || macroChanged || wasLoading || topicApplied || publicWasUnavailable !== turkeyPublicUnavailable) render();
+  if(acceptedBase || macroChanged || wasLoading) render();
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-usa-refresh',{detail:{manual}}));
   const time = new Date().toLocaleTimeString(isEN() ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' });
-  const failed = IS_TURKEY ? turkeyPublicUnavailable || drive.status === 'rejected' || !DATA.meta.n_series
+  const failed = IS_TURKEY ? drive.status === 'rejected' || !DATA.meta.n_series
     : IS_USA ? drive.status === 'rejected'
     : base.status === 'rejected';
   const bigFailed=big.status==='rejected'||big.value?.failed;
@@ -3199,15 +3160,12 @@ try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.ran
 const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
 const h0=location.hash.slice(1);
-if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,h0)) pendingTurkeyTopic=h0;
-else if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
+if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
 else if(h0==='pizarra'){state.tab='explorador';ex.view='pizarra';}
 else if(isDashboardTab(h0)) state.tab=h0;
 else if(Object.hasOwn(EXHASH,h0)){state.tab='explorador';ex.view=EXHASH[h0];}
 window.addEventListener('hashchange',()=>{
   const k=location.hash.slice(1);
-  if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,k)){openTurkeyTopic(k);return;}
-  if(IS_TURKEY) pendingTurkeyTopic='';
   if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
   if(k==='pizarra'){state.tab='explorador';ex.view='pizarra';render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}

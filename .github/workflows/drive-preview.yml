@@ -11,7 +11,6 @@ on:
       - 'template.html'
       - 'build_page.py'
       - 'turquia.html'
-      - 'turkey_public.js'
       - 'series_transforms.js'
       - '.github/workflows/drive-preview.yml'
 

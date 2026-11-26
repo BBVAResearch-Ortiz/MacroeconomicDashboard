@@ -138,6 +138,23 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.locator('#tab-explorador').click()
                 self.assert_blackboard(page, 'en')
 
+    def test_turkiye_keeps_verified_data_when_the_workbook_contains_only_examples(self):
+        page = self.start_page()
+        example = {'series': {'EXAMPLE': {'fuente': 'Turkey_example_data.xlsx · Monthly!M'}}}
+        page.route('**/snapshots/turkey.json', lambda route: route.fulfill(json=example))
+        page.goto(f'{ORIGIN}/turquia.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        expect(page.locator('#stamp')).to_contain_text('6 series')
+        expect(page.locator('#foot a')).to_have_count(2)
+        source = page.locator('#bbchart .source-publisher').first
+        expect(source).to_contain_text('Ministry of Treasury and Finance of Türkiye')
+        expect(source).to_have_attribute('href', 'https://en.hmb.gov.tr/public-finance')
+        with page.expect_download() as pending:
+            page.locator('.figure-csv-header .csv-action').click()
+        csv = pending.value.path().read_text(encoding='utf-8-sig')
+        self.assertIn('Treasury Cash Realizations', csv)
+        self.assertIn('https://en.hmb.gov.tr/public-finance', csv)
+
 
 if __name__ == '__main__':
     unittest.main()

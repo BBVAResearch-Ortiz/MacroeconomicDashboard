@@ -20,7 +20,7 @@ BLOCKS = {
     'sector_exterior': 'exterior',
 }
 SITE_FILES = (
-    'index.html', 'pais.html', 'usa.html', 'i18n.js', 'bbva-research-logo.png', 'turkey_public.js', 'series_transforms.js',
+    'index.html', 'pais.html', 'usa.html', 'i18n.js', 'bbva-research-logo.png', 'series_transforms.js',
     'bigdata.json', 'bigdata_heatmap.json', 'forecasts.json', 'frbus_resultados.json',
     'gdpnow.json', 'gdpnow_tracking.json',
 )

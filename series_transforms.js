@@ -73,17 +73,6 @@ const SERIES_TRANSFORMS = (() => {
       return shape({family:isGDP?code.replace(/_(RAW|SCA|SA)_/,'_'):id,
         aggregate:indexed?'mean':'',canGrow:isGDP&&!/_(S|TAXES_SUBSIDIES)$/.test(code)||indexed||/People/.test(unit),hasMethod:Boolean(adjustment)});
     }
-    if(id.startsWith('public_tr_')){
-      if(/^(TR_CPI_|TR_TREND_)/.test(code)){
-        const key=code.replace(/^TR_(CPI|TREND)_/,'').replace(/^CPI$/,'HEADLINE');
-        return shape({family:'TR:CPI:'+key,kind:code.startsWith('TR_CPI_')?'yoy':'trend',hasMethod:true});
-      }
-      if(/^(TR_BOP_|TR_TRADE_)/.test(code)){
-        return shape({family:code.replace(/_12M$/,''),kind:code.endsWith('_12M')?'sum12':'level',aggregate:'sum',
-          canGrow:!/(BOP_|TRADE_BALANCE)/.test(code),hasMethod:true});
-      }
-      return shape({hasMethod:Boolean(s.transform)});
-    }
     const documented=base[id]||{};
     const kind=documented.kind||(/% a\/a|y\/y|year-on-year/i.test(unit)||/^(yoy|sum12yoy|qavg_yoy)$/.test(s.transform)?'yoy':
       /sum12|suma móvil de 12 meses/.test(s.transform)?'sum12':unit==='% PIB'?'gdp':

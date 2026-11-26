@@ -5,14 +5,17 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const { series } = JSON.parse(readFileSync(path.join(root, 'drive_ingestion/snapshots/turkey.json'), 'utf8'));
+const snapshot = name => JSON.parse(readFileSync(path.join(root, 'drive_ingestion/snapshots', name + '.json'), 'utf8')).series;
+const series = snapshot('turkey');
 
 test('the published Türkiye snapshot contains sourced observations and excludes workbook examples', () => {
   assert.ok(Object.keys(series).length > 0);
-  for (const [id, entry] of Object.entries(series)) {
-    assert.doesNotMatch(entry.fuente, /Turkey_example_data\.xlsx/i, id);
-    assert.equal(new URL(entry.source_url).protocol, 'https:', id);
-    assert.ok(entry.observaciones.length > 0, id);
+  for (const entries of [series, snapshot('turkey-verified')]) {
+    for (const [id, entry] of Object.entries(entries)) {
+      assert.doesNotMatch(entry.fuente, /Turkey_example_data\.xlsx/i, id);
+      assert.equal(new URL(entry.source_url).protocol, 'https:', id);
+      assert.ok(entry.observaciones.length > 0, id);
+    }
   }
 });
 

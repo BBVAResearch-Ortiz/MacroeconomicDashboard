@@ -23,10 +23,6 @@ La primera ruta recibe las instantáneas `global.json`, `turkey.json` y `spain.j
 
 La ejecución online se configura en [Upload to Dashboard](apps_script/README.md).
 
-## Fuente pública de Turquía
+## Fuentes de Turquía
 
-El [monitor de Turquía](../turquia.html#tr_cpi) conserva el libro maestro y consulta además el archivo publicado por el [Türkiye Macro Monitor de Batuhan Barlas](https://batuhan-barlas.github.io/turkey-macro-dashboard/). Su extracción de CBRT EVDS y TurkStat está programada a las 06:15 y 14:15 UTC. Este repositorio valida su publicación a las 07:40 y 15:40 UTC mediante el flujo `Check Türkiye public data`, que también se puede ejecutar manualmente.
-
-El navegador consulta el archivo público al abrir Turquía, al pulsar **Actualizar datos** y cada 15 minutos mientras la página está abierta. Conserva las observaciones recibidas durante la sesión si falla una actualización. El libro maestro se carga por separado.
-
-La integración utiliza los datos publicados en sus unidades y convenciones de signo originales. Admite las frecuencias diaria, semanal y mensual de la fuente. Cuando se comparan frecuencias distintas en dispersión, barras o mapas de calor, las series de mayor frecuencia se promedian por periodo.
+El [monitor de Turquía](../turquia.html) carga las series del libro maestro con el nombre y el enlace del organismo que las publica. Las fuentes actuales son el Ministerio de Tesoro y Finanzas (HMB) y la Agencia de Regulación y Supervisión Bancaria (BDDK). Si falla la primera carga o el libro contiene solo ejemplos, el monitor utiliza la instantánea verificada.

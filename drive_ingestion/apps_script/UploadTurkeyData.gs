@@ -141,7 +141,7 @@ function fetchTurkeyTreasury_(today) {
     const data = readTurkeyTreasury_(years.map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]), today);
     return TURKEY_CASH_ITEMS.map(([key, title, row], i) => turkeySeries_('TR_HMB_M_' + key, title,
       'Treasury Cash Realizations · ' + row, 'Monthly', 'TREASURY_CASH', 'public_finances',
-      'Tesoro de Turquía (HMB) · Treasury Cash Realizations', config.treasuryPage, data[i]));
+      'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro', config.treasuryPage, data[i]));
   });
 }
 
@@ -194,7 +194,7 @@ function fetchTurkeyWeekly_(today, previous) {
     console.log('BDDK semanal · ' + error.message + (existing ? ' Se conserva el dato guardado de ' : ' Se usa el último dato del boletín de ') + point[0] + '.');
   }
   return [turkeySeries_('TR_BDDK_W_LOANS', 'Total bank loans', 'Banking sector · Toplam Krediler (1.0.1)',
-    'Weekly', 'BANKING', 'banking', 'BDDK / BRSA · boletín semanal', source, data)];
+    'Weekly', 'BANKING', 'banking', 'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal', source, data)];
 }
 
 function turkeyWeekDate_(date) {
@@ -260,7 +260,7 @@ function fetchTurkeyMonthly_(today, previous) {
       return [];
     }
     return [turkeySeries_(id, title, 'Banking sector · table ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
-      'BDDK / BRSA · boletín mensual', TURKEY_PRODUCER.monthly, data[i])];
+      'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín mensual', TURKEY_PRODUCER.monthly, data[i])];
   });
 }
 
