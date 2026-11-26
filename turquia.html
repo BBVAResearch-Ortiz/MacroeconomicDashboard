@@ -1118,8 +1118,7 @@ function viewResumen(){
   draw(); observe(draw);
 }
 function viewTurkeyOverview(){
-  const ids=[...turkeyIds('Q_EXP_SCA_GDP','M_SCA_IP','M_SA_UNEMPLOYMENT_RATE'),
-    TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),...turkeyIds('HMB_M_CASH_BALANCE','BDDK_W_LOANS','BDDK_M_DEPOSITS'),
+  const ids=[...turkeyCashIds(),TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),...turkeyIds('BDDK_W_LOANS','BDDK_M_DEPOSITS'),
     TURKEY_PUBLIC.idFor('TR_TRADE_BALANCE_12M'),TURKEY_PUBLIC.idFor('TR_DEPOSIT')].filter(id=>S()[id]);
   useRangeCoverage(ids.map(id=>S()[id]));
   panel.innerHTML=`<div class="sechead"><h2>Resumen</h2>${rangeCtl()}</div><div class="grid3">${ids.map((id,i)=>ovCard(id,i,'data-g')).join('')}</div>`;
@@ -1360,17 +1359,17 @@ Object.assign(EN,{'PIB y cuentas nacionales':'GDP and national accounts','Activi
 const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',coyuntura:'Coyuntura',empleo:'Empleo',precios:'Precios',
   vivienda:'Vivienda',credito:'Créditos y depósitos',publico:'Sector público',exterior:'Sector exterior',financiero:'Financiero'};
 const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
+const turkeyCashIds=()=>turkeyIds('HMB_M_CASH_BALANCE','HMB_M_CASH_REVENUE','HMB_M_CASH_EXPENDITURE');
 const turkeyStackPresets={
   spending:{label:'Consumo, gasto público e inversión',bars:turkeyIds('Q_EXP_RAW_C','Q_EXP_RAW_G','Q_EXP_RAW_I'),line:''},
   production:{label:'Agricultura, industria y construcción',bars:turkeyIds('Q_PROD_RAW_AGRICULTURE','Q_PROD_RAW_INDUSTRY','Q_PROD_RAW_CONSTRUCTION'),line:''},
   trade:{label:'Exportaciones e importaciones',bars:turkeyIds('Q_EXP_RAW_X','Q_EXP_RAW_M'),line:''}
 };
 const explorerDefaults=IS_TURKEY?{
-  picks:turkeyIds('Q_EXP_SCA_GDP','M_SCA_IP','M_SCA_RETAIL_SALES','M_SA_UNEMPLOYMENT_RATE','M_SA_PMI','M_SCA_ECONOMIC_CONFIDENCE_INDEX'),
-  mpicks:turkeyIds('M_SCA_IP','M_SCA_RETAIL_SALES','M_SCA_SERVICES_PRODUCTION'),
-  mpicks2:turkeyIds('M_SCA_IP','M_SA_UNEMPLOYMENT_RATE'),
-  spicks:turkeyStackPresets.spending.bars, sline:'', spicks2:turkeyStackPresets.production.bars, sline2:'',
-  sx:turkeyIds('M_SCA_IP')[0], sy:turkeyIds('M_SA_CAPACITY_UTILIZATION_RATE')[0]
+  picks:[...turkeyCashIds(),TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),TURKEY_PUBLIC.idFor('TR_DEPOSIT')],
+  mpicks:turkeyCashIds(), mpicks2:[turkeyCashIds()[0],TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE')],
+  spicks:[], sline:'', spicks2:[], sline2:'',
+  sx:turkeyCashIds()[1], sy:turkeyCashIds()[2]
 }:IS_USA?{
   picks:[], mpicks:[], mpicks2:[], spicks:[], sline:'', spicks2:[], sline2:'', sx:'', sy:''
 }:{
@@ -2039,7 +2038,7 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
@@ -2207,6 +2206,7 @@ function viewBoard(){
   const searchFocused=document.activeElement?.id==='explorer-search';
   const focusedSeries=document.activeElement?.dataset.bbp;
   const catalogScroll=document.getElementById('bblist')?.scrollTop;
+  const hadPicks=bb.picks.length>0;
   if(IS_USA&&!bb.picks.length&&exIds().length){
     bb.picks=exIds().slice(0,3);
   }
@@ -2215,6 +2215,9 @@ function viewBoard(){
     else loadHeatExample();
   }
   bb.picks=bb.picks.filter(id=>S()[id]&&S()[id].block!=='aux');
+  if(IS_TURKEY&&hadPicks&&!bb.picks.length){
+    bb.picks=[...new Set([...turkeyCashIds(),...exIds()])].filter(id=>S()[id]).slice(0,3);
+  }
   if(bb.mode==='scatter'){
     const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
     bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
@@ -2937,9 +2940,11 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     document.querySelector('.mast .lede').textContent=isEN()?'Türkiye macroeconomic and financial indicators.':'Indicadores macroeconómicos y financieros de Turquía.';
     const workbookTime=driveData.updatedAt?new Intl.DateTimeFormat(isEN()?'en-GB':'es-ES',
       {timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'}).format(new Date(driveData.updatedAt)):'';
+    const publicationLabel=driveData.sourceName==='turkey_macro_master.xlsx'?(isEN()?'Workbook published: ':'Excel publicado: '):
+      (isEN()?'Data published: ':'Datos publicados: ');
     document.getElementById('stamp').textContent=DATA.meta.n_series
       ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series'+
-        (workbookTime?' · '+(isEN()?'Workbook published: ':'Excel publicado: ')+workbookTime:'') : '';
+        (workbookTime?' · '+publicationLabel+workbookTime:'') : '';
     document.getElementById('foot').innerHTML=`${isEN()?'Sources: Türkiye macro master workbook, CBRT EVDS and TurkStat via':'Fuentes: libro maestro de Turquía, CBRT EVDS y TurkStat a través de'} <a href="${TURKEY_PUBLIC.site}">Batuhan Barlas · Türkiye Macro Monitor</a>.`;
   }else if(IS_USA){
     const mainWrap=panel.closest('main');
@@ -3008,6 +3013,7 @@ async function fetchDriveSnapshot(previousVersion){
   const series = {};
   let latest = '';
   for(const [id, entry] of Object.entries(snapshot.series)){
+    if(IS_TURKEY&&/\bTurkey_example_data\.xlsx\b/i.test(entry.fuente||'')) continue;
     const frequency = frequencies[entry.frecuencia];
     if(!/^[A-Za-z0-9_-]+$/.test(id) || !['D','W','M','Q'].includes(frequency) ||
        !Array.isArray(entry.observaciones) || !entry.observaciones.length){
@@ -3037,7 +3043,8 @@ async function fetchDriveSnapshot(previousVersion){
     };
   }
   const updatedAt=Number.isFinite(Date.parse(snapshot.origen?.updated_at))?snapshot.origen.updated_at:null;
-  return { version, series, latest, updatedAt };
+  if(IS_TURKEY&&!latest) return null;
+  return { version, series, latest, updatedAt, sourceName:snapshot.origen?.name };
 }
 
 async function reload(manual){

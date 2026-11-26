@@ -36,6 +36,8 @@ Los archivos de origen quedan en Drive. El script guarda solo las series, el ín
 
 ## Piloto de Turquía
 
+El dashboard excluye las series cuyo origen declarado es `Turkey_example_data.xlsx`. Si el libro maestro aún contiene solo esas series, el importador conserva la última instantánea publicada con datos oficiales.
+
 En **Upload to Dashboard**, sustituye el código del importador por la versión de `UploadToDashboard.gs` de este repositorio, añade `UploadTurkeyData.gs` como archivo de secuencia de comandos y actualiza `appsscript.json`. El manifiesto pide acceso de escritura a Drive para actualizar el Excel existente por ID. Autoriza el cambio con la cuenta que mantiene los disparadores. Esa cuenta necesita permiso de edición sobre el Excel madre de `Turkiye`.
 
 1. Ejecuta `previewTurkeyWorkbook`. Solo trabaja sobre copias temporales. El registro muestra el número de observaciones y la última fecha de cada serie, y si cambiaría el Excel.

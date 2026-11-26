@@ -57,7 +57,7 @@ function runTurkeyWorkbook_(publish) {
       const previous = parseDashboardSheets_(dictionaryRows, observationRows, timezone);
       const sources = [
         ['Tesoro', () => fetchTurkeyTreasury_(today)],
-        ['BDDK semanal', () => fetchTurkeyWeekly_(today)],
+        ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series.TR_BDDK_W_LOANS)],
         ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)]
       ];
       const errors = [];
@@ -168,10 +168,13 @@ function readTurkeyTreasury_(sheets, today) {
 }
 
 function turkeyBankRequest_(url, payload) {
-  return { url, method: 'post', payload, headers: { Accept: 'application/json' }, muteHttpExceptions: true };
+  const form = Object.entries(payload).map(([key, value]) => encodeURIComponent(key) + '=' + encodeURIComponent(String(value))).join('&');
+  return { url, method: 'post', contentType: 'application/x-www-form-urlencoded; charset=UTF-8', payload: form,
+    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+      Origin: 'https://www.bddk.org.tr', Referer: url.split('/Home/')[0] + '/' }, muteHttpExceptions: true };
 }
 
-function fetchTurkeyWeekly_(today) {
+function fetchTurkeyWeekly_(today, previous) {
   const source = TURKEY_PRODUCER.weekly;
   const page = turkeyResponse_(UrlFetchApp.fetch(source, { muteHttpExceptions: true }), 'BDDK semanal').getContentText();
   const release = page.match(/"tarih":\s*'(\d{2}\.\d{2}\.\d{4})'/)?.[1];
@@ -179,10 +182,36 @@ function fetchTurkeyWeekly_(today) {
   const endpoint = source + '/tr/Home/KiyaslamaJsonGetir';
   const { url, ...options } = turkeyBankRequest_(endpoint,
     { dil: 'tr', tarih: release, id: '1.0.1', parabirimi: 'TRY', sutun: 3, tarafKodu: '10001', gun: 90 });
-  const response = turkeyResponse_(UrlFetchApp.fetch(url, options), 'BDDK histórico semanal');
-  const data = readTurkeyWeeklyBank_(JSON.parse(response.getContentText()), today);
+  let data;
+  try {
+    const response = turkeyResponse_(UrlFetchApp.fetch(url, options), 'BDDK histórico semanal');
+    data = readTurkeyWeeklyBank_(JSON.parse(response.getContentText()), today);
+    if (!data.length || data.some(([, value]) => !Number.isFinite(value))) throw new Error('Histórico sin valores válidos.');
+  } catch (error) {
+    const point = readTurkeyWeeklyBulletin_(page, release, today);
+    const existing = previous?.observaciones.find(([day]) => day === point[0]);
+    data = [existing || point];
+    console.log('BDDK semanal · ' + error.message + (existing ? ' Se conserva el dato guardado de ' : ' Se usa el último dato del boletín de ') + point[0] + '.');
+  }
   return [turkeySeries_('TR_BDDK_W_LOANS', 'Total bank loans', 'Banking sector · Toplam Krediler (1.0.1)',
     'Weekly', 'BANKING', 'banking', 'BDDK / BRSA · boletín semanal', source, data)];
+}
+
+function turkeyWeekDate_(date) {
+  const parts = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(date);
+  if (!parts) throw new Error('BDDK semanal: fecha no reconocida.');
+  const day = parts[3] + '-' + parts[2].padStart(2, '0') + '-' + parts[1].padStart(2, '0');
+  if (!dashboardDate_(day, 'UTC')) throw new Error('BDDK semanal: fecha no válida.');
+  return day;
+}
+
+function readTurkeyWeeklyBulletin_(page, release, today) {
+  const date = turkeyWeekDate_(release);
+  const cell = page.match(/<td\b(?=[^>]*\bdata-label="TOPLAM")(?=[^>]*ShowModalGraph\(\s*'1\.0\.1'\s*,\s*'TRY'\s*,\s*3\s*\))[^>]*>([^<]+)<\/td>/i)?.[1]?.trim();
+  if (!cell || !/Milyon TL/.test(page) || date > today || !/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/.test(cell)) {
+    throw new Error('BDDK semanal: no se pudo verificar el último crédito total del boletín.');
+  }
+  return [date, Number(cell.replace(/\./g, '').replace(',', '.'))];
 }
 
 function readTurkeyWeeklyBank_(report, today) {
@@ -191,11 +220,7 @@ function readTurkeyWeeklyBank_(report, today) {
       !Array.isArray(dates) || !Array.isArray(values) || dates.length !== values.length) {
     throw new Error('BDDK semanal: respuesta inesperada para el crédito total del sector.');
   }
-  return dates.map((date, i) => {
-    const parts = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(date);
-    if (!parts) throw new Error('BDDK semanal: fecha no reconocida.');
-    return [parts[3] + '-' + parts[2].padStart(2, '0') + '-' + parts[1].padStart(2, '0'), values[i]];
-  }).filter(([date]) => date <= today);
+  return dates.map((date, i) => [turkeyWeekDate_(date), values[i]]).filter(([date]) => date <= today);
 }
 
 function fetchTurkeyMonthly_(today, previous) {
@@ -210,20 +235,38 @@ function fetchTurkeyMonthly_(today, previous) {
   const data = TURKEY_MONTHLY_REPORTS.map(() => []);
   for (let i = 0; i < requests.length; i += 6) {
     const chunk = requests.slice(i, i + 6);
-    UrlFetchApp.fetchAll(chunk.map(item => item.request)).forEach((response, index) => {
-      const { day, report } = chunk[index];
-      const value = readTurkeyMonthlyBank_(JSON.parse(turkeyResponse_(response, 'BDDK ' + day).getContentText()),
-        TURKEY_MONTHLY_REPORTS[report][3]);
-      if (value !== null) data[report].push([day, value]);
+    let responses;
+    try {
+      responses = UrlFetchApp.fetchAll(chunk.map(item => item.request));
+    } catch (error) {
+      console.log('BDDK mensual · lote fallido: se comprueban los meses por separado.');
+    }
+    chunk.forEach(({ day, report, request }, index) => {
+      const [, , table, label] = TURKEY_MONTHLY_REPORTS[report];
+      try {
+        const { url, ...options } = request;
+        const response = responses?.[index] || UrlFetchApp.fetch(url, options);
+        const value = readTurkeyMonthlyBank_(JSON.parse(turkeyResponse_(response, 'BDDK ' + day).getContentText()), label);
+        if (value !== null) data[report].push([day, value]);
+      } catch (error) {
+        console.log('BDDK mensual · ' + day + ' · tabla ' + table + ': ' + error.message);
+      }
     });
   }
-  return TURKEY_MONTHLY_REPORTS.map(([id, title, table, label], i) => turkeySeries_(id, title,
-    'Banking sector · table ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
-    'BDDK / BRSA · boletín mensual', TURKEY_PRODUCER.monthly, data[i]));
+  if (!data.some(rows => rows.length)) throw new Error('Ningún periodo de crédito o depósitos pudo verificarse.');
+  return TURKEY_MONTHLY_REPORTS.flatMap(([id, title, table, label], i) => {
+    if (!data[i].length) {
+      console.log('BDDK mensual · ' + id + ': se conserva cualquier histórico existente.');
+      return [];
+    }
+    return [turkeySeries_(id, title, 'Banking sector · table ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
+      'BDDK / BRSA · boletín mensual', TURKEY_PRODUCER.monthly, data[i])];
+  });
 }
 
 function readTurkeyMonthlyBank_(report, label) {
   const table = report.Json;
+  if (report.success === false && /^\d{4} yılının en son \d{1,2} ayına ait veri bulunmaktadır!?$/i.test(report.error || '')) return null;
   if (!report.success || !Array.isArray(table?.data?.rows)) throw new Error('BDDK mensual: respuesta inesperada.');
   if (!table.data.rows.length) return null;
   const columns = (table.colNames || []).flatMap((name, col) => name === 'Toplam' ? [col] : []);

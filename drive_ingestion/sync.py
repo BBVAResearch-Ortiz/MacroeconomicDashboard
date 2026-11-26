@@ -172,6 +172,12 @@ def sync_area(drive, folder_id, output):
                 return
 
     series = parse_workbook(drive.download(source['id']))
+    if output.stem == 'turkey':
+        series = {key: entry for key, entry in series.items()
+                  if not re.search(r'\bTurkey_example_data\.xlsx\b', str(entry.get('fuente') or ''), re.IGNORECASE)}
+        if not series:
+            logging.info('turkey: only example data in Drive; keeping the published snapshot')
+            return
     write_snapshot(output, source, series)
     logging.info('%s: synchronized %d series', output.stem, len(series))
 

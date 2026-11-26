@@ -115,14 +115,19 @@ function syncDashboardArea_(area, folder, properties, token) {
   const key = 'FOW_UPLOAD_V1_' + DASHBOARD_UPLOAD.branch + '_' + area;
   const previous = JSON.parse(properties.getProperty(key) || '{}');
   const revision = book.id + ':' + (book.md5Checksum || book.version);
-  const localizationVersion = master ? 1 : null;
+  const localizationVersion = area === 'turkey' ? 2 : master ? 1 : null;
   if (token && revision === previous.revision &&
       (!master || previous.name === book.name && previous.localizationVersion === localizationVersion)) {
     console.log(area + ': Excel sin cambios.');
     return;
   }
 
-  const parsed = readDashboardWorkbook_(book);
+  const workbook = readDashboardWorkbook_(book);
+  const parsed = area === 'turkey' ? excludeTurkeyExample_(workbook) : workbook;
+  if (!parsed.count) {
+    console.log('turkey · ' + book.name + ': sin series fuera del Excel de ejemplo. Se conserva la instantánea publicada.');
+    return;
+  }
   if (area === 'spain') {
     const supported = ['D', 'M', 'Q', 'Diaria', 'Mensual', 'Trimestral'];
     for (const [id, entry] of Object.entries(parsed.series)) {
@@ -147,6 +152,16 @@ function syncDashboardArea_(area, folder, properties, token) {
   console.log(area + ' · ' + book.name + ': ' + Object.keys(parsed.series).length + ' series y ' + parsed.count +
     ' observaciones. Hojas con cambios: ' + (changed.join(', ') || 'ninguna') +
     (localized ? ' · Traducción del catálogo: ' + (localized.complete ? 'completa' : 'pendiente') : ''));
+}
+
+function excludeTurkeyExample_(workbook) {
+  const records = Object.entries(workbook.series).filter(([, entry]) => !/\bTurkey_example_data\.xlsx\b/i.test(entry.fuente || ''));
+  if (records.length === Object.keys(workbook.series).length) return workbook;
+  console.log('turkey: excluidas ' + (Object.keys(workbook.series).length - records.length) + ' series del Excel de ejemplo.');
+  const dictionary = records.map(([id, { observaciones, ...metadata }]) => [id, metadata]);
+  const observations = records.map(([id, entry]) => [id, entry.observaciones]);
+  return { series: Object.fromEntries(records), count: observations.reduce((total, [, points]) => total + points.length, 0),
+    hashes: { DICCIONARIO: dashboardHash_(dictionary), DATOS_LARGO: dashboardHash_(observations) } };
 }
 
 function selectDashboardMaster_(area, books) {
