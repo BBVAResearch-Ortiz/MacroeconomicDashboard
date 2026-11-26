@@ -71,19 +71,22 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-featured{container-type:inline-size}
 .chart-featured text{font-size:12px}
 .chart-range{display:grid;gap:6px;max-width:100%;margin:4px 0 8px;font-size:12px;color:var(--muted)}
-.period-controls{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px}
-.chart-range .seg{gap:4px;border:0;flex-wrap:wrap}
+.period-controls{display:flex;align-items:center;gap:6px 10px}
+.chart-range .seg{gap:4px;border:0;min-width:0;flex-wrap:wrap}
 .chart-range .seg button,.chart-date-range summary{border:0;border-radius:7px;background:#F3F5F6;color:var(--accent);padding:8px 10px;font-size:13px;font-weight:600;line-height:1}
 .chart-range .seg button[aria-pressed="true"],.chart-date-range[data-custom] summary{background:var(--accent);color:var(--on-accent)}
+.chart-date-range{flex:none;margin-inline-start:auto;max-inline-size:100%}
 .chart-date-range summary{cursor:pointer;inline-size:max-content;max-inline-size:100%}
-.chart-date-range[open]{flex-basis:100%}
+.chart-date-range[open]{display:flex;align-items:center;gap:8px}
 .date-coverage{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.4;font-variant-numeric:tabular-nums}
 .date-coverage b{color:var(--chart-ink)}
-.custom-range{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:8px;padding:10px;border:1px solid var(--chart-grid);border-radius:8px}
+.custom-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;align-items:end}
 .custom-range label{display:grid;gap:4px;color:var(--chart-ink);font-weight:600}
 .custom-range input{min-width:0;padding:5px 7px;border:1px solid var(--rule);border-radius:5px;background:var(--surface);color:var(--ink);font:inherit}
-.custom-range [role="alert"]{flex-basis:100%;margin:0;color:var(--ink)}
+.custom-range [role="alert"]{grid-column:1/-1;margin:4px 0 0;color:var(--ink)}
 .custom-range [role="alert"]:empty{display:none}
+@media(max-width:600px){.period-controls{flex-wrap:wrap}}
+@media(max-width:380px){.chart-date-range[open]{display:grid;gap:4px}}
 .chart-body{display:grid;gap:12px}
 .chart-readings{border-top:1px solid var(--chart-grid);padding-top:10px;min-width:0}
 .chart-readings>p{margin:0 0 8px;font-size:12px;color:var(--muted)}
@@ -987,7 +990,7 @@ function rangeControl(selected,attribute,compact=false){
     <details class="chart-date-range"${selected==='custom'?' data-custom':''}><summary>${en?'Choose dates':'Elegir fechas'}</summary>
     <form class="custom-range" novalidate><label>${en?'From':'Desde'} <input type="date" name="start" ${limits} value="${dates.start}"></label>
     <label>${en?'To':'Hasta'} <input type="date" name="end" ${limits} value="${dates.end}"></label>
-    <button type="submit" class="btn">${en?'Apply dates':'Aplicar fechas'}</button><p role="alert"></p></form></details></div></div>`;
+    <p role="alert"></p></form></details></div></div>`;
 }
 const rangeCtl=()=>rangeControl(state.range,'data-r');
 const chartRangeCtl=()=>rangeControl(state.range,'data-r',true);
@@ -997,26 +1000,33 @@ function bindPeriodControls(attribute,apply){
     apply(range);
     panel.querySelector(`[${attribute}="${range}"]`)?.focus({preventScroll:true});
   }));
-  panel.querySelectorAll('.custom-range').forEach(form=>form.addEventListener('submit',event=>{
-    event.preventDefault();
-    const start=form.elements.start.value,end=form.elements.end.value,error=form.querySelector('[role="alert"]');
-    if(!validDay(start)||!validDay(end)||start>end){
-      error.textContent=isEN()?'Enter two valid dates in chronological order.':'Introduce dos fechas válidas en orden cronológico.';
-      return;
-    }
-    if(start<rangeCoverage.first||end>rangeCoverage.last){
-      error.textContent=isEN()?'Choose dates within the available data range.':'Elige fechas dentro del intervalo disponible.';
-      return;
-    }
-    if(!hasRangeObservations(rangeCoverage,start,end)){
-      error.textContent=isEN()?'There are no observations between those dates.':'No hay observaciones entre esas fechas.';
-      return;
-    }
-    Object.assign(customRange,{start,end});
-    try{localStorage.setItem('mme-custom-range',JSON.stringify(customRange));}catch(e){}
-    apply('custom');
-    panel.querySelector('.chart-date-range summary')?.focus({preventScroll:true});
-  }));
+  panel.querySelectorAll('.custom-range').forEach(form=>{
+    const applyDates=()=>{
+      const start=form.elements.start.value,end=form.elements.end.value,error=form.querySelector('[role="alert"]');
+      if(!validDay(start)||!validDay(end)||start>end){
+        error.textContent=isEN()?'Enter two valid dates in chronological order.':'Introduce dos fechas válidas en orden cronológico.';
+        return;
+      }
+      if(start<rangeCoverage.first||end>rangeCoverage.last){
+        error.textContent=isEN()?'Choose dates within the available data range.':'Elige fechas dentro del intervalo disponible.';
+        return;
+      }
+      if(!hasRangeObservations(rangeCoverage,start,end)){
+        error.textContent=isEN()?'There are no observations between those dates.':'No hay observaciones entre esas fechas.';
+        return;
+      }
+      const focusedField=form.contains(document.activeElement)?document.activeElement.name:'';
+      Object.assign(customRange,{start,end});
+      try{localStorage.setItem('mme-custom-range',JSON.stringify(customRange));}catch(e){}
+      apply('custom');
+      const picker=panel.querySelector('.chart-date-range');
+      if(!picker) return;
+      picker.open=true;
+      if(focusedField) picker.querySelector('.custom-range').elements[focusedField]?.focus({preventScroll:true});
+    };
+    form.addEventListener('change',applyDates);
+    form.addEventListener('submit',event=>{event.preventDefault();applyDates();});
+  });
 }
 function bindRange(){
   bindPeriodControls('data-r',range=>{
