@@ -1533,24 +1533,38 @@ const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',co
 const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
 const turkeyCashIds=()=>turkeyIds('HMB_M_CASH_BALANCE','HMB_M_CASH_REVENUE','HMB_M_CASH_EXPENDITURE');
 const turkeyBankIds=()=>turkeyIds('BDDK_W_LOANS','BDDK_M_LOANS','BDDK_M_DEPOSITS');
-const exIds=()=>Object.keys(S()).filter(k=>S()[k].block!=='aux');
+const exIds=()=>Object.keys(S()).filter(id=>S()[id].block!=='aux'&&(IS_EXTERNAL_MONITOR||id.startsWith('drive_es_')));
+const SPAIN_AREA_TABS=[
+  {k:'actividad-empresarial',l:'Actividad empresarial'},
+  {k:'industria',l:'Industria'},
+  {k:'encuestas-opinion',l:'Encuestas de opinión'},
+  {k:'exterior',l:'Sector exterior'}
+];
+const SPAIN_AREAS={
+  actividad_empresarial:'actividad-empresarial', actividad:'actividad-empresarial',
+  consumo:'actividad-empresarial', industria:'industria', 'encuestas_opinión':'encuestas-opinion',
+  sector_exterior:'exterior'
+};
+const SPAIN_FAMILY_AREAS={
+  ESI:'encuestas-opinion', PMI:'encuestas-opinion', INDUSTRIAL_PRODUCTION:'industria',
+  SERVICES_ACTIVITY:'actividad-empresarial', TRADE_BALANCE:'exterior', LARGE_ENTERPRISES:'actividad-empresarial'
+};
+const SPAIN_FAMILY_ALIASES={IPI:'INDUSTRIAL_PRODUCTION',IASS:'SERVICES_ACTIVITY',BAL_COM:'TRADE_BALANCE',GGEE:'LARGE_ENTERPRISES'};
 const DRIVE_FAMILIES={
   ESI:'ESI', PMI:'PMI', INDUSTRIAL_PRODUCTION:'Producción industrial (IPI)',
   SERVICES_ACTIVITY:'Actividad de servicios (IASS)', TRADE_BALANCE:'Balanza comercial',
   LARGE_ENTERPRISES:'Grandes empresas'
 };
-const DRIVE_THEME_KEYS={ESI:'esi',PMI:'pmi',INDUSTRIAL_PRODUCTION:'produccion-industrial',
-  SERVICES_ACTIVITY:'actividad-servicios',TRADE_BALANCE:'balanza-comercial',LARGE_ENTERPRISES:'grandes-empresas'};
-const THEME_TABS=IS_TURKEY?TURKEY_THEME_TABS:IS_USA?[]:[
-  ...Object.entries(BLOCKS).map(([k,l])=>({k,l})),
-  ...Object.entries(DRIVE_FAMILIES).map(([family,l])=>({k:DRIVE_THEME_KEYS[family],l})),
-  {k:'otras-series',l:'Otras series'}
-];
+const SPAIN_THEME_ALIASES={actividad:'actividad-empresarial',esi:'encuestas-opinion',pmi:'encuestas-opinion',
+  'produccion-industrial':'industria','actividad-servicios':'actividad-empresarial',
+  'balanza-comercial':'exterior','grandes-empresas':'actividad-empresarial'};
+const THEME_TABS=IS_TURKEY?TURKEY_THEME_TABS:IS_USA?[]:[...SPAIN_AREA_TABS,{k:'otras-series',l:'Otras series'}];
 const IPI_BRANCHES={
   GEN:'Índice general', CONS:'Bienes de consumo', DUR:'Consumo duradero', NODUR:'Consumo no duradero',
   ENE:'Energía', EQ:'Bienes de equipo', INT:'Bienes intermedios'
 };
 const SERIES_LABELS={
+  'Actividad empresarial':'Business activity', Industria:'Industry', 'Encuestas de opinión':'Opinion surveys',
   'Producción industrial (IPI)':'Industrial production (IPI)',
   'Actividad de servicios (IASS)':'Services activity (IASS)',
   'Balanza comercial':'Trade balance', 'Grandes empresas':'Large enterprises',
@@ -1576,30 +1590,6 @@ const SERIES_LABELS={
   'Grupo de series':'Series group', 'Subgrupo de series':'Series subgroup'
 };
 Object.assign(EN,SERIES_LABELS);
-const BASE_BRANCHES={
-  actividad:[
-    [/^(pib_|ap_)/,'PIB y aportaciones'], [/^vab_/,'VAB'], [/^[xm]_yoy$/,'Exportaciones e importaciones'], [/./,'Demanda']
-  ],
-  coyuntura:[
-    [/^(isa_|cli$)/,'Indicadores sintéticos'], [/^(turistas|gasto_tur)$/,'Turismo'],
-    [/^hipotecas$/,'Crédito e hipotecas'], [/./,'Actividad y consumo']
-  ],
-  empleo:[[ /^(afil_|paro_reg)/,'Afiliación y paro registrado'], [/./,'Mercado de trabajo']],
-  precios:[[ /^(sal_|clab_)/,'Salarios y costes laborales'], [/^ipv$/,'Transacciones y precios'], [/./,'Precios de consumo']],
-  vivienda:[
-    [/^viv_(visados|iniciadas|terminadas|protegida|coste)/,'Construcción y oferta'],
-    [/^viv_credito/,'Crédito e hipotecas'], [/./,'Transacciones y precios']
-  ],
-  publico:[[/./,'Deuda y saldo público']],
-  exterior:[[/^tur_/,'Turismo'], [/./,'Cuentas exteriores']],
-  financiero:[
-    [/^(bono_|prima$)/,'Bonos y prima de riesgo'], [/^(credito_|depositos_)/,'Saldos y crecimiento'], [/./,'Tipos de interés']
-  ],
-  credito:[
-    [/^(cred_dudosidad|dud_)/,'Dudosidad'], [/^nop_/,'Nuevas operaciones'],
-    [/^tipo_dep_/,'Tipos de depósito'], [/^tipo_/,'Tipos de crédito'], [/./,'Saldos y crecimiento']
-  ]
-};
 function explorerPath(id){
   const s=S()[id], block=BLOCKS[s.block]||s.block||'Otras series', code=s.code||'';
   if(IS_USA){
@@ -1613,28 +1603,32 @@ function explorerPath(id){
     if(s.block==='BANKING') return [...path,s.freq==='W'?'Semanal':'Mensual'];
     return path;
   }
-  const family=Object.hasOwn(DRIVE_FAMILIES,s.family)?DRIVE_FAMILIES[s.family]:null;
-  if(id==='esi'||id==='conf_cons'||s.family==='ESI'){
-    const branch=id==='conf_cons'||/^ESI_(CC_|CONF_CONS)/.test(code)?'Encuesta a hogares':
-      id==='esi'?'Índice general':code.endsWith('_EA')?'Encuesta a empresas · Zona euro':'Encuesta a empresas · España';
-    return [DRIVE_FAMILIES.ESI,branch];
+  const kind=Object.hasOwn(SPAIN_FAMILY_ALIASES,s.family)?SPAIN_FAMILY_ALIASES[s.family]:s.family;
+  const areaCode=s.areaLabel?.toLowerCase();
+  const areaKey=Object.hasOwn(SPAIN_AREAS,areaCode)?SPAIN_AREAS[areaCode]:
+    Object.hasOwn(SPAIN_FAMILY_AREAS,kind)?SPAIN_FAMILY_AREAS[kind]:null;
+  const area=SPAIN_AREA_TABS.find(tab=>tab.k===areaKey)?.l||'Otras series';
+  const family=Object.hasOwn(DRIVE_FAMILIES,kind)?DRIVE_FAMILIES[kind]:s.family;
+  const path=family?[area,family]:[area];
+  if(kind==='ESI'){
+    const branch=/^ESI_(CC_|CONF_CONS)/.test(code)?'Encuesta a hogares':
+      code.endsWith('_EA')?'Encuesta a empresas · Zona euro':'Encuesta a empresas · España';
+    return [...path,branch];
   }
-  if(id==='ipi_yoy'||s.family==='INDUSTRIAL_PRODUCTION'){
-    return [DRIVE_FAMILIES.INDUSTRIAL_PRODUCTION,IPI_BRANCHES[code.split('_')[1]]||'Índice general'];
+  if(kind==='INDUSTRIAL_PRODUCTION'){
+    return [...path,IPI_BRANCHES[code.split('_')[1]]||'Índice general'];
   }
-  if(s.family==='LARGE_ENTERPRISES'){
+  if(kind==='LARGE_ENTERPRISES'){
     const topic=code.startsWith('GE_EXP_')?'Exportaciones':code.startsWith('GE_IMP_')?'Importaciones':'Ventas y demanda';
     const variant={AA:'Variación interanual',MM:'Variación mensual',TRIM:'Trimestral',NIV:'Nivel'}[code.split('_').at(-1)]||'Otras series';
-    return [family,topic,variant];
+    return [...path,topic,variant];
   }
-  if(s.family==='TRADE_BALANCE'){
+  if(kind==='TRADE_BALANCE'){
     const topic=code.startsWith('BC_EXP_')?'Exportaciones':code.startsWith('BC_IMP_')?'Importaciones':'Saldo';
-    return [family,topic,code.endsWith('_BRUTO')?'Sin ajustar':'Ajustado'];
+    return [...path,topic,code.endsWith('_BRUTO')?'Sin ajustar':'Ajustado'];
   }
-  if(s.family==='SERVICES_ACTIVITY') return [family,code.endsWith('_RAW')?'Sin ajustar':'Ajustado'];
-  if(family) return [family];
-  const branch=BASE_BRANCHES[s.block]?.find(([pattern])=>pattern.test(id))?.[1];
-  return branch?[block,branch]:[block];
+  if(kind==='SERVICES_ACTIVITY') return [...path,code.endsWith('_RAW')?'Sin ajustar':'Ajustado'];
+  return path;
 }
 function seriesTree(items,pathFor){
   const makeNode=()=>({items:[],children:new Map(),count:0});
@@ -1952,7 +1946,8 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', trail:false, listOpen:IS_USA};
+const spainBoardDefaults=['drive_es_IPI_GEN_RAW','drive_es_IPI_ENE_RAW','drive_es_IASS_GEN_RAW'];
+const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:[...spainBoardDefaults], axis:{}, baseDates:{}, ltab:'all', fit:'lin', trail:false, listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
@@ -2172,8 +2167,7 @@ function bindBoardBaseDates(plan,rerender){
   });
 }
 function loadHeatExample(){
-  bb.picks=IS_EXTERNAL_MONITOR?exIds().filter(id=>S()[id].freq==='M').slice(0,8)
-    :['ipi_yoy','icm_yoy','afil_yoy','paro_reg_yoy','ipc','euribor12','matric','turistas'].filter(id=>S()[id]&&S()[id].block!=='aux');
+  bb.picks=exIds().filter(id=>S()[id].freq==='M').slice(0,8);
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
 function usaBoardFigureTitle(series,mixedFrequencies){
@@ -2192,8 +2186,7 @@ function usaBoardFigureTitle(series,mixedFrequencies){
 }
 let openScatterLink=false;
 function chooseScatterPair(catalog,kind,adjustment){
-  const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
-  const candidates=new Set([...bb.picks,...defaults,...exIds()]);
+  const candidates=new Set([...bb.picks,...exIds()]);
   const picks=[];
   for(const id of candidates){
     const row=SERIES_TRANSFORMS.resolve(id,kind,catalog,-Infinity,ts(todayInMadrid()),isEN(),bb.baseDates[id],adjustment);
@@ -2202,7 +2195,9 @@ function chooseScatterPair(catalog,kind,adjustment){
   }
 }
 function viewBoard(){
-  if((spainDriveLoading||turkeyLoading||usaLoading)&&bb.picks.some(id=>!Object.hasOwn(S(),id))){
+  const available=exIds();
+  const loadingSelections=(spainDriveLoading||turkeyLoading||usaLoading)&&bb.picks.some(id=>!Object.hasOwn(S(),id));
+  if(loadingSelections||(spainDriveLoading&&!available.length)){
     panel.innerHTML=boardHeader()+`<p class="note" role="status">${isEN()?'Loading selected series…':'Cargando las series seleccionadas…'}</p>`;
     return;
   }
@@ -2211,25 +2206,25 @@ function viewBoard(){
   const focusedList=document.activeElement?.closest('.bblist')?.id;
   const catalogScroll=new Map([...panel.querySelectorAll('.bblist')].map(list=>[list.id,list.scrollTop]));
   const hadPicks=bb.picks.length>0;
-  if(IS_USA&&!bb.picks.length&&exIds().length){
-    bb.picks=exIds().slice(0,3);
+  const allowed=new Set(available);
+  bb.picks=bb.picks.filter(id=>allowed.has(id));
+  if(!bb.picks.length&&(IS_USA||hadPicks&&!IS_TURKEY)){
+    bb.picks=[...new Set([...(IS_USA?[]:spainBoardDefaults),...available])].filter(id=>allowed.has(id)).slice(0,3);
   }
   if(bb.mode==='heat'&&!bb.heatExampleLoaded){
     if(IS_EXTERNAL_MONITOR&&bb.picks.some(id=>Object.hasOwn(S(),id))) bb.heatExampleLoaded=true;
     else loadHeatExample();
   }
-  bb.picks=bb.picks.filter(id=>S()[id]&&S()[id].block!=='aux');
   if(IS_TURKEY&&hadPicks&&!bb.picks.length){
     bb.picks=[...new Set([...turkeyCashIds(),...exIds()])].filter(id=>S()[id]).slice(0,3);
   }
-  const catalog=SERIES_TRANSFORMS.catalogue(Object.entries(S()).filter(([id])=>!id.startsWith('__')),'board');
+  const catalog=SERIES_TRANSFORMS.catalogue(available.map(id=>[id,S()[id]]),'board');
   if(bb.mode==='scatter'){
     if(openScatterLink){
       chooseScatterPair(catalog,bb.tr,seasonalChoices(bb.picks,bb.tr,catalog,bb.adjustment).adjustment);
       openScatterLink=false;
     }
-    const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
-    bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
+    bb.picks=[...new Set([...bb.picks,...available])].slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
   if(bb.mode==='dual') assignBoardAxes();
@@ -3206,11 +3201,15 @@ function openLegacyBoard(hash){
   return true;
 }
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
-const h0=location.hash.slice(1);
+const tabFromHash=()=>{
+  const key=location.hash.slice(1);
+  return !IS_EXTERNAL_MONITOR&&Object.hasOwn(SPAIN_THEME_ALIASES,key)?SPAIN_THEME_ALIASES[key]:key;
+};
+const h0=tabFromHash();
 if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
 else if(!openLegacyBoard(h0)&&isDashboardTab(h0)) state.tab=h0;
 window.addEventListener('hashchange',()=>{
-  const k=location.hash.slice(1);
+  const k=tabFromHash();
   if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
   if(openLegacyBoard(k)){render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}

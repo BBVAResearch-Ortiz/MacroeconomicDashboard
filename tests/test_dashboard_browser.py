@@ -96,15 +96,15 @@ class DashboardBrowserTests(unittest.TestCase):
         page.add_init_script("""
             if (!localStorage.getItem('mme-bb')) {
                 localStorage.setItem('mme-bb', JSON.stringify({
-                    mode:'dual', picks:['ocup_epa','paro_epa'], adjustment:'raw'
+                    mode:'dual', picks:['drive_es_IPI_GEN_RAW','drive_es_IPI_ENE_RAW'], adjustment:'raw'
                 }));
             }
         """)
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         chart = page.locator('#bbchart')
-        employed = page.locator('[data-bbax=ocup_epa]')
-        unemployed = page.locator('[data-bbax=paro_epa]')
+        employed = page.locator('[data-bbax=drive_es_IPI_GEN_RAW]')
+        unemployed = page.locator('[data-bbax=drive_es_IPI_ENE_RAW]')
         expect(employed).to_have_text('Left axis')
         expect(unemployed).to_have_text('Right axis')
 
@@ -118,21 +118,21 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(employed).to_have_text('Left axis')
 
         page.locator('[data-bbm=lines]').click()
-        page.locator('[data-bb-row=ocup_epa] [data-bb-move="1"]').click()
+        page.locator('[data-bb-row=drive_es_IPI_GEN_RAW] [data-bb-move="1"]').click()
         page.locator('[data-bbm=dual]').click()
         expect(employed).to_have_text('Left axis')
         expect(unemployed).to_have_text('Right axis')
         expect(chart.locator('path[data-axis=left]')).to_have_count(1)
         expect(chart.locator('path[data-axis=right]')).to_have_count(1)
 
-        page.locator('[data-bbrm=ocup_epa]').click()
+        page.locator('[data-bbrm=drive_es_IPI_GEN_RAW]').click()
         expect(unemployed).to_have_text('Right axis')
         expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
         page.reload()
         self.assert_blackboard(page, 'en')
         expect(chart.locator('path[data-axis=right]')).to_have_count(1)
-        page.locator('#explorer-search').fill('EPA387796')
-        page.locator('#explorer-search-results [data-search-pick=ocup_epa]').click()
+        page.locator('#explorer-search').fill('IPI_GEN_RAW')
+        page.locator('#explorer-search-results [data-search-pick=drive_es_IPI_GEN_RAW]').click()
         expect(employed).to_have_text('Left axis')
         unemployed.click()
         expect(chart.locator('path[data-axis=left]')).to_have_count(2)
@@ -145,9 +145,9 @@ class DashboardBrowserTests(unittest.TestCase):
         page.wait_for_function('!spainDriveLoading')
         page.evaluate("""() => {
             const series = (label, data) => ({label, data, unit:'%', block:'actividad', freq:'M'});
-            S().test_left=series('Large scale', [['2025-01-01',1000000],['2025-02-01',2000000]]);
-            S().test_right=series('Narrow scale', [['2025-01-01',0.037],['2025-02-01',0.041],['2025-09-01',0.043]]);
-            Object.assign(bb,{picks:['test_left','test_right'], mode:'dual', tr:'original', adjustment:'raw'});
+            S().drive_es_test_left=series('Large scale', [['2025-01-01',1000000],['2025-02-01',2000000]]);
+            S().drive_es_test_right=series('Narrow scale', [['2025-01-01',0.037],['2025-02-01',0.041],['2025-09-01',0.043]]);
+            Object.assign(bb,{picks:['drive_es_test_left','drive_es_test_right'], mode:'dual', tr:'original', adjustment:'raw'});
             state.range='todo';
             render();
         }""")
@@ -165,7 +165,7 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(chart.locator('[data-axis-label=left]')).to_have_count(0)
         expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
         expect(chart.locator('path[data-axis=right]')).to_have_count(1)
-        expect(page.locator('[data-bbax=test_left]')).to_have_text('Left axis')
+        expect(page.locator('[data-bbax=drive_es_test_left]')).to_have_text('Left axis')
 
     def test_blackboard_discards_a_pending_redraw_after_switching_axes(self):
         page = self.start_page()
@@ -275,27 +275,27 @@ class DashboardBrowserTests(unittest.TestCase):
         x_summary = x.locator('#bbx-summary')
         y_summary = y.locator('#bby-summary')
         x_summary.click()
-        x_option = x.locator('input[type=radio][data-catalog-pick=paro_epa]')
+        x_option = x.locator('input[type=radio][data-catalog-pick=drive_es_BC_EXP_TOTAL_BRUTO]')
         for heading in x_option.locator('xpath=ancestor::details[@data-catalog-group]/summary').all():
             heading.click()
         x_option.focus()
         x_option.press('Space')
         expect(x_option).to_be_checked()
         expect(x_option).to_be_focused()
-        expect(x_summary).to_contain_text('Unemployment')
+        expect(x_summary).to_contain_text('Exports of goods')
 
         y_summary.click()
-        y_option = y.locator('input[type=radio][data-catalog-pick=ipc_sub]')
+        y_option = y.locator('input[type=radio][data-catalog-pick=drive_es_IASS_GEN_RAW]')
         for heading in y_option.locator('xpath=ancestor::details[@data-catalog-group]/summary').all():
             heading.click()
         y_option.check()
         expect(y_option).to_be_checked()
-        expect(y.locator('[data-catalog-pick=paro_epa]')).to_be_disabled()
+        expect(y.locator('[data-catalog-pick=drive_es_BC_EXP_TOTAL_BRUTO]')).to_be_disabled()
         expect(page.locator('#bbchart svg')).to_be_visible()
 
         page.get_by_role('button', name='Swap axes').click()
-        expect(x.locator('[data-catalog-pick=ipc_sub]')).to_be_checked()
-        expect(y.locator('[data-catalog-pick=paro_epa]')).to_be_checked()
+        expect(x.locator('[data-catalog-pick=drive_es_IASS_GEN_RAW]')).to_be_checked()
+        expect(y.locator('[data-catalog-pick=drive_es_BC_EXP_TOTAL_BRUTO]')).to_be_checked()
         expect(page.locator('#bbchart svg')).to_be_visible()
 
         page.locator('[data-bbm=lines]').click()
@@ -310,19 +310,19 @@ class DashboardBrowserTests(unittest.TestCase):
         initial_x = x_summary.inner_text()
         y_summary.click()
         search_y = page.get_by_role('searchbox', name='Search for axis Y')
-        search_y.fill('core cpi')
-        page.locator('#bby-search-results [data-search-pick=ipc_sub]').click()
-        expect(y_summary).to_contain_text('Core CPI')
+        search_y.fill('IASS_GEN_RAW')
+        page.locator('#bby-search-results [data-search-pick=drive_es_IASS_GEN_RAW]').click()
+        expect(y_summary).to_contain_text('IASS General index')
         expect(x_summary).to_have_text(initial_x)
         expect(search_y).to_be_focused()
 
         x_summary.click()
         search_x = page.get_by_role('searchbox', name='Search for axis X')
-        search_x.fill('paro epa')
-        expect(page.locator('#bbx-search-results [data-search-pick=paro_epa]')).to_be_visible()
+        search_x.fill('IPI_ENE_RAW')
+        expect(page.locator('#bbx-search-results [data-search-pick=drive_es_IPI_ENE_RAW]')).to_be_visible()
         search_x.press('Enter')
-        expect(x_summary).to_contain_text('Unemployment rate')
-        expect(y_summary).to_contain_text('Core CPI')
+        expect(x_summary).to_contain_text('Energy')
+        expect(y_summary).to_contain_text('IASS General index')
         expect(page.locator('#bbchart svg')).to_be_visible()
 
     def test_blackboard_shows_readings_on_hover_and_places_csv_below_chart(self):
@@ -387,26 +387,23 @@ class DashboardBrowserTests(unittest.TestCase):
     def test_transform_menu_labels_only_calculated_options(self):
         page = self.start_page()
         page.add_init_script("""
-            localStorage.setItem('mme-bb', JSON.stringify({picks:['pib_yoy']}))
+            localStorage.setItem('mme-bb', JSON.stringify({
+                picks:['drive_es_IPI_GEN_RAW'], adjustment:'adjusted'
+            }))
         """)
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         select = page.locator('#board-transform')
-        expect(select.locator('option[value=qoq]')).to_have_text('Quarter-on-quarter change')
-        expect(select.locator('option[value=mom]')).to_have_text('Month-on-month change')
-        expect(select.locator('option[value=mom]')).to_be_disabled()
-        page.evaluate("bb.picks=['cc_pib']; saveBB(); render()")
-        expect(select.locator('option[value=qoq]')).to_have_text('Quarter-on-quarter change (Calculated here)')
-        expect(select.locator('option[value=mom]')).to_be_disabled()
-        select.select_option('qoq')
+        expect(select.locator('option[value=yoy]')).to_have_text('Year-on-year change')
+        expect(select.locator('option[value=delta]')).to_have_text('Change from previous observation (Calculated here)')
+        select.select_option('delta')
         page.locator('.transform-details summary').click()
-        expect(page.locator('[data-status=calculated]')).to_contain_text('percentage points')
-        expect(page.locator('#bbchart svg')).to_be_visible()
+        expect(page.locator('[data-status=calculated]')).to_have_count(1)
         with page.expect_download() as pending:
             page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
-            rows = {row['Date']: row['Value'] for row in csv.DictReader(downloaded)}
-        self.assertEqual(rows['2026-04-01'], '-0.46')
+            rows = list(csv.DictReader(downloaded))
+        self.assertTrue(rows and rows[0]['Transformation'].startswith('Calculated here.'))
         self.assertEqual(page.evaluate("""() => {
             const tail = 1024.1 - 1024;
             return [csvSeriesValue({calculated:true}, tail), csvSeriesValue({}, tail),
@@ -429,33 +426,32 @@ class DashboardBrowserTests(unittest.TestCase):
                     self.assertLess(transform['y'] + transform['height'], seasonal['y'])
                     self.assertLessEqual(seasonal['x'] + seasonal['width'], width)
 
-    def test_employment_yoy_is_kept_when_the_level_is_transformed_to_qoq(self):
+    def test_spain_catalogue_contains_only_the_four_workbook_areas(self):
         page = self.start_page()
         page.add_init_script("""
-            localStorage.setItem('mme-bb', JSON.stringify({
-                mode:'dual', picks:['ocup_epa_yoy','ocup_epa'], tr:'qoq', adjustment:'raw'
-            }))
+            localStorage.setItem('mme-bb', JSON.stringify({picks:['ocup_epa','bono_de']}))
         """)
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
-        select = page.locator('#board-transform')
-        expect(select).to_have_value('qoq')
-        page.locator('.transform-details summary').click()
-        expect(page.locator('[data-status=kept]')).to_contain_text('Year-on-year change')
-        expect(page.locator('[data-status=calculated]')).to_have_count(1)
-        with page.expect_download() as pending:
-            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
-        with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
-            units = {row['Transformation']: row['Unit'] for row in csv.DictReader(downloaded)}
-        self.assertEqual(len(units), 2)
-        self.assertIn('yoy', units)
-        self.assertTrue(any(key.startswith('Calculated here') for key in units))
-        page.locator('[data-bbm=scatter]').click()
-        expect(page.locator('[data-status=kept]')).to_contain_text('Year-on-year change')
-        page.locator('[data-bbm=dual]').click()
-        page.evaluate("bb.picks=['ocup_epa_yoy']; render()")
-        expect(select).to_have_value('original')
-        expect(select.locator('option[value=qoq]')).to_be_disabled()
+        catalogue = page.evaluate("""() => ({
+            picks:bb.picks,
+            groups:Object.fromEntries(explorerGroups().groups.map(group => [
+                L10(group.label), Object.fromEntries(group.groups.map(block => [L10(block.label), block.count]))
+            ])),
+            ids:explorerSearchEntries().map(row=>row.id)
+        })""")
+        self.assertEqual(catalogue['groups'], {
+            'Business activity': {'Large enterprises': 53, 'Services activity (IASS)': 16},
+            'Industry': {'Industrial production (IPI)': 30},
+            'Opinion surveys': {'ESI': 21, 'PMI': 3},
+            'External sector': {'Trade balance': 22},
+        })
+        self.assertEqual(len(catalogue['ids']), 145)
+        self.assertTrue(all(key.startswith('drive_es_') for key in catalogue['ids']))
+        self.assertTrue(catalogue['picks'] and all(key.startswith('drive_es_') for key in catalogue['picks']))
+        page.locator('#explorer-search').fill('EPA387796')
+        expect(page.locator('#explorer-search-results')).to_contain_text('No matching series.')
+        expect(page.locator('#tab-empleo')).to_have_count(0)
 
     def test_big_data_catalogue_and_csv_header(self):
         page = self.start_page()

@@ -44,6 +44,7 @@ def merge_series(base, imported):
             'freq': frequency,
             'block': BLOCKS.get(entry['área'], 'actividad'),
             'family': entry.get('bloque'),
+            'areaLabel': entry['área'].strip(),
             'source': re.split(r' \| (?:Archivo interno|Internal file):',
                                entry['fuente'] or 'Google Drive', maxsplit=1)[0],
             'code': source_id,
