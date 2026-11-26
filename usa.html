@@ -70,13 +70,20 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart text{font-family:var(--sans);font-size:11px;fill:var(--muted)}
 .chart-featured{container-type:inline-size}
 .chart-featured text{font-size:12px}
-.chart-range{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin:4px 0 8px}
+.chart-range{display:grid;gap:6px;max-width:100%;margin:4px 0 8px;font-size:12px;color:var(--muted)}
+.period-controls{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px}
 .chart-range .seg{gap:4px;border:0;flex-wrap:wrap}
-.chart-range .seg button{border:0;border-radius:7px;background:#F3F5F6;color:var(--accent);padding:8px 11px;font-weight:600}
-.chart-range .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.chart-date-range{max-width:100%}
-.chart-date-range summary{padding:5px 0;font-size:13px;font-weight:600;color:var(--chart-ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.chart-range .seg button,.chart-date-range summary{border:0;border-radius:7px;background:#F3F5F6;color:var(--accent);padding:8px 10px;font-size:13px;font-weight:600;line-height:1}
+.chart-range .seg button[aria-pressed="true"],.chart-date-range[data-custom] summary{background:var(--accent);color:var(--on-accent)}
+.chart-date-range summary{cursor:pointer;inline-size:max-content;max-inline-size:100%}
 .chart-date-range[open]{flex-basis:100%}
+.date-coverage{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.4;font-variant-numeric:tabular-nums}
+.date-coverage b{color:var(--chart-ink)}
+.custom-range{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:8px;padding:10px;border:1px solid var(--chart-grid);border-radius:8px}
+.custom-range label{display:grid;gap:4px;color:var(--chart-ink);font-weight:600}
+.custom-range input{min-width:0;padding:5px 7px;border:1px solid var(--rule);border-radius:5px;background:var(--surface);color:var(--ink);font:inherit}
+.custom-range [role="alert"]{flex-basis:100%;margin:0;color:var(--ink)}
+.custom-range [role="alert"]:empty{display:none}
 .chart-body{display:grid;gap:12px}
 .chart-readings{border-top:1px solid var(--chart-grid);padding-top:10px;min-width:0}
 .chart-readings>p{margin:0 0 8px;font-size:12px;color:var(--muted)}
@@ -85,7 +92,17 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-reading-value{display:block;color:var(--chart-ink);color:color-mix(in srgb,var(--reading-color) 70%,var(--chart-ink));font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
 .chart-reading-value small{font-size:12px;font-weight:500}
 .chart-reading-label{display:block;color:var(--chart-ink);font-size:12.5px;margin:2px 0}
-.chart-readings time{display:block;color:var(--muted);font-size:11.5px}
+.chart-readings time,.chart-reading-source{display:block;color:var(--muted);font-size:11.5px}
+.chart-reading-source{margin-top:5px;line-height:1.38}
+.source-publisher{color:var(--accent);font-weight:600}
+a.source-publisher{text-decoration:underline;text-underline-offset:2px}
+.source-code{display:block;color:var(--muted);font:11px/1.4 var(--mono);overflow-wrap:anywhere}
+.series-chart-sources{order:3;font-size:12px;color:var(--muted)}
+.series-chart-sources summary{cursor:pointer;color:var(--accent);font-weight:600;inline-size:max-content;max-inline-size:100%}
+.series-chart-sources ul{list-style:none;padding:0;margin:7px 0 0;display:grid;gap:6px}
+.series-chart-sources li{padding-inline-start:8px;border-inline-start:2px solid var(--chart-grid);overflow-wrap:anywhere}
+.series-source-name{display:block;color:var(--chart-ink)}
+.csv-action{align-self:flex-start;justify-self:start}
 .chart-readings.is-hovering li time{display:none}
 .chart-readings p[data-cursor-date]{color:var(--chart-ink);font-weight:600}
 .transform-control option:disabled{color:var(--faint)}
@@ -232,9 +249,23 @@ table.fc td.f{font-weight:600}
 .bblist label .u{color:var(--muted);font-size:11.5px;margin-left:4px}
 .bblist input[disabled]+span{color:var(--muted)}
 .bbsel{display:flex;flex-direction:column;gap:6px}
-.bbsel .row{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--rule)}
-.bbsel .sw{width:12px;height:12px;border-radius:3px}
+.bbsel .row{display:grid;grid-template-columns:14px minmax(0,1fr) auto auto auto;gap:6px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--rule)}
 .bbsel button{font:500 12px/1 var(--sans);padding:5px 7px;border:1px solid var(--rule);border-radius:5px;background:var(--surface);color:var(--muted);cursor:pointer}
+.bbsel button:disabled{opacity:.4;cursor:default}
+.bbsel button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bbsel .series-grip{width:14px;height:22px;color:var(--series-color);font-size:18px;line-height:22px;cursor:grab;user-select:none}
+.bbsel .series-grip:active{cursor:grabbing}
+.bbsel .row[data-drop-side="before"]{box-shadow:inset 0 2px var(--accent)}
+.bbsel .row[data-drop-side="after"]{box-shadow:inset 0 -2px var(--accent)}
+.bb-order{display:grid;gap:2px}
+.bbsel .bb-order button{padding:2px 5px}
+.bb-base{grid-column:2/-1;font-size:12px;color:var(--muted)}
+.bb-base summary{cursor:pointer;color:var(--accent);font-weight:600;inline-size:max-content;max-inline-size:100%}
+.bb-base form{display:flex;align-items:end;flex-wrap:wrap;gap:5px;margin-top:5px}
+.bb-base label{display:grid;gap:3px}
+.bb-base input{min-width:0;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:3px 5px}
+.bb-base form p{flex-basis:100%;margin:0}
+.bb-base form p:empty{display:none}
 .bbsel .tag{font-family:var(--mono);font-size:11px;color:var(--accent)}
 .mgrid{row-gap:20px}
 .mgrid .fig>div:first-child{min-height:64px}
@@ -344,7 +375,7 @@ footer .wrap{padding-block:0 32px}
 
 <script id="embedded-data" type="application/json">{"series":{},"meta":{"refreshed":"","n_series":0}}</script>
 <script src="turkey_public.js"></script>
-<script src="series_transforms.js?v=2"></script>
+<script src="series_transforms.js?v=3"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -618,6 +649,7 @@ const state = {tab:IS_EXTERNAL_MONITOR?'explorador':'resumen', range:'4a'};
 const SHORT_RANGES=['1m','3m','6m'];
 const RANGES=[...SHORT_RANGES,'1a','4a','10a','todo','custom'];
 const customRange={start:'',end:''};try{Object.assign(customRange,JSON.parse(localStorage.getItem('mme-custom-range')||'{}'))}catch(e){}
+let rangeCoverage;
 const MES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], MES_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MES = new Proxy([],{get:(_,i)=>(isEN()?MES_EN:MES_ES)[i]});
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -628,18 +660,46 @@ function fmtDate(d,freq){ const y=d.slice(0,4), m=+d.slice(5,7);
   if(freq==='Q') return (isEN()?'Q':'T')+Math.ceil(m/3)+' '+y; if(freq==='D'||freq==='W') return (+d.slice(8,10))+' '+MES[m-1]+' '+y; if(freq==='A') return y; return MES[m-1]+' '+y; }
 function unitLabel(u){ return {'% a/a':'%','% PIB':'% PIB','pp':'pp','pb':'pb','M€':'M€','miles':'miles','índice':'','saldo':'','%':'%'}[u] ?? u; }
 const ts = d => Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +(d.slice(8,10)||1));
-function cutoff(anchor=lastDateAll()){
-  if(state.range==='custom') return customRange.start?ts(customRange.start):0;
-  const months={'1m':1,'3m':3,'6m':6,'1a':12,'3a':36,'4a':48,'5a':60,'10a':120}[state.range];
+const isoDay=value=>new Date(value).toISOString().slice(0,10);
+const todayInMadrid=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',dateStyle:'short'}).format();
+const validDay=day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&isoDay(ts(day))===day;
+function coverageOf(series,today=todayInMadrid()){
+  const histories=series.filter(s=>s?.data?.length).map(s=>s.data);
+  const observed=([day,value])=>day<=today&&Number.isFinite(value);
+  const first=histories.map(data=>data.find(observed)?.[0]).filter(Boolean).sort()[0];
+  const last=histories.map(data=>data.findLast(observed)?.[0]).filter(Boolean).sort().at(-1);
+  return {histories,first,last,today};
+}
+function useRangeCoverage(series){
+  rangeCoverage=coverageOf(series);
+  rangeCoverage.custom=effectiveCustomRange(rangeCoverage);
+}
+function hasRangeObservations(coverage,start,end){
+  return coverage.histories.some(data=>data.some(([day,value])=>day>=start&&day<=end&&Number.isFinite(value)));
+}
+function effectiveCustomRange(coverage,saved=customRange){
+  const {first,last}=coverage||{};
+  if(!first) return {};
+  const start=validDay(saved.start)&&saved.start>first?saved.start:first;
+  const end=validDay(saved.end)&&saved.end<last?saved.end:last;
+  return start<=end&&hasRangeObservations(coverage,start,end)?{start,end}:{start:first,end:last};
+}
+function cutoff(anchor=rangeCoverage?.last?ts(rangeCoverage.last):lastDateAll(),range=state.range){
+  if(range==='custom'){
+    const start=rangeCoverage?.custom.start;
+    return start?ts(start):0;
+  }
+  const months={'1m':1,'3m':3,'6m':6,'1a':12,'3a':36,'4a':48,'5a':60,'10a':120}[range];
   if(!months) return 0;
   const date=new Date(anchor), year=date.getUTCFullYear(), month=date.getUTCMonth()-months;
   const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate();
   return Date.UTC(year,month,Math.min(date.getUTCDate(),daysInMonth));
 }
-function upperCutoff(){return state.range==='custom'&&customRange.end?ts(customRange.end):Infinity;}
-function inRange(d){const v=ts(d);return v>=cutoff()&&v<=upperCutoff();}
+function upperCutoff(){
+  const end=state.range==='custom'?rangeCoverage?.custom.end:null;
+  return ts(end||rangeCoverage?.today||todayInMadrid());
+}
 function lastDateAll(){ let m=0; for(const k in S()){ const d=S()[k].data; if(d.length) m=Math.max(m,ts(d[d.length-1][0])); } return m; }
-function rangeAnchor(series){return Math.max(0,...series.map(s=>s.data.at(-1)?.[0]).filter(Boolean).map(ts))||lastDateAll();}
 
 /* -------------------------------------------------------------- chart engine (SVG, one y-axis) */
 function niceTicks(lo,hi,n=5){ if(lo===hi){lo-=1;hi+=1;} const span=hi-lo, step0=span/n, p=Math.pow(10,Math.floor(Math.log10(step0))); const f=step0/p; const step=(f<1.5?1:f<3?2:f<7?5:10)*p;
@@ -656,12 +716,43 @@ function chartReading(id,value,percentScale){
   if(percentScale) return {value:formatBigPercent(value),unit:''};
   return {value:fmtN(value,decimals(series)),unit:L10(unitLabel(series.unit||''))};
 }
+function seriesSource(source){
+  const gdpSuffix='; PIB INE';
+  if(source?.endsWith(gdpSuffix)) return `${L10(source.slice(0,-gdpSuffix.length))} · INE (${isEN()?'GDP':'PIB'})`;
+  return L10(source||'');
+}
+function seriesSourceMarkup(series){
+  const credit=seriesSource(series?.source);
+  if(!credit) return '';
+  const publisher=/^https?:\/\//i.test(series.link||'')
+    ? `<a class="source-publisher" href="${esc(series.link)}" target="_blank" rel="noopener noreferrer">${esc(credit)}</a>`
+    : `<span class="source-publisher">${esc(credit)}</span>`;
+  const code=series.code&&series.code!=='derived'?`<span class="source-code">${esc(series.code)}</span>`:'';
+  return `${isEN()?'Source':'Fuente'}: ${publisher}${code}`;
+}
+function bindChartSources(host,series){
+  const figure=host.closest('figure');
+  if(!figure) return;
+  const rows=[...new Set(series)].filter(s=>s?.source).map(s=>
+    `<li><span class="series-source-name">${esc(L10(s.label))}</span>${seriesSourceMarkup(s)}</li>`).join('');
+  const existing=figure.querySelector(':scope > .series-chart-sources');
+  if(!rows){existing?.remove();return;}
+  const details=existing||document.createElement('details');
+  details.className='series-chart-sources';
+  details.innerHTML=`<summary>${isEN()?'Sources by series':'Fuentes por serie'}</summary><ul>${rows}</ul>`;
+  if(!existing) figure.insertBefore(details,figure.querySelector(':scope > figcaption'));
+}
 function chartReadings(host,series,percentScale){
   const title=isEN()?'Latest visible readings':'Últimos datos visibles';
+  const rows=series.map(s=>{
+    const source=seriesSourceMarkup(S()[s.id]);
+    const attribution=source?`<span class="chart-reading-source">${source}</span>`:'';
+    return `<li style="--reading-color:var(${s.color})"><strong class="chart-reading-value"></strong>
+      <span class="chart-reading-label">${esc(L10(s.name))}</span><time></time>${attribution}</li>`;
+  }).join('');
   host.innerHTML=`<div class="chart-featured"><div class="chart-body">
     <div class="chart-plot"></div><div class="chart-readings"><p data-cursor-date>${title}</p>
-    <ul>${series.map(s=>`<li style="--reading-color:var(${s.color})"><strong class="chart-reading-value"></strong>
-      <span class="chart-reading-label">${esc(L10(s.name))}</span><time></time></li>`).join('')}</ul></div>
+    <ul>${rows}</ul></div>
   </div></div>`;
   const readings=host.querySelector('.chart-readings'), header=readings.querySelector('p');
   const cells=[...readings.querySelectorAll('li')].map(li=>[li.querySelector('strong'),li.querySelector('time')]);
@@ -687,6 +778,9 @@ function chartReadings(host,series,percentScale){
 function drawChart(host, cfg){
   const start=cfg.start??cutoff(), end=upperCutoff();
   const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s,data:(S()[s.id]?.data||[]).filter(o=>ts(o[0])>=start&&ts(o[0])<=end)}));
+  if(cfg.seriesOrder) all.sort((a,b)=>cfg.seriesOrder.indexOf(a.id)-cfg.seriesOrder.indexOf(b.id));
+  if(!cfg.featured) bindChartSources(host,all.map(({id})=>S()[id]));
+  if(cfg.csv!==false&&all.length) bindSeriesCsv(host,cfg.csvName||all[0].id,all.map(({id,data})=>({...S()[id],data})));
   const pts = all.flatMap(s=>s.data);
   if(!pts.length){ host.innerHTML='<p class="note">Sin datos en este periodo.</p>'; return; }
   let t0=Math.min(...pts.map(o=>ts(o[0]))), t1=Math.max(...pts.map(o=>ts(o[0])));
@@ -791,9 +885,14 @@ function lastBefore(data,d){ let r=null; for(const o of data){ if(o[0]<=d) r=o; 
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* year-over-year overlay for cumulative-in-year series (déficit mensual) */
-function drawYearOverlay(host, id){
+function drawYearOverlay(host, id,start=cutoff()){
   const W=Math.max(280,host.clientWidth), H=W<500?220:260, padL=50,padR=16,padT=14,padB=30;
-  const s=S()[id]; const data=state.range==='custom'?s.data.filter(o=>inRange(o[0])):s.data; const yrs=[...new Set(data.map(o=>o[0].slice(0,4)))].sort().slice(-4); if(!yrs.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return [];}
+  const s=S()[id], end=upperCutoff();
+  const data=s.data.filter(([day])=>ts(day)>=start&&ts(day)<=end);
+  const yrs=[...new Set(data.map(o=>o[0].slice(0,4)))].sort().slice(-4);
+  bindChartSources(host,[s]);
+  bindSeriesCsv(host,id,[{...s,data:data.filter(([day])=>yrs.includes(day.slice(0,4)))}]);
+  if(!yrs.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return [];}
   const col=['--faint','--s4','--s3','--s1'].slice(-yrs.length);
   const sub=yrs.map(y=>data.filter(o=>o[0].startsWith(y)));
   const vals=sub.flat().map(o=>o[1]); const ticks=niceTicks(Math.min(0,...vals),Math.max(0,...vals),5); const lo=ticks[0],hi=ticks[ticks.length-1];
@@ -889,44 +988,66 @@ const KPIS=[['pib_yoy',1,'actividad'],['pib_qoq',1,'actividad'],['paro_epa',-1,'
 
 /* -------------------------------------------------------------- views */
 const panel=document.getElementById('panel');
-function customInputs(start=customRange.start,end=customRange.end){ return `<div class="custom-range" style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-top:7px"><label>${isEN()?'From':'Desde'} <input type="date" data-date="start" value="${esc(start)}"></label><label>${isEN()?'To':'Hasta'} <input type="date" data-date="end" value="${esc(end)}"></label><button type="button" class="btn" data-date-apply>${isEN()?'Apply':'Aplicar'}</button><span data-date-error role="alert" class="note"></span></div>`; }
 function rangeButtons(selected,attribute,compact=false){
   const en=isEN();
-  const names={custom:en?'Custom':'Personalizado',todo:en?'All':'Todo',
+  const names={todo:en?'All':'Todo',
     '1m':en?'1 month':'1 mes','3m':en?'3 months':'3 meses','6m':en?'6 months':'6 meses',
     '1a':en?'1 year':'1 año','4a':en?'4 years':'4 años','10a':en?'10 years':'10 años'};
-  const ranges=compact?RANGES.filter(r=>r!=='custom'):RANGES.filter(r=>!SHORT_RANGES.includes(r)||r===selected);
+  const ranges=RANGES.filter(r=>r!=='custom'&&(compact||!SHORT_RANGES.includes(r)||r===selected));
   return `<div class="seg" role="group" aria-label="${en?'Period':'Periodo'}">${ranges.map(r=>{
     const label=compact&&r!=='todo'?(en?r.replace('a','y'):r):names[r];
     return `<button type="button" ${attribute}="${r}" aria-label="${names[r]}" aria-pressed="${selected===r}">${label}</button>`;
   }).join('')}</div>`;
 }
-function rangeControl(selected,attribute){return `<div>${rangeButtons(selected,attribute)}${selected==='custom'?customInputs():''}</div>`;}
-function rangeCtl(){return rangeControl(state.range,'data-r');}
-function chartRangeCtl(series,start){
-  const end=upperCutoff();
-  const inWindow=p=>ts(p[0])>=start&&ts(p[0])<=end;
-  const first=series.map(s=>s.data.find(inWindow)?.[0]).filter(Boolean).sort()[0];
-  const last=series.map(s=>s.data.findLast(inWindow)?.[0]).filter(Boolean).sort().at(-1);
-  const custom=state.range==='custom';
-  const from=(custom&&customRange.start)||first||'';
-  const to=(custom&&customRange.end)||last||'';
-  const label=from&&to?fmtDate(from,'D')+' → '+fmtDate(to,'D'):(isEN()?'Choose dates':'Elegir fechas');
-  return `<div class="chart-range">${rangeButtons(state.range,'data-r',true)}
-    <details class="chart-date-range"${custom?' open':''}><summary>${label}</summary>${customInputs(from,to)}</details></div>`;
+function rangeControl(selected,attribute,compact=false){
+  const {first,last,custom}=rangeCoverage||{}, en=isEN();
+  if(!first) return `<p class="note">${en?'No dates available':'No hay fechas disponibles'}</p>`;
+  const dates=selected==='custom'?custom:{start:isoDay(Math.max(ts(first),cutoff(ts(last),selected))),end:last};
+  const label=(start,end)=>`${fmtDate(start,'D')} – ${fmtDate(end,'D')}`;
+  const limits=`min="${first}" max="${last}" required`;
+  return `<div class="chart-range"><div class="date-coverage"><span><b>${en?'Shown':'En pantalla'}</b> ${label(dates.start,dates.end)}</span>
+    <span>${en?'Data available':'Datos disponibles'} ${label(first,last)}</span></div>
+    <div class="period-controls">${rangeButtons(selected,attribute,compact)}
+    <details class="chart-date-range"${selected==='custom'?' data-custom':''}><summary>${en?'Choose dates':'Elegir fechas'}</summary>
+    <form class="custom-range" novalidate><label>${en?'From':'Desde'} <input type="date" name="start" ${limits} value="${dates.start}"></label>
+    <label>${en?'To':'Hasta'} <input type="date" name="end" ${limits} value="${dates.end}"></label>
+    <button type="submit" class="btn">${en?'Apply dates':'Aplicar fechas'}</button><p role="alert"></p></form></details></div></div>`;
 }
-function bindCustomRange(onApply){const btn=panel.querySelector('[data-date-apply]');if(!btn)return;btn.addEventListener('click',()=>{const start=panel.querySelector('[data-date="start"]').value,end=panel.querySelector('[data-date="end"]').value,error=panel.querySelector('[data-date-error]');if(!start||!end||start>end){error.textContent=isEN()?'Choose valid dates; start must not be after end.':'Elige fechas válidas: el inicio no puede ser posterior al fin.';return;}customRange.start=start;customRange.end=end;try{localStorage.setItem('mme-custom-range',JSON.stringify(customRange))}catch(e){}onApply();});}
+const rangeCtl=()=>rangeControl(state.range,'data-r');
+const chartRangeCtl=()=>rangeControl(state.range,'data-r',true);
+function bindPeriodControls(attribute,apply){
+  panel.querySelectorAll(`[${attribute}]`).forEach(button=>button.addEventListener('click',()=>{
+    const range=button.getAttribute(attribute);
+    apply(range);
+    panel.querySelector(`[${attribute}="${range}"]`)?.focus({preventScroll:true});
+  }));
+  panel.querySelectorAll('.custom-range').forEach(form=>form.addEventListener('submit',event=>{
+    event.preventDefault();
+    const start=form.elements.start.value,end=form.elements.end.value,error=form.querySelector('[role="alert"]');
+    if(!validDay(start)||!validDay(end)||start>end){
+      error.textContent=isEN()?'Enter two valid dates in chronological order.':'Introduce dos fechas válidas en orden cronológico.';
+      return;
+    }
+    if(start<rangeCoverage.first||end>rangeCoverage.last){
+      error.textContent=isEN()?'Choose dates within the available data range.':'Elige fechas dentro del intervalo disponible.';
+      return;
+    }
+    if(!hasRangeObservations(rangeCoverage,start,end)){
+      error.textContent=isEN()?'There are no observations between those dates.':'No hay observaciones entre esas fechas.';
+      return;
+    }
+    Object.assign(customRange,{start,end});
+    try{localStorage.setItem('mme-custom-range',JSON.stringify(customRange));}catch(e){}
+    apply('custom');
+    panel.querySelector('.chart-date-range summary')?.focus({preventScroll:true});
+  }));
+}
 function bindRange(){
-  function apply(range){
+  bindPeriodControls('data-r',range=>{
     state.range=range;
     try{localStorage.setItem('mme-range',range)}catch(e){}
     render();
-  }
-  panel.querySelectorAll('.seg [data-r]').forEach(b=>b.addEventListener('click',()=>{
-    apply(b.dataset.r);
-    panel.querySelector(`[data-r="${b.dataset.r}"]`)?.focus({preventScroll:true});
-  }));
-  bindCustomRange(()=>apply('custom'));
+  });
 }
 function legendHTML(items,bars){ if(items.length<2) return ''; return `<div class="legend">${items.map(s=>`<span><i class="${bars&&bars.some(b=>b===s||b.name===s.name)?'bar':''}" style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join('')}</div>`; }
 function latest(id){ const d=S()[id]?.data||[]; return d[d.length-1]; }
@@ -970,10 +1091,13 @@ function viewPrevisiones(){
   const tbl=(rows)=>`<div class="tblwrap" style="border:0;border-radius:12px"><table class="fc"><thead><tr><th scope="col">% a/a</th>${F.years.map(y=>`<th scope="col">${y}</th>`).join('')}</tr></thead><tbody>${rows.map(([l,lv,v])=>`<tr class="${lv==='total'?'tot':lv===0?'b':''}"><td class="${lv===1?'l1':lv===2?'l2':''}">${esc(l)}</td>${v.map((x,i)=>`<td class="${i>=3?'f':''}">${f1(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   // tracking: observed so far in 2026 vs forecast
   const yr=String(new Date(lastDateAll()).getUTCFullYear());
+  const tracking=[];
   const tr=F.tracking.map(o=>{ const s=S()[o.series]; if(!s) return ''; let obs, per;
     if(o.how.startsWith('media')){ const d=s.data.filter(x=>x[0].startsWith(yr)); if(!d.length) return ''; obs=d.reduce((a,x)=>a+x[1],0)/d.length; per=fmtDate(d[0][0],s.freq)+' – '+fmtDate(d[d.length-1][0],s.freq); }
     else { const L=latest(o.series); obs=L[1]; per=fmtDate(L[0],s.freq); }
-    const gap=obs-o.forecast; return `<tr><td>${esc(o.label)}<span class="u">${esc(o.unit)}</span></td><td class="f">${f1(o.forecast)}</td><td><b>${f1(obs)}</b></td><td>${(gap>0?'+':'')+f1(gap)}</td><td class="src" style="white-space:normal">${esc(per)} · ${esc(o.how)}</td></tr>`; }).join('');
+    const gap=obs-o.forecast;
+    tracking.push([L10(o.label),L10(o.unit),o.forecast,obs,gap,per,L10(F.source),F.link,...csvSourceFields(s)]);
+    return `<tr><td>${esc(o.label)}<span class="u">${esc(o.unit)}</span></td><td class="f">${f1(o.forecast)}</td><td><b>${f1(obs)}</b></td><td>${(gap>0?'+':'')+f1(gap)}</td><td class="src" style="white-space:normal">${esc(per)} · ${esc(o.how)}</td></tr>`; }).join('');
   panel.innerHTML=`<div class="sechead"><div><p class="kicker">${esc(F.source)}</p><h2>Previsiones BBVA Research</h2></div></div>
    <div class="bigbars"><figure class="fig" style="margin:0"><div><h3>Crecimiento del PIB</h3><div class="sub">Variación anual, % · (p): previsión</div></div>
      <div class="bb">${gdp.map((v,i)=>`<div class="col"><span class="v" style="color:var(${col[i]})">${f1(v)}%</span><div class="bar" style="height:${(v/mx*78).toFixed(1)}%;background:var(${col[i]})"></div></div>`).join('')}</div>
@@ -984,6 +1108,21 @@ function viewPrevisiones(){
    ${tblBlock('Previsiones: demanda y PIB','% a/a · * aportación al crecimiento del PIB, pp · (p): previsión',tbl(F.demand),'Fuente: BBVA Research a partir de INE')}
    ${tblBlock('Previsiones: empleo, precios y sector público','% a/a salvo indicación · (p): previsión',tbl(F.other),'Fuente: BBVA Research a partir de INE y Banco de España')}</div>
    <p class="note" style="margin-top:12px">${isEN()?`Forecasts from <a href="${esc(F.link)}" target="_blank" rel="noopener">${esc(toEN(F.source))}</a>. To update, edit <code>forecasts.json</code> in the repository.`:`Previsiones de <a href="${esc(F.link)}" target="_blank" rel="noopener">${esc(F.source)}</a>. Para actualizar, edita <code>forecasts.json</code> en el repositorio.`}</p>`;
+  const forecastRows=(items,years,skip=0)=>[
+    [L10('Indicador'),...years,csvSourceHeaders()[0],csvSourceHeaders()[2]],
+    ...items.map(([label,,values])=>[L10(label),...values.slice(skip),L10(F.source),F.link])
+  ];
+  const sections=[
+    ['previsiones-pib',forecastRows([F.demand.find(r=>r[0].startsWith('PIB'))],yrs,1)],
+    ['seguimiento-previsiones',[[L10('Indicador'),L10('Unidad'),L10(`Previsión ${yr}`),L10('Observado'),L10('Diferencia'),L10('Periodo'),
+      ...(isEN()?['Forecast source','Forecast URL']:['Fuente de la previsión','URL de la previsión']),...csvSourceHeaders()],...tracking]],
+    ['previsiones-demanda',forecastRows(F.demand,F.years)],
+    ['previsiones-empleo-precios-sector-publico',forecastRows(F.other,F.years)]
+  ];
+  panel.querySelectorAll('.bigbars > figure, .stack > figure').forEach((figure,i)=>{
+    const [name,rows]=sections[i];
+    bindFigureCsv(figure,()=>downloadCsvRows(name,rows),rows.length>1);
+  });
 }
 
 function autoSub(s){ const adj=/CVEC|ajustados de estacionalidad|desestacionaliz|corregido de temperatura/i.test((s.label||'')+' '+(s.original_name||''))||/\.d$/.test(s.code||'');
@@ -1026,11 +1165,24 @@ function ovDraw(h,id,extra){ const s=S()[id]; let cfg;
     cfg={lines,aria:s.label,height:200}; if(useBars(id,s)&&!extra){ cfg.bars=lines; cfg.lines=[]; } }
   drawChart(h,cfg); }
 function viewResumen(){
+  useRangeCoverage(GALLERY.flatMap(([id,,,extra])=>[S()[id],S()[extra]]));
+  const summary=summaryTable();
   panel.innerHTML=`<div class="sechead"><div><p class="kicker">Datos a ${esc(DATA.meta.refreshed.slice(0,10))}</p><h2>Resumen</h2></div>${rangeCtl()}</div>
    <div class="grid3">${GALLERY.map(([id,pol,tab,extra],i)=>ovCard(id,i,'data-g',isGDP(id)?null:extra)).join('')}</div>
-   <div style="margin-top:28px">${(()=>{const T=summaryTable(); return tblBlock('Cuadro de indicadores','Últimos 3 años, 4 trimestres y 3 meses · anual y trimestral: media del periodo o crecimiento de la media, según el indicador',T.html,SRC_ALL);})()}</div>`;
+   <div style="margin-top:28px">${tblBlock('Cuadro de indicadores','Últimos 3 años, 4 trimestres y 3 meses · anual y trimestral: media del periodo o crecimiento de la media, según el indicador',summary.html,SRC_ALL)}</div>`;
+  bindFigureCsv(panel.querySelector('.tblfig'),()=>downloadCsv('cuadro-de-indicadores',summary.csv));
   bindRange();
   const draw=()=>GALLERY.forEach(([id,pol,tab,extra],i)=>{ const h=panel.querySelector(`.chart[data-g="${i}"]`); if(h) ovDraw(h,id,isGDP(id)?null:extra); });
+  draw(); observe(draw);
+}
+function viewTurkeyOverview(){
+  const ids=[...turkeyIds('Q_EXP_SCA_GDP','M_SCA_IP','M_SA_UNEMPLOYMENT_RATE'),
+    TURKEY_PUBLIC.idFor('TR_CPI_HEADLINE'),...turkeyIds('HMB_M_CASH_BALANCE','BDDK_W_LOANS','BDDK_M_DEPOSITS'),
+    TURKEY_PUBLIC.idFor('TR_TRADE_BALANCE_12M'),TURKEY_PUBLIC.idFor('TR_DEPOSIT')].filter(id=>S()[id]);
+  useRangeCoverage(ids.map(id=>S()[id]));
+  panel.innerHTML=`<div class="sechead"><h2>Resumen</h2>${rangeCtl()}</div><div class="grid3">${ids.map((id,i)=>ovCard(id,i,'data-g')).join('')}</div>`;
+  bindRange();
+  const draw=()=>ids.forEach((id,i)=>ovDraw(panel.querySelector(`.chart[data-g="${i}"]`),id));
   draw(); observe(draw);
 }
 const themeSelections=new Map();
@@ -1053,22 +1205,23 @@ function themeFigures(key,items){
 function viewBlock(key){
   const tab=THEME_TABS.find(t=>t.k===key);
   const group=explorerGroups().groups.find(group=>group.label===tab.l);
-  const heading=`<div class="sechead"><h2>${esc(tab.l)}</h2>${rangeCtl()}</div>`;
   if(!group){
+    useRangeCoverage([]);
     const message=spainDriveLoading?(isEN()?'Loading series…':'Cargando series…'):
       (isEN()?'No series available in this group.':'No hay series disponibles en este grupo.');
-    panel.innerHTML=heading+`<p class="note" role="status">${message}</p>`;
-    bindRange();
+    panel.innerHTML=`<div class="sechead"><h2>${esc(tab.l)}</h2></div><p class="note" role="status">${message}</p>`;
     return;
   }
   const branches=themeBranches(group);
   const branchKey=branch=>JSON.stringify(branch.path);
   const active=branches.find(branch=>branchKey(branch)===themeSelections.get(key))||branches[0];
+  useRangeCoverage(active.items.map(({id})=>S()[id]));
+  const heading=`<div class="sechead"><h2>${esc(tab.l)}</h2>${rangeCtl()}</div>`;
   const selector=branches.length>1?`<div class="theme-subgroup"><label class="picklab" for="theme-subgroup">${isEN()?'Subgroup':'Subgrupo'}</label>
     <select class="axsel" id="theme-subgroup">${branches.map(branch=>`<option value="${esc(branchKey(branch))}"${branch===active?' selected':''}>
       ${esc(branch.path.length?branch.path.map(L10).join(' · '):L10(group.label))} (${branch.items.length})</option>`).join('')}</select></div>`:'';
   const figures=themeFigures(key,active.items);
-  const start=cutoff(rangeAnchor(active.items.map(({id})=>S()[id])));
+  const start=cutoff();
   panel.innerHTML=heading+selector+`<div class="grid">${figures.map((f,i)=>`
     <figure class="fig ${f.wide?'wide':''}" style="margin:0"><div><h3>${esc(f.t)}</h3><div class="sub">${esc(f.sub)}</div></div>
     <div class="lg" data-i="${i}"></div><div class="chart" data-i="${i}"></div>
@@ -1080,7 +1233,7 @@ function viewBlock(key){
     document.getElementById('theme-subgroup')?.focus({preventScroll:true});
   });
   const draw=()=>figures.forEach((f,i)=>{ const host=panel.querySelector(`.chart[data-i="${i}"]`), lg=panel.querySelector(`.lg[data-i="${i}"]`); if(!host) return;
-    if(f.overlay){ const it=drawYearOverlay(host,f.overlay); lg.innerHTML=legendHTML(it); return; }
+    if(f.overlay){ const it=drawYearOverlay(host,f.overlay,start); lg.innerHTML=legendHTML(it); return; }
     const items=[...(f.bars||[]),...(f.lines||[])]; lg.innerHTML=legendHTML(items,f.bars||[]);
     drawChart(host,{...f,aria:f.t,start}); });
   draw(); observe(draw);
@@ -1100,6 +1253,51 @@ function observe(fn){
 /* table specs: 'id' | ['id',level] | '#Group label' */
 const specIds=spec=>spec.filter(x=>!(typeof x==='string'&&x[0]==='#')).map(x=>Array.isArray(x)?x[0]:x);
 const csvOf=(rows,separator=';')=>rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(separator)).join('\n');
+const csvLabel=()=>isEN()?'Download CSV':'Descargar CSV';
+function downloadCsv(name,csv){
+  const url=URL.createObjectURL(new Blob(['\uFEFF',csv.replace(/\r?\n/g,'\r\n')],{type:'text/csv;charset=utf-8'}));
+  const download=document.createElement('a');
+  download.href=url;
+  download.download=name.replace(/[^a-zA-Z0-9_-]+/g,'-')+'.csv';
+  document.body.append(download);
+  download.click();
+  download.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function downloadCsvRows(name,rows){
+  const en=isEN(), locale=en?'en-GB':'es-ES';
+  const format=value=>typeof value==='number'
+    ? (Number.isFinite(value)?value.toLocaleString(locale,{useGrouping:false,maximumSignificantDigits:15}):'')
+    : value??'';
+  downloadCsv(name,csvOf(rows.map(row=>row.map(format)),en?',':';'));
+}
+function bindFigureCsv(figure,download,enabled=true){
+  if(!figure) return;
+  let button=figure.querySelector(':scope > .csv-action');
+  if(!button){
+    button=document.createElement('button');
+    button.className='btn ghost csv-action';
+    button.type='button';
+    figure.insertBefore(button,figure.querySelector(':scope > figcaption'));
+  }
+  button.textContent=csvLabel();
+  button.disabled=!enabled;
+  button.onclick=download;
+}
+const csvSourceHeaders=()=>isEN()?['Source','Source code','Source URL']:['Fuente','Código de origen','URL de la fuente'];
+const csvSourceFields=s=>[seriesSource(s.source),s.code||'',s.link||''];
+function seriesCsvRows(series){
+  const header=isEN()?['Date','Series','Value','Unit','Frequency','Transformation']:['Fecha','Serie','Valor','Unidad','Frecuencia','Transformación'];
+  const rows=series.flatMap(s=>{
+    const details=[L10(unitLabel(s.unit||'')),s.freq||'',L10(s.transform||''),...csvSourceFields(s)];
+    return s.data.filter(([,value])=>Number.isFinite(value)).map(([day,value])=>[day,L10(s.label),value,...details]);
+  });
+  return [[...header,...csvSourceHeaders()],...rows];
+}
+function bindSeriesCsv(host,name,series){
+  const enabled=series.some(s=>s.data.some(([,value])=>Number.isFinite(value)));
+  bindFigureCsv(host.closest('figure'),()=>downloadCsvRows(name,seriesCsvRows(series)),enabled);
+}
 const nCSV=v=>v==null?'':String(v).replace('.',',');
 function periodTable(freq,n,spec,nAnn=0,nQ=0){ const ids=specIds(spec).filter(id=>S()[id]); const dates=[...new Set(ids.filter(id=>S()[id].freq===freq).flatMap(id=>S()[id].data.map(o=>o[0])))].sort().slice(-n);
   const years=nAnn?[...new Set(ids.flatMap(id=>Object.keys(S()[id].annual||{})))].sort().slice(-nAnn):[];
@@ -1109,18 +1307,18 @@ function periodTable(freq,n,spec,nAnn=0,nQ=0){ const ids=specIds(spec).filter(id
   const T=(es,en)=>isEN()?en:es, last=(arr,i)=>i===arr.length-1?' blklast':'';
   const head=(years.length||quarters.length)?`<tr class="hgrp"><th></th>${years.length?`<th colspan="${years.length}" class="blklast">${T('Anual','Annual')}</th>`:''}${quarters.length?`<th colspan="${quarters.length}" class="blklast">${T('Trimestral','Quarterly')}</th>`:''}<th colspan="${dates.length}">${freq==='Q'?T('Trimestral','Quarterly'):T('Mensual','Monthly')}</th></tr>`:'';
   let h=`<div class="tblwrap"><table class="fc2"><thead>${head}<tr><th scope="col">Indicador</th>${years.map((y,i)=>`<th scope="col" class="${last(years,i)}">${y}</th>`).join('')}${quarters.map((q,i)=>`<th scope="col" class="${last(quarters,i)}">${fmtDate(q,'Q')}</th>`).join('')}${dates.map(d=>`<th scope="col">${fmtDate(d,freq)}</th>`).join('')}</tr></thead><tbody>`;
-  const rows=[[L10('Indicador'),...years,...quarters.map(q=>fmtDate(q,'Q')),...dates.map(d=>fmtDate(d,freq))]];
+  const rows=[[L10('Indicador'),...years,...quarters.map(q=>fmtDate(q,'Q')),...dates.map(d=>fmtDate(d,freq)),...csvSourceHeaders()]];
   spec.forEach(x=>{ if(typeof x==='string'&&x[0]==='#'){ h+=`<tr class="grp"><td colspan="${ncol}">${esc(x.slice(1))}</td></tr>`; return; }
     const [id,lv]=Array.isArray(x)?x:[x,0]; const s=S()[id]; if(!s) return; const m=s.freq===freq?Object.fromEntries(s.data.map(o=>[o[0],o])):(freq==='M'&&s.monthly?Object.fromEntries(Object.entries(s.monthly).map(([k,v])=>[k,[k,v,0]])):{}); const d=decimals(s); const A=s.annual||{}, Qd=qOf(id);
     h+=`<tr><td class="${lv===1?'l1':lv===2?'l2':''}">${esc(s.label)}<span class="u">${esc(s.unit)}</span></td>${years.map((y,i)=>`<td class="${last(years,i)}">${A[y]!=null?fmtN(A[y],d):'–'}</td>`).join('')}${quarters.map((q,i)=>`<td class="${last(quarters,i)}">${Qd[q]!=null?fmtN(Qd[q],d):'–'}</td>`).join('')}${dates.map(x=>`<td>${m[x]?fmtN(m[x][1],d)+(m[x][2]?'*':''):'–'}</td>`).join('')}</tr>`;
-    rows.push([L10(s.label)+' ('+L10(s.unit)+')',...years.map(y=>nCSV(A[y])),...quarters.map(q=>nCSV(Qd[q])),...dates.map(x=>m[x]?nCSV(m[x][1]):'')]); });
+    rows.push([L10(s.label)+' ('+L10(s.unit)+')',...years.map(y=>nCSV(A[y])),...quarters.map(q=>nCSV(Qd[q])),...dates.map(x=>m[x]?nCSV(m[x][1]):''),...csvSourceFields(s)]); });
   return {html:h+'</tbody></table></div>', csv:csvOf(rows)}; }
 function latestTable(spec){ let h=`<div class="tblwrap"><table class="fc2"><thead><tr><th scope="col">Indicador</th><th scope="col">Último</th><th scope="col">Periodo</th><th scope="col">Anterior</th><th scope="col">Hace un año</th><th scope="col" style="text-align:left">Fuente</th></tr></thead><tbody>`;
-  const rows=[[L10('Indicador'),L10('Último'),L10('Periodo'),L10('Anterior'),L10('Hace un año'),L10('Fuente')]];
+  const rows=[[L10('Indicador'),L10('Último'),L10('Periodo'),L10('Anterior'),L10('Hace un año'),...csvSourceHeaders()]];
   spec.forEach(x=>{ if(typeof x==='string'&&x[0]==='#'){ h+=`<tr class="grp"><td colspan="6">${esc(x.slice(1))}</td></tr>`; return; }
     const [id,lv]=Array.isArray(x)?x:[x,0]; const s=S()[id]; if(!s) return; const L=latest(id), P=prevObs(id,s.freq==='D'?5:1), Y=yearAgo(id), d=decimals(s);
     h+=`<tr><td class="${lv===1?'l1':''}">${esc(s.label)}<span class="u">${esc(s.unit)}</span></td><td><b>${fmtN(L[1],d)}</b></td><td>${fmtDate(L[0],s.freq)}</td><td>${P?fmtN(P[1],d):'–'}</td><td>${Y?fmtN(Y[1],d):'–'}</td><td class="src">${esc(s.source)}</td></tr>`;
-    rows.push([L10(s.label)+' ('+L10(s.unit)+')',nCSV(L[1]),fmtDate(L[0],s.freq),P?nCSV(P[1]):'',Y?nCSV(Y[1]):'',L10(s.source)]); });
+    rows.push([L10(s.label)+' ('+L10(s.unit)+')',nCSV(L[1]),fmtDate(L[0],s.freq),P?nCSV(P[1]):'',Y?nCSV(Y[1]):'',...csvSourceFields(s)]); });
   return {html:h+'</tbody></table></div>', csv:csvOf(rows)}; }
 const TABLES=[
   {k:'demanda',t:'PIB: demanda',sub:'% a/a salvo indicación · índices de volumen encadenados, CVEC · últimos 3 años y 8 trimestres · anual: crecimiento de la media anual; aportaciones, media de los trimestres',src:'Fuente: INE',
@@ -1140,8 +1338,8 @@ const TABLES=[
 ];
 function marketTable(){ const mk=(k)=>{ const s=S()[k]; const L=latest(k); const ago=(days)=>lastBefore(s.data,new Date(ts(L[0])-days*864e5).toISOString().slice(0,10)); return [k,L,ago(7),ago(30),ago(365)]; };
   let h=`<div class="tblwrap"><table class="fc2"><thead><tr><th scope="col">Indicador</th><th scope="col">Último</th><th scope="col">Fecha</th><th scope="col">Hace 1 semana</th><th scope="col">Hace 1 mes</th><th scope="col">Hace 1 año</th></tr></thead><tbody>`;
-  const rows=[[L10('Indicador'),L10('Último'),L10('Fecha'),L10('Hace 1 semana'),L10('Hace 1 mes'),L10('Hace 1 año')]];
-  ['bce_dfr','bono_es','bono_de','prima'].map(mk).forEach(([k,L,a,b,c])=>{ const s=S()[k], d=decimals(s); h+=`<tr><td>${esc(s.label)}<span class="u">${esc(s.unit)}</span></td><td><b>${fmtN(L[1],d)}</b></td><td>${fmtDate(L[0],'D')}</td>${[a,b,c].map(o=>`<td>${o?fmtN(o[1],d):'–'}</td>`).join('')}</tr>`; rows.push([L10(s.label),nCSV(L[1]),L[0],nCSV(a?.[1]),nCSV(b?.[1]),nCSV(c?.[1])]); });
+  const rows=[[L10('Indicador'),L10('Último'),L10('Fecha'),L10('Hace 1 semana'),L10('Hace 1 mes'),L10('Hace 1 año'),...csvSourceHeaders()]];
+  ['bce_dfr','bono_es','bono_de','prima'].map(mk).forEach(([k,L,a,b,c])=>{ const s=S()[k], d=decimals(s); h+=`<tr><td>${esc(s.label)}<span class="u">${esc(s.unit)}</span></td><td><b>${fmtN(L[1],d)}</b></td><td>${fmtDate(L[0],'D')}</td>${[a,b,c].map(o=>`<td>${o?fmtN(o[1],d):'–'}</td>`).join('')}</tr>`; rows.push([L10(s.label),nCSV(L[1]),L[0],nCSV(a?.[1]),nCSV(b?.[1]),nCSV(c?.[1]),...csvSourceFields(s)]); });
   return {html:h+'</tbody></table></div>', csv:csvOf(rows)}; }
 function viewTablas(){
   const all=TABLES.concat([{k:'mercados',t:'Mercados financieros',sub:'Datos diarios: último dato y hace 1 semana, 1 mes y 1 año',src:'Fuente: Banco de España y Ministerio de Economía (BDSICE)',make:marketTable}]);
@@ -1151,6 +1349,7 @@ function viewTablas(){
    <nav class="tblnav" aria-label="Tablas">${built.map(T=>`<a href="#tbl-${T.k}" data-jump="${T.k}">${esc(T.t)}</a>`).join('')}</nav>
    <div class="stack">${built.map(T=>`<div id="tbl-${T.k}">${tblBlock(esc(T.t),esc(T.sub),T.html,esc(T.src),btn(T.k))}</div>`).join('')}</div>`;
   panel.querySelectorAll('[data-jump]').forEach(a=>a.addEventListener('click',ev=>{ ev.preventDefault(); document.getElementById('tbl-'+a.dataset.jump).scrollIntoView({behavior:'smooth',block:'start'}); }));
+  built.forEach(T=>bindFigureCsv(document.querySelector(`#tbl-${T.k} figure`),()=>downloadCsv(T.k,T.csv)));
   panel.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{ const k=b.dataset.copy, ok=panel.querySelector(`[data-ok="${k}"]`);
     try{ await navigator.clipboard.writeText(csv[k]); ok.textContent=L10('Copiado'); }catch(e){ const ta=document.createElement('textarea'); ta.value=csv[k]; ta.style.width='100%'; ta.rows=6; b.closest('.tblfig').querySelector('.tblhead2').after(ta); ta.select(); ok.textContent=L10('Selecciona y copia el texto'); } setTimeout(()=>ok.textContent='',2500); }));
 }
@@ -1180,7 +1379,14 @@ ${isEN()?`  <div class="prose">
 /* -------------------------------------------------------------- explorer: gallery, multi-series chart and scatter */
 const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por la producción',
   HIGH_FREQUENCY_ACTIVITY:'Actividad de alta frecuencia',LABOUR_MARKET:'Mercado laboral',
-  PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',...TURKEY_PUBLIC.blocks,other:'Otras series'};
+  PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',BANKING:'Estadísticas bancarias',
+  TREASURY_CASH:'Caja del Tesoro',...TURKEY_PUBLIC.blocks,other:'Otras series'};
+const TURKEY_THEME_TABS=[{k:'actividad',l:'Actividad'},{k:'coyuntura',l:'Coyuntura'},{k:'empleo',l:'Empleo'},
+  {k:'precios',l:'Precios'},{k:'credito',l:'Créditos y depósitos'},{k:'publico',l:'Sector público'},
+  {k:'exterior',l:'Sector exterior'},{k:'financiero',l:'Financiero'}];
+const TURKEY_THEME_BY_BLOCK={GDP_EXPENDITURE:'actividad',GDP_PRODUCTION:'actividad',HIGH_FREQUENCY_ACTIVITY:'coyuntura',
+  PMI_CAPACITY:'coyuntura',CONFIDENCE:'coyuntura',LABOUR_MARKET:'empleo',INFLATION:'precios',BANKING:'credito',
+  TREASURY_CASH:'publico',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',INTEREST_RATES:'financiero'};
 Object.assign(EN,TURKEY_PUBLIC.translations);
 const TURKEY_TOPICS={
   tr_cpi:{block:'INFLATION',ids:['TR_CPI_HEADLINE','TR_CPI_CORE_B','TR_CPI_CORE_C']},
@@ -1193,6 +1399,10 @@ let turkeyPublicUnavailable=false;
 Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producción':'GDP by production',
   'Actividad de alta frecuencia':'High-frequency activity','Mercado laboral':'Labour market',
   'PMI y utilización de capacidad':'PMI and capacity utilisation',Confianza:'Confidence','Otras series':'Other series',
+  'Estadísticas bancarias':'Banking statistics','Caja del Tesoro':'Treasury cash','Millones de TRY':'TRY millions',
+  'Ingresos de caja del Tesoro':'Treasury cash revenue','Gastos de caja del Tesoro':'Treasury cash expenditure',
+  'Saldo de caja del Tesoro':'Treasury cash balance','Crédito bancario total':'Total bank loans',
+  'Depósitos bancarios totales':'Total bank deposits','Semanal':'Weekly','Mensual':'Monthly',
   'Consumo, gasto público e inversión':'Consumption, government spending and investment',
   'Agricultura, industria y construcción':'Agriculture, industry and construction',
   'Exportaciones e importaciones':'Exports and imports'});
@@ -1246,7 +1456,7 @@ const DRIVE_FAMILIES={
 };
 const DRIVE_THEME_KEYS={ESI:'esi',PMI:'pmi',INDUSTRIAL_PRODUCTION:'produccion-industrial',
   SERVICES_ACTIVITY:'actividad-servicios',TRADE_BALANCE:'balanza-comercial',LARGE_ENTERPRISES:'grandes-empresas'};
-const THEME_TABS=IS_EXTERNAL_MONITOR?[]:[
+const THEME_TABS=IS_TURKEY?TURKEY_THEME_TABS:IS_USA?[]:[
   ...Object.entries(BLOCKS).map(([k,l])=>({k,l})),
   ...Object.entries(DRIVE_FAMILIES).map(([family,l])=>({k:DRIVE_THEME_KEYS[family],l})),
   {k:'otras-series',l:'Otras series'}
@@ -1312,9 +1522,12 @@ function explorerPath(id){
     return sub?[block,sub]:[block];
   }
   if(IS_TURKEY){
-    if(id.startsWith('public_tr_')) return [block,s.family];
-    if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [block,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
-    return [block];
+    const theme=TURKEY_THEME_TABS.find(tab=>tab.k===TURKEY_THEME_BY_BLOCK[s.block]);
+    const path=theme?[theme.l,block]:[block];
+    if(id.startsWith('public_tr_')) return [...path,s.family].filter(Boolean);
+    if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [...path,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
+    if(s.block==='BANKING') return [...path,s.freq==='W'?'Semanal':'Mensual'];
+    return path;
   }
   const family=Object.hasOwn(DRIVE_FAMILIES,s.family)?DRIVE_FAMILIES[s.family]:null;
   if(id==='esi'||id==='conf_cons'||s.family==='ESI'){
@@ -1598,6 +1811,7 @@ function applyTurkeyTopic(){
 }
 function openTurkeyTopic(key){
   pendingTurkeyTopic=key;
+  state.tab='explorador';
   applyTurkeyTopic();
   render();
 }
@@ -1642,14 +1856,16 @@ function viewExplorer(){
   ex.picks=ex.picks.filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,6); ['mpicks','mpicks2','spicks','spicks2'].forEach(k=>ex[k]=ex[k].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,4)); ['sline','sline2'].forEach(k=>{ if(ex[k]&&!S()[ex[k]]) ex[k]=''; });
   if(!ids.includes(ex.sx)) ex.sx=ids.includes(explorerDefaults.sx)?explorerDefaults.sx:ids[0];
   if(!ids.includes(ex.sy)) ex.sy=ids.includes(explorerDefaults.sy)?explorerDefaults.sy:ids.find(id=>id!==ex.sx);
+  const visibleIds={galeria:ex.picks.flatMap(id=>isGDP(id)?[id,'pib_qoq']:[id]),multi:[...ex.mpicks,...ex.mpicks2],
+    stack:[...ex.spicks,ex.sline,...ex.spicks2,ex.sline2],scatter:[ex.sx,ex.sy]};
+  useRangeCoverage((visibleIds[ex.view]||ex.picks).map(id=>S()[id]));
   const plans=ex.view==='multi'?withRange(()=>{
     const entries=ids.map(id=>[id,S()[id]]);
     return ['mpicks','mpicks2'].map((key,i)=>transformationPlan(ex[key],entries,'board',ex.multiTransforms[i]));
   }):[];
   const body = ex.view==='multi'? exMulti(plans) : ex.view==='scatter'? exScatter() : ex.view==='stack'? exStack() : exGallery();
   panel.innerHTML = exHeader() + body;
-  panel.querySelectorAll('[data-er]').forEach(b=>b.addEventListener('click',()=>{ex.range=b.dataset.er; saveEx(); viewExplorer();}));
-  bindCustomRange(()=>viewExplorer());
+  bindPeriodControls('data-er',range=>{ex.range=range;saveEx();viewExplorer();});
   bindExplorerViews();
   bindExplorerSearch();
   bindSeriesPickers();
@@ -1742,7 +1958,7 @@ function drawStack(){ withRange(()=>['','2'].forEach(sfx=>{ const n=sfx, h=docum
   drawChart(h,{bars:C.bars,lines:C.line?[C.line]:[],stack:true,zero:true,height:300,aria:'stack'}); tr(document.getElementById('stlg'+n)); })); }
 
 /* ---- scatter */
-function scatterData(){ const X=S()[ex.sx], Y=S()[ex.sy]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
+function scatterData(xId=ex.sx,yId=ex.sy){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
   const c0=0; // long-run relationship: always the full history
   const xs=new Map(toFreq(X.data,X.freq,f)), ys=toFreq(Y.data,Y.freq,f);
   const pts=ys.filter(([d])=>xs.has(d)&&ts(d)>=c0).map(([d,y])=>({d,x:xs.get(d),y}));
@@ -1779,8 +1995,13 @@ function exScatter(){ const {pts,f,X,Y}=scatterData(); const F=fitFor(pts), fit=
        ${F.kind==='quad'?`<div><span>Término lineal</span><b>${F.q?fmtN(F.q.c[1],3):'–'}</b></div><div><span>Término cuadrático</span><b>${F.q?fmtN(F.q.c[2],3):'–'}</b></div><div><span>R² cuadrático</span><b>${F.q?fmtN(F.q.r2,2):'–'}</b></div><div><span>R² lineal</span><b>${fit?fmtN(fit.r*fit.r,2):'–'}</b></div>`:''}
        ${F.kind==='lowess'?`<div><span>Ventana LOWESS</span><b>50 %</b></div><div><span>R² LOWESS</span><b>${F.lw?fmtN(F.lw.r2,2):'–'}</b></div><div><span>R² lineal</span><b>${fit?fmtN(fit.r*fit.r,2):'–'}</b></div>`:''}
        <p class="note" style="font-size:12px;margin:6px 0 0">${isEN()?'Descriptive statistics for the full common history; they do not imply causality.'+(F.kind==='lowess'?' LOWESS: locally weighted regression using the nearest 50% of observations.':''):'Estadísticos descriptivos de toda la historia común; no implican causalidad.'+(F.kind==='lowess'?' LOWESS: regresión local ponderada con el 50 % de las observaciones más cercanas.':'')}</p></div></div>`; }
-function drawScatterView(){ const h=document.getElementById('schart'); if(!h) return; const {pts,f,X,Y}=scatterData(); drawScatter(h,pts,f,X,Y,fitFor(pts)); }
+function drawScatterView(){ const h=document.getElementById('schart'); if(!h) return; const {pts,f,X,Y}=scatterData(); bindScatterCsv(h,'dispersion',{pts,f,X,Y}); drawScatter(h,pts,f,X,Y,fitFor(pts)); }
+function bindScatterCsv(host,name,{pts,f,X,Y}){
+  const series=[{...X,freq:f,data:pts.map(p=>[p.d,p.x])},{...Y,freq:f,data:pts.map(p=>[p.d,p.y])}];
+  bindSeriesCsv(host,name,series);
+}
 function drawScatter(host,pts,f,X,Y,fit){
+  bindChartSources(host,[X,Y]);
   const W=Math.max(280,host.clientWidth), H=Math.min(460,Math.max(300,W*0.62)), padL=50,padR=16,padT=16,padB=42;
   if(pts.length<2){ host.innerHTML='<p class="note">Sin datos en este periodo.</p>'; tr(host); return; }
   const xt=niceTicks(Math.min(...pts.map(p=>p.x)),Math.max(...pts.map(p=>p.x)),W<500?4:6), yt=niceTicks(Math.min(...pts.map(p=>p.y)),Math.max(...pts.map(p=>p.y)),5);
@@ -1828,31 +2049,32 @@ const transformStatuses={
   calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
-function transformationPlan(ids,entries,scope,kind,fullHistory=false,anchor){
+function transformationPlan(ids,entries,scope,kind,fullHistory=false,anchor,baseDates){
   const catalog=SERIES_TRANSFORMS.catalogue(entries,scope);
   const start=fullHistory?0:cutoff(anchor), end=fullHistory?Infinity:upperCutoff();
   const options=new Map();
+  const canSetBase=baseDates&&ids.some(id=>boardBaseBounds(catalog.byId.get(id)?.series).first);
   for(const k of transformKinds){
     const alwaysShow=k==='mom'||k==='qoq';
     const rows=ids.map((id,index)=>{
       const base=catalog.byId.get(id)?.series;
-      const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN());
+      const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN(),baseDates?.[id]);
       if(alwaysShow&&result.series&&!result.series.data.some(([day])=>ts(day)>=start&&ts(day)<=end)){
         return {id,index,base,status:'unavailable',reason:isEN()?'No observations in this period.':'Sin observaciones en este periodo.'};
       }
       return {id,index,base,...result};
     });
-    if(k==='original'||alwaysShow||rows.some(row=>row.series)) options.set(k,rows);
+    if(k==='original'||alwaysShow||k==='b100'&&canSetBase||rows.some(row=>row.series)) options.set(k,rows);
   }
-  const selected=kind==='original'||options.get(kind)?.some(row=>row.series)?kind:'original';
-  return {selected,options,rows:options.get(selected)};
+  const selected=kind==='original'||kind==='b100'&&canSetBase||options.get(kind)?.some(row=>row.series)?kind:'original';
+  return {selected,options,rows:options.get(selected),canSetBase};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
   const options=[...plan.options].map(([kind,rows])=>{
     const name=SERIES_TRANSFORMS.names(kind,en);
-    const unavailable=kind!=='original'&&!rows.some(row=>row.series);
+    const unavailable=kind!=='original'&&!(kind==='b100'&&plan.canSetBase)&&!rows.some(row=>row.series);
     return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
@@ -1875,13 +2097,14 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyIds('Q_EXP_SCA_GDP','Q_EXP_SCA_C','Q_EXP_SCA_I'):IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
   if(!saved.transformMenu&&saved.tr==='level') saved.tr='original';
   Object.assign(bb,saved);
 }catch(e){}
+bb.baseDates=Object.fromEntries(Object.entries(bb.baseDates||{}).filter(([,day])=>validDay(day)));
 function saveBB(){ try{ localStorage.setItem(boardKey,JSON.stringify({...bb,q:'',transformMenu:true})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
 const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
@@ -1913,11 +2136,116 @@ function bbList(){
   }
   return catalog(explorerGroups()).html||'<p class="note">Ninguna serie coincide con la búsqueda.</p>';
 }
-function bbSel(){ if(!bb.picks.length) return '';
-  return `<div class="bbsel">${bb.picks.map((id,i)=>`<div class="row"><span class="sw" style="background:var(${COLORS[i%4]})"></span><span>${esc(S()[id].label)} <span class="u">${esc(S()[id].unit)}</span></span>
-    ${bb.mode==='dual'?`<button type="button" data-bbax="${id}" title="Cambiar de eje">${bbAxis(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
-    <button type="button" data-bbrm="${id}" aria-label="Quitar ${esc(S()[id].label)}">✕</button></div>`).join('')}</div>
-`; }
+function boardBaseBounds(series){
+  const today=rangeCoverage?.today||todayInMadrid();
+  const positive=([date,value])=>date<=today&&Number.isFinite(value)&&value>0;
+  return {first:series?.data.find(positive)?.[0],last:series?.data.findLast(positive)?.[0]};
+}
+function boardBaseForm(plan,id){
+  if(plan.selected!=='b100') return '';
+  const {first,last}=boardBaseBounds(S()[id]);
+  if(!first) return '';
+  const en=isEN(), saved=bb.baseDates[id], effective=plan.rows.find(row=>row.id===id)?.baseDate;
+  const value=effective||saved||first, label=effective?fmtDate(effective,'D'):(en?'Choose base date':'Elegir fecha base');
+  return `<details class="bb-base" data-bb-base="${esc(id)}"><summary>Base 100 · ${esc(label)}</summary>
+    <form novalidate><label>${en?'Date with a positive value':'Fecha con dato positivo'}
+    <input type="date" name="baseDate" min="${first}" max="${last}" value="${value}" required></label>
+    <button class="btn ghost" type="submit">${en?'Apply':'Aplicar'}</button>
+    ${saved?`<button class="btn ghost" type="button" data-base-reset>${en?'Automatic':'Automática'}</button>`:''}
+    <p role="alert"></p></form></details>`;
+}
+function bbSel(plan){
+  if(!bb.picks.length) return '';
+  const en=isEN(), movable=bb.picks.length>1;
+  return `<div class="bbsel">${bb.picks.map((id,i)=>{
+    const s=S()[id], name=esc(L10(s.label)), key=esc(id);
+    const up=`${en?'Move up':'Subir'} ${name}`, down=`${en?'Move down':'Bajar'} ${name}`;
+    return `<div class="row" data-bb-row="${key}">
+      <span class="series-grip" style="--series-color:var(${COLORS[i%4]})" ${movable?'draggable="true" data-bb-grip':''} aria-hidden="true">⠿</span>
+      <span>${esc(s.label)} <span class="u">${esc(s.unit)}</span></span>
+      ${bb.mode==='dual'?`<button type="button" data-bbax="${key}" title="${en?'Change axis':'Cambiar de eje'}">${bbAxis(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
+      <button type="button" data-bbrm="${key}" aria-label="${en?'Remove':'Quitar'} ${name}">✕</button>
+      ${movable?`<div class="bb-order"><button type="button" data-bb-move="-1" aria-label="${up}" title="${up}"${i===0?' disabled':''}>↑</button>
+      <button type="button" data-bb-move="1" aria-label="${down}" title="${down}"${i===bb.picks.length-1?' disabled':''}>↓</button></div>`:'<span></span>'}
+      ${boardBaseForm(plan,id)}</div>`;
+  }).join('')}</div>`;
+}
+function moveBoardSeries(id,destination){
+  const index=bb.picks.indexOf(id);
+  if(index<0||index===destination||destination<0||destination>=bb.picks.length) return false;
+  if(bb.mode==='dual') bb.picks.forEach((key,i)=>{bb.axis[key]=bbAxis(key,i);});
+  bb.picks.splice(index,1);
+  bb.picks.splice(destination,0,id);
+  return true;
+}
+function bindBoardOrder(rerender){
+  const list=panel.querySelector('.bbsel');
+  if(!list) return;
+  let dragged,marked;
+  const clear=()=>{if(marked) delete marked.dataset.dropSide; marked=null;};
+  list.querySelectorAll('[data-bb-move]').forEach(button=>button.addEventListener('click',()=>{
+    const id=button.closest('[data-bb-row]').dataset.bbRow, direction=Number(button.dataset.bbMove);
+    if(!moveBoardSeries(id,bb.picks.indexOf(id)+direction)) return;
+    rerender();
+    const row=panel.querySelector(`[data-bb-row="${CSS.escape(id)}"]`);
+    (row?.querySelector(`[data-bb-move="${direction}"]:enabled`)||row?.querySelector('[data-bb-move]:enabled'))?.focus({preventScroll:true});
+  }));
+  list.addEventListener('dragstart',event=>{
+    if(!event.target.matches('[data-bb-grip]')) return;
+    dragged=event.target.closest('[data-bb-row]').dataset.bbRow;
+    event.dataTransfer.setData('text/plain',dragged);
+    event.dataTransfer.effectAllowed='move';
+  });
+  const dropTarget=event=>{
+    const row=event.target.closest('[data-bb-row]');
+    return dragged&&row&&row.dataset.bbRow!==dragged?row:null;
+  };
+  const isAfter=(row,event)=>{
+    const {top,height}=row.getBoundingClientRect();
+    return event.clientY>top+height/2;
+  };
+  list.addEventListener('dragover',event=>{
+    const row=dropTarget(event);
+    clear();
+    if(!row) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect='move';
+    row.dataset.dropSide=isAfter(row,event)?'after':'before';
+    marked=row;
+  });
+  list.addEventListener('dragleave',event=>{if(!list.contains(event.relatedTarget)) clear();});
+  list.addEventListener('dragend',()=>{clear();dragged=null;});
+  list.addEventListener('drop',event=>{
+    const row=dropTarget(event);
+    if(!row) return;
+    event.preventDefault();
+    const target=bb.picks.indexOf(row.dataset.bbRow)+Number(isAfter(row,event));
+    const destination=target-Number(bb.picks.indexOf(dragged)<target);
+    const moved=moveBoardSeries(dragged,destination);
+    clear();dragged=null;
+    if(moved) rerender();
+  });
+}
+function bindBoardBaseDates(rerender){
+  panel.querySelectorAll('[data-bb-base]').forEach(details=>{
+    const id=details.dataset.bbBase, form=details.querySelector('form');
+    const apply=()=>{
+      rerender();
+      panel.querySelector(`[data-bb-base="${CSS.escape(id)}"] summary`)?.focus({preventScroll:true});
+    };
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      const input=form.elements.baseDate, date=input.value;
+      if(!validDay(date)||date<input.min||date>input.max||!S()[id].data.some(([day,value])=>day===date&&Number.isFinite(value)&&value>0)){
+        form.querySelector('[role="alert"]').textContent=isEN()?'Choose a date with a positive observation for this series.':'Elige una fecha con un dato positivo para esta serie.';
+        return;
+      }
+      bb.baseDates[id]=date;
+      apply();
+    });
+    form.querySelector('[data-base-reset]')?.addEventListener('click',()=>{delete bb.baseDates[id];apply();});
+  });
+}
 function bbFigHead(ids){ if(!ids.length) return bb.picks.length?
   {t:isEN()?'No compatible series':'No hay series compatibles',sub:''}:{t:'Pizarra vacía',sub:'Elige series en el panel de la izquierda'};
   const units=[...new Set(ids.map(id=>S()[id].unit))].map(u=>UNIT_ES[u]||u);
@@ -1951,8 +2279,9 @@ function viewBoard(){
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
   const source=Object.entries(S()).filter(([id])=>!id.startsWith('__'));
-  const anchor=rangeAnchor(bb.picks.map(id=>S()[id])), start=cutoff(anchor);
-  const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter',anchor);
+  useRangeCoverage(bb.picks.map(id=>S()[id]));
+  const start=cutoff();
+  const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter',undefined,bb.baseDates);
   if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
   const plots=registerPlotSeries(plan.rows,'__plot_board_');
   const ids=plots.map(p=>p.id);
@@ -1961,25 +2290,27 @@ function viewBoard(){
   panel.innerHTML=exHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
      ${sectionSearch('explorer-search')}
-     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
-     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
+     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}${boardBaseForm(plan,bb.picks[0])}</div>
+     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}${boardBaseForm(plan,bb.picks[1])}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        <details class="bbcatalog" id="bbcatalog"${bb.listOpen?' open':''}>
          <summary>${isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
          <div id="bblist" class="bblist">${bbList()}</div>
-       </details>${bbSel()}</div>`}
+       </details>${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${bb.mode==='scatter'?`<div class="bbgrp"><span class="picklab">Ajuste</span><div class="bbtr">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal']].map(([k,l])=>`<button type="button" data-bbf="${k}" aria-pressed="${bb.fit===k}">${l}</button>`).join('')}</div></div>`:''}
    </aside>
    <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
      ${transformationControls('board-transform',plan)}
-     ${bb.mode==='scatter'?'':chartRangeCtl(ids.map(id=>S()[id]),start)}
+     ${bb.mode==='scatter'?'':chartRangeCtl()}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
   bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
+  bindBoardOrder(rerender);
+  bindBoardBaseDates(rerender);
   const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_EXTERNAL_MONITOR)bb.catalogPreference=true;saveBB();});
   const list=document.getElementById('bblist');
   if(list){
@@ -2034,6 +2365,8 @@ function drawBoard(plots,start){
       return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div><figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
     }).join('')+'</div>';
     lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:line.name,height:210,zero:false,start}));
+    const end=upperCutoff();
+    bindSeriesCsv(h,'blackboard',ids.map(id=>({...S()[id],data:S()[id].data.filter(([day])=>ts(day)>=start&&ts(day)<=end)})));
     return;
   }
   if(bb.mode==='scatter'){
@@ -2042,40 +2375,47 @@ function drawBoard(plots,start){
       h.innerHTML=`<p class="note">${isEN()?'Both axes need compatible observations.':'Ambos ejes necesitan observaciones compatibles.'}</p>`;
       return;
     }
-    const keep={sx:ex.sx,sy:ex.sy,fit:ex.fit};
-    [ex.sx,ex.sy]=ids;
+    const keep=ex.fit;
     ex.fit=bb.fit;
-    try{const {pts,f,X,Y}=scatterData();drawScatter(h,pts,f,X,Y,fitFor(pts));}
-    finally{Object.assign(ex,keep);}
+    try{
+      const points=scatterData(...ids);
+      const {pts,f,X,Y}=points;
+      bindScatterCsv(h,'blackboard',points);
+      drawScatter(h,pts,f,X,Y,fitFor(pts));
+    }finally{ex.fit=keep;}
     return;
   }
   if(bb.mode==='dual'){
     const L=[],R=[];
     plots.forEach((p,i)=>{
-      const left=bbAxis(p.baseId,p.index)==='L';
-      (left?L:R).push({...lines[i],name:lines[i].name+(left?' (eje izq.)':' (eje dcho.)')});
+      (bbAxis(p.baseId,p.index)==='L'?L:R).push(lines[i]);
     });
     if(!L.length&&R.length) L.push(R.shift());
-    drawChart(h,{lines:L,rlines:R,aria:title,height,start,featured:true});
+    const labelAxis=(list,suffix)=>list.map(line=>({...line,name:line.name+suffix}));
+    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
   }else if(bb.mode==='bars'||bb.mode==='stack'){
     const C=bbCommon(plots);
-    drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true});
+    drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true,csvName:'blackboard'});
   }else{
-    drawChart(h,{lines,aria:title,height,zero:bb.tr==='z',start,featured:true});
+    drawChart(h,{lines,aria:title,height,zero:bb.tr==='z',start,featured:true,csvName:'blackboard'});
   }
   lg.innerHTML='';
 }
 function drawHeatBoard(host,ids,start){
+  bindChartSources(host,ids.map(id=>S()[id]));
   const end=upperCutoff(), freq=ids.some(id=>S()[id].freq==='Q')?'Q':'M';
   const rows=ids.map(id=>{const src=S()[id],d=toFreq(src.data,src.freq,freq).filter(([day,value])=>ts(day)>=start&&ts(day)<=end&&Number.isFinite(value)),v=d.map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
+  const standardize=(r,value)=>r.sd?(value-r.mean)/r.sd:0;
+  bindSeriesCsv(host,'blackboard',rows.map(r=>({...r.src,freq,unit:'σ',transform:isEN()?'Standardized for heat map':'Estandarizado para mapa de calor',data:r.d.map(([day,value])=>[day,standardize(r,value)])})));
   const dates=[...new Set(rows.flatMap(r=>r.d.map(o=>o[0])))].sort();
   if(!dates.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return;}
-  const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=r.sd?(v-r.mean)/r.sd:0,a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
+  const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=standardize(r,v),a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
   host.innerHTML=`<p class="note">${freq==='Q'?'Trimestral':'Mensual'} · azul: sobre la media · naranja: bajo la media · intensidad: distancia a la media (σ) · gris: sin datos</p><div class="bbheat-scroll"><table class="bbheat"><thead><tr><th>Serie</th>${dates.map(d=>`<th title="${d}">${freq==='Q'?d.slice(0,4)+' T'+(Math.floor((+d.slice(5,7)-1)/3)+1):d.slice(0,7)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th title="${esc(r.src.label)}">${esc(r.src.label)}</th>${dates.map(d=>cell(r,d)).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${ids.some(id=>S()[id].freq==='W')?(isEN()?'Weekly averages require at least 3 observations per month or 10 per quarter. ':'Los promedios semanales requieren al menos 3 observaciones por mes o 10 por trimestre. '):''}Los datos diarios se promedian por mes o trimestre y los mensuales por trimestre; se requieren 15 días por mes, 40 por trimestre o los tres meses. La media y desviación típica se calculan por serie en el periodo visible; una serie constante tiene z = 0.</p>`;
 }
 let BIGDATA={"series":[]};
 const bigState={
   view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
+  requests:{},
   geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
   scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original'
 };
@@ -2085,19 +2425,46 @@ async function fetchBigData(path){
   if(!response.ok) throw Error('HTTP '+response.status);
   return response.json();
 }
-function loadBigNational(){
-  if(bigState.nationalRequested || location.protocol==='file:') return;
-  bigState.nationalRequested=true;
-  fetchBigData('bigdata.json').then(data=>{
-    if(Array.isArray(data.series) && data.series.length) BIGDATA=data;
-    if(state.tab==='bigdata') viewBigData();
-  }).catch(()=>{ /* The embedded release stays available. */ });
+function requestBigData(key,load,force){
+  if(location.protocol==='file:') return;
+  if(bigState.requests[key]) return bigState.requests[key];
+  if(bigState[key+'Requested']&&!force) return;
+  bigState[key+'Requested']=true;
+  const request=load().finally(()=>{delete bigState.requests[key];});
+  bigState.requests[key]=request;
+  return request;
 }
-function loadGeoIndex(){if(bigState.indexRequested)return;bigState.indexRequested=true;fetchBigData('bigdata_geo/index.json').then(d=>{bigState.geoIndex=d.groups||{};if(state.tab==='bigdata')viewBigData()}).catch(()=>{bigState.indexError=true;if(state.tab==='bigdata')viewBigData()})}
-function fetchGeoArea(group,id){
+function loadBigNational(force=false){
+  return requestBigData('national',async()=>{
+    try{
+      const data=await fetchBigData('bigdata.json');
+      if(!Array.isArray(data.series)||!data.series.length) throw Error('invalid data');
+      if(JSON.stringify(data.series)===JSON.stringify(BIGDATA.series)) return false;
+      BIGDATA=data;
+      if(state.tab==='bigdata') viewBigData();
+      return true;
+    }catch(e){return null;}
+  },force);
+}
+function loadGeoIndex(force=false){
+  return requestBigData('index',async()=>{
+    let changed=false;
+    const hadError=bigState.indexError;
+    try{
+      const data=await fetchBigData('bigdata_geo/index.json');
+      if(!data.groups) throw Error('invalid index');
+      changed=JSON.stringify(data.groups)!==JSON.stringify(bigState.geoIndex);
+      bigState.geoIndex=data.groups;
+      bigState.indexError=false;
+    }catch(e){bigState.indexError=true;}
+    if(state.tab==='bigdata'&&(changed||hadError!==bigState.indexError)) viewBigData();
+    return bigState.indexError?null:changed;
+  },force);
+}
+function fetchGeoArea(group,id,force=false){
   const key=group+'|'+id;
-  if(bigState.geoCache[key]) return Promise.resolve(bigState.geoCache[key]);
   if(bigState.geoLoading[key]) return bigState.geoLoading[key];
+  if(bigState.geoCache[key]&&!force) return Promise.resolve(bigState.geoCache[key]);
   const area=(bigState.geoIndex?.[group]||[]).find(a=>a.id===id);
   if(!area) return Promise.resolve([]);
   delete bigState.geoErrors[key];
@@ -2105,17 +2472,40 @@ function fetchGeoArea(group,id){
     if(!/^(ccaa|provincial|urbano)\/(nominal|real)\/[a-f0-9]{20}\.json$/.test(f)) throw Error('invalid file');
     return fetchBigData('bigdata_geo/'+f);
   })).then(payload=>{
-    const series=payload.flatMap(x=>Array.isArray(x.series)?x.series:[]);
+    if(payload.some(x=>!Array.isArray(x.series))) throw Error('invalid data');
+    const series=payload.flatMap(x=>x.series);
     bigState.geoCache[key]=series;
     return series;
   }).catch(()=>{
     bigState.geoErrors[key]=true;
-    return [];
+    return bigState.geoCache[key]||[];
   }).finally(()=>{
     delete bigState.geoLoading[key];
   });
   bigState.geoLoading[key]=pending;
   return pending;
+}
+async function refreshBigTerritories(){
+  const results=await Promise.all(Object.entries(bigState.geoCache).filter(([,series])=>
+    series.some(s=>bigState.selected.includes(s.id))).map(async([key,before])=>{
+    const after=await fetchGeoArea(...key.split('|'),true);
+    if(bigState.geoErrors[key]) return null;
+    return JSON.stringify(before)!==JSON.stringify(after);
+  }));
+  if(results.includes(true)&&state.tab==='bigdata') viewBigData();
+  return results;
+}
+async function refreshBigData(){
+  const territories=async()=>{
+    if(!bigState.indexRequested) return [];
+    const changed=await loadGeoIndex(true);
+    return [changed,...await refreshBigTerritories()];
+  };
+  const [national,heat,geo]=await Promise.all([
+    loadBigNational(true),bigState.heatRequested?loadBigHeat(true):false,territories()
+  ]);
+  const results=[national,heat,...geo];
+  return {changed:results.includes(true),failed:results.includes(null)};
 }
 const BIG_TERRITORY_GROUPS={CCAA:'Comunidades autónomas',Provincial:'Provincias',Urbano:'Áreas urbanas'};
 const CONSUMPTION_CHANNELS=new Set(['card','debit','transfer','cash','rent','card online','card offline']);
@@ -2169,7 +2559,11 @@ const bigMetric=s=>s.label.split(' · ').at(-2)||s.label;
 const bigVariant=s=>s.label.match(/ · (Nominal|Real)$/)?.[1]||'';
 const isBigConsumptionTotal=s=>(s.group==='Consumo'||Boolean(s.area))&&CONSUMPTION_TOTALS.has(normalizeSearch(bigMetric(s)));
 function bigEntries(){
-  const national=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).map(s=>{
+  const national=(Array.isArray(BIGDATA.series)?BIGDATA.series:[]).map(series=>{
+    const sheet=/^(ESP_Consumo|Inversion_España|España_Activ_Sectorial)_\d+$/.exec(series.id)?.[1];
+    const s=sheet&&series.source==='BBVA Research'?{...series,source:`BBVA Research · Alta Frecuencia - España / ${sheet}`,
+      link:'https://docs.google.com/spreadsheets/d/1lqU0EbQHoDATmfNNOl7yodFTve6MYxCHLjCoRczsVy8/edit'}:
+      sheet&&series.source?.includes('Datos_informe.csv')?{...series,source:`${series.source} + ${sheet}`} : series;
     if(isBigConsumptionTotal(s)) return {...s,label:'Consumo total · '+bigVariant(s)};
     if(s.group==='Consumo'&&bigMetric(s)==='Other') return {...s,label:'Consumo · Otros gastos · '+bigVariant(s)};
     return s;
@@ -2364,55 +2758,44 @@ function bigScatterPoints([x,y],start){
   const xs=new Map(bigVisiblePoints(x,start,end).map(([day,value])=>[day,bigPlotValue(x,value)]));
   return bigVisiblePoints(y,start,end).filter(([day])=>xs.has(day)).map(([day,value])=>({d:day,x:xs.get(day),y:bigPlotValue(y,value)}));
 }
+const monthEnd=month=>Date.UTC(+month.slice(0,4),+month.slice(5,7),0);
+function bigHeatPeriods(rows,frequency){
+  return [...new Set(rows.flatMap(row=>Object.entries(row[frequency]||{}).filter(([,v])=>Number.isFinite(v)).map(([period])=>period)))].sort();
+}
 function bigHeatWindow(){
   const rows=bigState.heatTable?.rows||[];
-  const allMonths=[...new Set(rows.flatMap(r=>Object.keys(r.monthly||{})))].sort();
-  const allWeeks=[...new Set(rows.flatMap(r=>Object.keys(r.weekly||{})))].sort();
-  const anchor=Math.min(allWeeks.length?ts(allWeeks.at(-1)):lastDateAll(),upperCutoff());
-  const start=cutoff(anchor);
-  const months=allMonths.filter(m=>{
-    const end=Date.UTC(+m.slice(0,4),+m.slice(5,7),0);
-    return end>=start&&end<=anchor;
-  }).slice(-9);
-  const weeks=allWeeks.filter(w=>ts(w)>=start&&ts(w)<=anchor).slice(-4);
+  const start=cutoff(),end=upperCutoff();
+  const months=bigHeatPeriods(rows,'monthly').filter(m=>monthEnd(m)>=start&&monthEnd(m)<=end).slice(-9);
+  const weeks=bigHeatPeriods(rows,'weekly').filter(w=>ts(w)>=start&&ts(w)<=end).slice(-4);
   return {rows,months,weeks};
 }
 function bigCsvRows(view,chosen,start){
+  const source=isEN()?'Source':'Fuente';
   if(view==='heat'){
     const {rows,months,weeks}=bigHeatWindow();
     if(!months.length&&!weeks.length) return [];
-    return [[isEN()?'Indicator (%)':'Indicador (%)',...months,...weeks],
-      ...rows.map(r=>[L10(r.label),...months.map(m=>r.monthly?.[m]),...weeks.map(w=>r.weekly?.[w])])];
+    return [[isEN()?'Indicator (%)':'Indicador (%)',...months,...weeks,source],
+      ...rows.map(r=>[L10(r.label),...months.map(m=>r.monthly?.[m]),...weeks.map(w=>r.weekly?.[w]),seriesSource(r.source)])];
   }
   const title=s=>L10(s.label)+' ('+(s.percentScale===false?L10(s.unit):'%')+')';
+  const credits=chosen.map(s=>seriesSource(s.source||'BBVA Research'));
   const date=isEN()?'Date':'Fecha';
   if(view==='scatter'){
     const points=bigScatterPoints(chosen,start);
-    return points.length<2?[]:[[date,'X · '+title(chosen[0]),'Y · '+title(chosen[1])],
-      ...points.map(p=>[p.d,p.x,p.y])];
+    return points.length<2?[]:[[date,'X · '+title(chosen[0]),'Y · '+title(chosen[1]),source+' · X',source+' · Y'],
+      ...points.map(p=>[p.d,p.x,p.y,...credits])];
   }
   const end=upperCutoff();
   const values=chosen.map(s=>new Map(bigVisiblePoints(s,start,end).map(([day,value])=>[day,bigPlotValue(s,value)])));
   const dates=[...new Set(values.flatMap(series=>[...series.keys()]))].sort();
-  return dates.length?[[date,...chosen.map(title)],...dates.map(day=>[day,...values.map(series=>series.get(day))])]:[];
+  return dates.length?[[date,...chosen.map(title),...chosen.map(s=>source+' · '+title(s))],
+    ...dates.map(day=>[day,...values.map(series=>series.get(day)),...credits])]:[];
 }
 function downloadBigCsv(chosen,start){
   const view=bigState.view, rows=bigCsvRows(view,chosen,start);
   if(rows.length<2) return;
-  const en=isEN(), locale=en?'en-GB':'es-ES';
-  const format=value=>typeof value==='number'
-    ? (Number.isFinite(value)?value.toLocaleString(locale,{useGrouping:false,maximumSignificantDigits:15}):'')
-    : value??'';
-  const csv=csvOf(rows.map(row=>row.map(format)),en?',':';').replace(/\r?\n/g,'\r\n');
-  const suffix=(en?{chart:'lines',scatter:'scatter',heat:'heat-map'}:{chart:'lineas',scatter:'dispersion',heat:'mapa-de-calor'})[view];
-  const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
-  const download=document.createElement('a');
-  download.href=url;
-  download.download='big-data-'+suffix+'.csv';
-  document.body.append(download);
-  download.click();
-  download.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const suffix=(isEN()?{chart:'lines',scatter:'scatter',heat:'heat-map'}:{chart:'lineas',scatter:'dispersion',heat:'mapa-de-calor'})[view];
+  downloadCsvRows('big-data-'+suffix,rows);
 }
 function viewBigData(focus=''){
  const previous=document.activeElement;
@@ -2430,8 +2813,11 @@ function viewBigData(focus=''){
  entries.forEach(s=>{DATA.series['__big_'+s.id]={label:s.label,unit:s.unit||'',freq:s.freq||'D',block:'aux',source:s.source||'BBVA Research',code:s.id,data:s.data||[]}});
  const chosen=bigState.selected.map(id=>entries.find(s=>s.id===id));
  const plotSelection=bigState.view==='scatter'?chosen.slice(0,2):chosen;
- const anchor=rangeAnchor(plotSelection), start=cutoff(anchor);
- const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform,false,anchor);
+ const heatRows=bigState.heatTable?.rows||[];
+ const heatDates=bigState.view==='heat'?[...bigHeatPeriods(heatRows,'monthly').map(m=>isoDay(monthEnd(m))),...bigHeatPeriods(heatRows,'weekly')].sort():[];
+ useRangeCoverage(bigState.view==='heat'?[{data:heatDates.map(day=>[day,0])}]:plotSelection);
+ const start=cutoff();
+ const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform);
  if(plan) bigState.transform=plan.selected;
  const plotted=plan?.rows.filter(r=>r.series).map(r=>({...r.series,percentScale:r.percentScale,index:r.index}))||[];
  const units=[...new Set(plotted.map(s=>s.percentScale?'%':L10(s.unit)))];
@@ -2445,9 +2831,14 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl(plotted,start):''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  bindBigField();
+ const latestNational=BIGDATA.series.map(s=>s.data?.at(-1)?.[0]).filter(Boolean).sort().at(-1);
+ if(latestNational){
+   const stamp=isEN()?'Latest national observation':'Último dato nacional';
+   panel.querySelector('.sechead').insertAdjacentHTML('beforeend',`<span class="note">${stamp}: <time datetime="${esc(latestNational)}">${esc(fmtDate(latestNational,'D'))}</time></span>`);
+ }
  bindBigSearch();
  panel.querySelectorAll('[data-big-total]').forEach(button=>button.addEventListener('click',()=>showBigTotal(button.dataset.bigTotal,totals,button.id)));
  document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
@@ -2522,7 +2913,7 @@ function viewBigData(focus=''){
        data:!percentScale&&s.percentScale?s.data.map(([d,v,f])=>[d,v*100,f]):s.data};
      return {id,name:s.label,color:COLORS[s.index%4]};
    });
-   drawChart(chart,{lines,aria:title,height:420,percentScale,start,featured:true});
+   drawChart(chart,{lines,aria:title,height:420,percentScale,start,featured:true,csv:false});
    if(csv) csv.disabled=!chart.querySelector('svg');
  };
  draw();observe(draw);tr(panel);
@@ -2544,16 +2935,30 @@ function drawBigScatter(chosen,start){
  try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}
  return pts.length>=2;
 }
-function loadBigHeat(){if(bigState.heatRequested)return;bigState.heatRequested=true;fetchBigData('bigdata_heatmap.json').then(data=>{if(!Array.isArray(data.rows))throw Error('invalid data');bigState.heatTable=data;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()}).catch(()=>{bigState.heatError=true;if(state.tab==='bigdata'&&bigState.view==='heat')drawBigHeat()})}
+function loadBigHeat(force=false){
+  return requestBigData('heat',async()=>{
+    let changed=false;
+    const hadError=bigState.heatError;
+    try{
+      const data=await fetchBigData('bigdata_heatmap.json');
+      if(!Array.isArray(data.rows)) throw Error('invalid data');
+      changed=JSON.stringify(data)!==JSON.stringify(bigState.heatTable);
+      bigState.heatTable=data;
+      bigState.heatError=false;
+    }catch(e){bigState.heatError=true;}
+    if(state.tab==='bigdata'&&bigState.view==='heat'&&(changed||hadError!==bigState.heatError)) viewBigData();
+    return bigState.heatError?null:changed;
+  },force);
+}
 function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)return;const csv=document.getElementById('big-csv');if(csv)csv.disabled=true;if(!bigState.heatTable){if(bigState.heatError)host.innerHTML=`<p class="note">${isEN()?'Could not load the consumption table.':'No se pudo cargar la tabla de consumo.'}</p>`;else{host.innerHTML=`<p class="note">${isEN()?'Loading consumption table…':'Cargando tabla de consumo…'}</p>`;loadBigHeat()}return;}const {rows,months,weeks}=bigHeatWindow();if(!months.length&&!weeks.length){host.innerHTML=`<p class="note">${isEN()?'No data in this period.':'No hay datos en este periodo.'}</p>`;return;}if(csv)csv.disabled=false;const hasGap=months.length>0&&weeks.length>0;
   const spacer=hasGap?'<td class="bigmap-spacer" aria-hidden="true"></td>':'';
   const sectionWidth=1+months.length+(hasGap?0:weeks.length);
   const sectionEnd=hasGap?spacer+`<td class="bigmap-section" colspan="${weeks.length}" aria-hidden="true"></td>`:'';
   const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${sectionWidth}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th>${sectionEnd}</tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${spacer}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th>${months.length?`<th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>`:''}${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}${weeks.length?`<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th>`:''}</tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
 function dashboardTabs(){
-  if(IS_TURKEY) return [BLACKBOARD_TAB];
   if(IS_USA) return [BLACKBOARD_TAB,{k:'modelos',l:'Modelos'}];
   const groups=new Set(exIds().map(id=>explorerPath(id)[0]));
+  if(IS_TURKEY) return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,...THEME_TABS.filter(tab=>groups.has(tab.l)||tab.k===state.tab)];
   return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,
     ...THEME_TABS.filter(tab=>groups.has(tab.l)||tab.k===state.tab),...SPAIN_EXTRA_TABS];
 }
@@ -2568,14 +2973,21 @@ function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTa
 function go(k){ state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
 function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
   if(IS_TURKEY){
-    if(DATA.meta.n_series) viewExplorer();
+    if(DATA.meta.n_series){
+      if(state.tab==='resumen') viewTurkeyOverview();
+      else if(state.tab==='explorador') viewExplorer();
+      else viewBlock(state.tab);
+    }
     else panel.innerHTML=`<p class="note">${turkeyLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'Data unavailable.':'Datos no disponibles.')}</p>`;
     const title=isEN()?'BBVA Research Türkiye Macro Monitor':'BBVA Research Monitor Macro Turquía';
     document.title=title;
     document.querySelector('.mast h1').textContent=title;
     document.querySelector('.mast .lede').textContent=isEN()?'Türkiye macroeconomic and financial indicators.':'Indicadores macroeconómicos y financieros de Turquía.';
+    const workbookTime=driveData.updatedAt?new Intl.DateTimeFormat(isEN()?'en-GB':'es-ES',
+      {timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'}).format(new Date(driveData.updatedAt)):'';
     document.getElementById('stamp').textContent=DATA.meta.n_series
-      ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series' : '';
+      ? (isEN()?'Latest observation: ':'Última observación: ')+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series'+
+        (workbookTime?' · '+(isEN()?'Workbook published: ':'Excel publicado: ')+workbookTime:'') : '';
     document.getElementById('foot').innerHTML=`${isEN()?'Sources: Türkiye macro master workbook, CBRT EVDS and TurkStat via':'Fuentes: libro maestro de Turquía, CBRT EVDS y TurkStat a través de'} <a href="${TURKEY_PUBLIC.site}">Batuhan Barlas · Türkiye Macro Monitor</a>.`;
   }else if(IS_USA){
     const mainWrap=panel.closest('main');
@@ -2664,13 +3076,15 @@ async function fetchDriveSnapshot(previousVersion){
       family: rawBlock,
       areaLabel: typeof entry['área'] === 'string' ? entry['área'].trim() : '',
       source: (entry.fuente || 'Google Drive').split(/ \| (?:Archivo interno|Internal file):/)[0],
+      link: /^https:\/\//i.test(entry.source_url||'')?entry.source_url:null,
       code: id,
       original_name: entry.subtitulo_descripcion,
       transform: entry.transformacion_y_calculo,
       data: entry.observaciones.map(([day, value])=>[day, value, 0])
     };
   }
-  return { version, series, latest };
+  const updatedAt=Number.isFinite(Date.parse(snapshot.origen?.updated_at))?snapshot.origen.updated_at:null;
+  return { version, series, latest, updatedAt };
 }
 
 async function reload(manual){
@@ -2678,13 +3092,17 @@ async function reload(manual){
   const msg = document.getElementById('liveMsg');
   const before = dashboardBase.meta.refreshed;
   if(manual) msg.textContent = isEN() ? 'Checking data…' : 'Comprobando datos…';
-  const [base, drive, publicFeed] = await Promise.allSettled([
+  const [base, drive, publicFeed, big] = await Promise.allSettled([
     IS_EXTERNAL_MONITOR ? null : fetchDashboardBase(),
     fetchDriveSnapshot(driveData.version),
-    IS_TURKEY ? TURKEY_PUBLIC.load(turkeyPublicData.version) : null
+    IS_TURKEY ? TURKEY_PUBLIC.load(turkeyPublicData.version) : null,
+    !IS_EXTERNAL_MONITOR&&(manual||state.tab==='bigdata') ? refreshBigData() : null
   ]);
   if(request !== reloadSequence) return;
-  const acceptedBase = !IS_EXTERNAL_MONITOR && base.status === 'fulfilled' && base.value.meta.refreshed >= before;
+  const availableBase = !IS_EXTERNAL_MONITOR && base.status === 'fulfilled' && base.value.meta.refreshed >= before;
+  const baseChanged = availableBase && (base.value.meta.refreshed > before ||
+    JSON.stringify(base.value.series)!==JSON.stringify(dashboardBase.series));
+  const acceptedBase = availableBase && (baseChanged || SOURCE_NOTE!=='data.json de este sitio');
   const updatedDrive = drive.status === 'fulfilled' && drive.value;
   const publicWasUnavailable = turkeyPublicUnavailable;
   turkeyPublicUnavailable = IS_TURKEY && publicFeed.status === 'rejected';
@@ -2701,24 +3119,29 @@ async function reload(manual){
     const refreshed = IS_EXTERNAL_MONITOR ? [driveData.latest, IS_TURKEY ? turkeyPublicData.latest : ''].filter(Boolean).sort().at(-1) || '' : dashboardBase.meta.refreshed;
     DATA = { ...dashboardBase, series, meta: { ...dashboardBase.meta, refreshed, n_series: Object.keys(series).length } };
   }
-  const changed = dashboardBase.meta.refreshed !== before || updatedDrive || updatedPublic;
+  const macroChanged = baseChanged || updatedDrive || updatedPublic;
+  const changed=macroChanged||big.value?.changed;
   const wasLoading = turkeyLoading||usaLoading||spainDriveLoading;
   turkeyLoading = false;
   usaLoading = false;
   spainDriveLoading = false;
   const topicApplied = IS_TURKEY && applyTurkeyTopic();
-  if(changed || wasLoading || topicApplied || publicWasUnavailable !== turkeyPublicUnavailable) render();
+  if(acceptedBase || macroChanged || wasLoading || topicApplied || publicWasUnavailable !== turkeyPublicUnavailable) render();
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-usa-refresh',{detail:{manual}}));
   const time = new Date().toLocaleTimeString(isEN() ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' });
   const failed = IS_TURKEY ? turkeyPublicUnavailable || drive.status === 'rejected' || !DATA.meta.n_series
     : IS_USA ? drive.status === 'rejected'
     : base.status === 'rejected';
-  if(manual && failed && !changed){
+  const bigFailed=big.status==='rejected'||big.value?.failed;
+  if(manual && (failed||bigFailed) && !changed){
     msg.textContent = isEN() ? 'Could not refresh the dashboard data.' : 'No se pudieron actualizar los datos del dashboard.';
   }else{
     msg.textContent = isEN()
       ? (changed ? 'New data loaded' : 'No new data')+' · checked at '+time
       : (changed ? 'Datos nuevos cargados' : 'Sin datos nuevos')+' · comprobado a las '+time;
+  }
+  if((manual||state.tab==='bigdata')&&bigFailed){
+    msg.textContent+=' · '+(isEN()?'Some Big Data sources could not be refreshed':'No se pudo actualizar alguna fuente de Big Data');
   }
 }
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
@@ -2729,7 +3152,7 @@ const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
 const h0=location.hash.slice(1);
 if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,h0)) pendingTurkeyTopic=h0;
 else if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
-else if(h0==='pizarra'||IS_TURKEY&&h0==='financiero'){state.tab='explorador';ex.view='pizarra';}
+else if(h0==='pizarra'){state.tab='explorador';ex.view='pizarra';}
 else if(isDashboardTab(h0)) state.tab=h0;
 else if(Object.hasOwn(EXHASH,h0)){state.tab='explorador';ex.view=EXHASH[h0];}
 window.addEventListener('hashchange',()=>{
@@ -2737,7 +3160,7 @@ window.addEventListener('hashchange',()=>{
   if(IS_TURKEY&&Object.hasOwn(TURKEY_TOPICS,k)){openTurkeyTopic(k);return;}
   if(IS_TURKEY) pendingTurkeyTopic='';
   if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
-  if(k==='pizarra'||IS_TURKEY&&k==='financiero'){state.tab='explorador';ex.view='pizarra';render();return;}
+  if(k==='pizarra'){state.tab='explorador';ex.view='pizarra';render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}
 });
 render();

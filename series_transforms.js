@@ -4,7 +4,7 @@ const SERIES_TRANSFORMS = (() => {
     original:['Original','Raw'],
     mom:['Variación mensual','Month-on-month change'], qoq:['Variación trimestral','Quarter-on-quarter change'],
     yoy:['Variación interanual','Year-on-year change'],
-    b100:['Nivel','Level'], z:['Estandarizado','Standardised']
+    b100:['Base 100','Base 100'], z:['Estandarizado','Standardised']
   };
   const base={};
   function pair(family,series){
@@ -131,7 +131,7 @@ const SERIES_TRANSFORMS = (() => {
   function compatible(row,variant){
     return row.p.adjustment===variant.p.adjustment&&(!row.p.method||!variant.p.method||row.p.method===variant.p.method);
   }
-  function resolve(id,kind,cat,start,end,en){
+  function resolve(id,kind,cat,start,end,en,baseDate){
     const row=cat.byId.get(id);
     const t=(es,english)=>en?english:es;
     const unavailable=reason=>({status:'unavailable',reason});
@@ -146,9 +146,14 @@ const SERIES_TRANSFORMS = (() => {
     if(kind==='z'||kind==='b100'){
       const data=s.data.filter(o=>numeric(o)&&timestamp(o[0])>=start&&timestamp(o[0])<=end);
       if(kind==='b100'){
-        const base=data[0]?.[1];
-        if(!(base>0)) return unavailable(t('La primera observación visible debe ser positiva.','The first visible observation must be positive.'));
-        return calc(row,data.map(([d,v,f])=>[d,100*v/base,f]),'índice',s.freq,t('Primera observación visible = 100.','First visible observation = 100.'));
+        const observation=baseDate?s.data.find(([day])=>day===baseDate):data[0];
+        if(!observation||!(observation[1]>0)||!numeric(observation)) return unavailable(baseDate
+          ?t('La fecha base debe tener una observación positiva.','The base date needs a positive observation.')
+          :t('La primera observación visible debe ser positiva.','The first visible observation must be positive.'));
+        const [date,base]=observation;
+        const note=t(`Base 100 el ${date}.`,`Base 100 on ${date}.`);
+        const result=calc(row,data.map(([day,value,flag])=>[day,100*(value/base),flag]).filter(numeric),'índice',s.freq,note);
+        return result.series?{...result,baseDate:date,series:{...result.series,transform:note}}:result;
       }
       if(data.length<2) return unavailable(t('Se necesitan al menos dos observaciones visibles.','At least two visible observations are required.'));
       const mean=data.reduce((sum,o)=>sum+o[1],0)/data.length;

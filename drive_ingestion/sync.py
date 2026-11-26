@@ -17,7 +17,7 @@ from spain_dashboard import build_site
 
 
 ROOT_FOLDER = '1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr'
-FOLDERS = {'global': 'Global Scenarios', 'turkey': 'Turkiye', 'spain': 'Spain'}
+FOLDERS = {'global': 'Global Scenarios', 'turkey': 'Turkiye', 'spain': 'Spain', 'usa': 'USA'}
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 FOLDER = 'application/vnd.google-apps.folder'
 DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly'
@@ -35,7 +35,7 @@ ENGLISH_HEADERS = {
     'block': 'bloque', 'area': 'área', 'frequency': 'frecuencia', 'unit': 'unidad',
     'date': 'fecha', 'value': 'valor',
 }
-ENGLISH_FREQUENCIES = {'Daily': 'Diaria', 'Monthly': 'Mensual', 'Quarterly': 'Trimestral'}
+ENGLISH_FREQUENCIES = {'Daily': 'Diaria', 'Weekly': 'Semanal', 'Monthly': 'Mensual', 'Quarterly': 'Trimestral'}
 ENGLISH_AREAS = {
     'consumption': 'consumo', 'industry': 'industria', 'opinion_surveys': 'encuestas_opinión',
     'business_activity': 'actividad_empresarial', 'external_sector': 'sector_exterior',
@@ -106,6 +106,8 @@ def parse_workbook(workbook_bytes):
             row['frecuencia'] = ENGLISH_FREQUENCIES.get(row['frecuencia'], row['frecuencia'])
             row['área'] = ENGLISH_AREAS.get(row['área'], row['área'])
             series[series_id] = {field: row[field] for field in METADATA_FIELDS}
+            if isinstance(source_url := row.get('source_url'), str) and source_url.lower().startswith('https://'):
+                series[series_id]['source_url'] = source_url
             series[series_id]['observaciones'] = {}
 
         for line, row in worksheet_rows(workbook, observations_name, ('id_serie', 'fecha', 'valor')):
@@ -178,6 +180,9 @@ def sync(drive, directory):
     for area, name in FOLDERS.items():
         try:
             matches = [item for item in folders if item['name'] == name]
+            if not matches and area == 'usa':
+                logging.info('usa: USA folder not created in Drive yet; skipping')
+                continue
             if len(matches) != 1:
                 raise ValueError(f'Expected exactly one {name!r} folder, found {len(matches)}')
             sync_area(drive, matches[0]['id'], directory / f'{area}.json')

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from spain_dashboard import build_site
+from drive_ingestion.spain_dashboard import build_site
 
 
 ROOT_FOLDER = '1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr'
@@ -35,7 +35,7 @@ ENGLISH_HEADERS = {
     'block': 'bloque', 'area': 'área', 'frequency': 'frecuencia', 'unit': 'unidad',
     'date': 'fecha', 'value': 'valor',
 }
-ENGLISH_FREQUENCIES = {'Daily': 'Diaria', 'Monthly': 'Mensual', 'Quarterly': 'Trimestral'}
+ENGLISH_FREQUENCIES = {'Daily': 'Diaria', 'Weekly': 'Semanal', 'Monthly': 'Mensual', 'Quarterly': 'Trimestral'}
 ENGLISH_AREAS = {
     'consumption': 'consumo', 'industry': 'industria', 'opinion_surveys': 'encuestas_opinión',
     'business_activity': 'actividad_empresarial', 'external_sector': 'sector_exterior',
@@ -106,6 +106,8 @@ def parse_workbook(workbook_bytes):
             row['frecuencia'] = ENGLISH_FREQUENCIES.get(row['frecuencia'], row['frecuencia'])
             row['área'] = ENGLISH_AREAS.get(row['área'], row['área'])
             series[series_id] = {field: row[field] for field in METADATA_FIELDS}
+            if isinstance(source_url := row.get('source_url'), str) and source_url.lower().startswith('https://'):
+                series[series_id]['source_url'] = source_url
             series[series_id]['observaciones'] = {}
 
         for line, row in worksheet_rows(workbook, observations_name, ('id_serie', 'fecha', 'valor')):

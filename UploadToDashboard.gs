@@ -21,7 +21,7 @@ const DASHBOARD_ENGLISH_HEADERS = {
   fecha: 'date', valor: 'value'
 };
 const DASHBOARD_ENGLISH_FREQUENCIES = new Map([
-  ['Daily', 'Diaria'], ['Monthly', 'Mensual'], ['Quarterly', 'Trimestral']
+  ['Daily', 'Diaria'], ['Weekly', 'Semanal'], ['Monthly', 'Mensual'], ['Quarterly', 'Trimestral']
 ]);
 const DASHBOARD_ENGLISH_AREAS = new Map([
   ['consumption', 'consumo'], ['industry', 'industria'], ['opinion_surveys', 'encuestas_opinión'],
@@ -130,8 +130,11 @@ function syncDashboardArea_(area, folder, properties, token) {
   }
   const changed = Object.keys(parsed.hashes).filter(name => parsed.hashes[name] !== (previous.hashes || {})[name]);
   if (changed.length && token) {
-    const payload = { origen: { name: book.name }, series: parsed.series };
-    commitDashboardSnapshot_(area, JSON.stringify(payload) + '\n', token);
+    const origen = { name: book.name };
+    if (area === 'turkey') origen.updated_at = new Date().toISOString();
+    const payload = { origen, series: parsed.series };
+    const commit = commitDashboardSnapshot_(area, JSON.stringify(payload) + '\n', token);
+    if (commit) console.log(area + ': commit en GitHub ' + commit);
   }
   if (token) properties.setProperty(key, JSON.stringify({ revision, hashes: parsed.hashes }));
   console.log(area + ': ' + Object.keys(parsed.series).length + ' series y ' + parsed.count +
@@ -146,17 +149,20 @@ function dashboardWorkbookRows_(workbook, name) {
 
 function readDashboardWorkbook_(book) {
   const blob = DriveApp.getFileById(book.id).getBlob();
+  return withDashboardSpreadsheet_(blob, book.name, workbook => parseDashboardSheets_(
+    dashboardWorkbookRows_(workbook, workbook.getSheetByName('DICTIONARY') ? 'DICTIONARY' : 'DICCIONARIO'),
+    dashboardWorkbookRows_(workbook, workbook.getSheetByName('LONG_DATA') ? 'LONG_DATA' : 'DATOS_LARGO'),
+    workbook.getSpreadsheetTimeZone()
+  ));
+}
+
+function withDashboardSpreadsheet_(blob, name, read) {
   const temporary = Drive.Files.create({
-    name: 'FoW temporal – ' + book.name,
+    name: 'FoW temporal – ' + name,
     mimeType: DASHBOARD_UPLOAD.spreadsheet
   }, blob, { fields: 'id' });
   try {
-    const workbook = SpreadsheetApp.openById(temporary.id);
-    return parseDashboardSheets_(
-      dashboardWorkbookRows_(workbook, workbook.getSheetByName('DICTIONARY') ? 'DICTIONARY' : 'DICCIONARIO'),
-      dashboardWorkbookRows_(workbook, workbook.getSheetByName('LONG_DATA') ? 'LONG_DATA' : 'DATOS_LARGO'),
-      workbook.getSpreadsheetTimeZone()
-    );
+    return read(SpreadsheetApp.openById(temporary.id));
   } finally {
     Drive.Files.update({ trashed: true }, temporary.id);
   }
@@ -192,6 +198,8 @@ function dashboardHash_(data) {
 function parseDashboardSheets_(dictionary, observations, timezone) {
   const fields = DASHBOARD_UPLOAD.metadata;
   const metadata = dashboardColumns_(dictionary, ['id_serie', ...fields], 'DICCIONARIO');
+  const sourceUrl = dictionary[0].includes('source_url')
+    ? dashboardColumns_(dictionary, ['source_url'], 'DICCIONARIO').source_url : -1;
   const values = dashboardColumns_(observations, ['id_serie', 'fecha', 'valor'], 'DATOS_LARGO');
   const seriesMetadata = Object.create(null);
   const seriesData = Object.create(null);
@@ -209,6 +217,7 @@ function parseDashboardSheets_(dictionary, observations, timezone) {
     }
     const entry = Object.fromEntries(fields.map(field => [field, row[metadata[field]]]));
     entry.fuente = String(entry.fuente || '').split(/ \| (?:Archivo interno|Internal file):/)[0];
+    if (sourceUrl >= 0 && /^https:\/\//i.test(String(row[sourceUrl] || ''))) entry.source_url = String(row[sourceUrl]);
     entry.frecuencia = DASHBOARD_ENGLISH_FREQUENCIES.get(entry.frecuencia) || entry.frecuencia;
     entry['área'] = DASHBOARD_ENGLISH_AREAS.get(entry['área']) || entry['área'];
     seriesMetadata[id] = entry;
@@ -244,7 +253,7 @@ function parseDashboardSheets_(dictionary, observations, timezone) {
 }
 
 function commitDashboardSnapshot_(area, content, token) {
-  commitDashboardFiles_([{ path: 'drive_ingestion/snapshots/' + area + '.json', content }],
+  return commitDashboardFiles_([{ path: 'drive_ingestion/snapshots/' + area + '.json', content }],
     'Update Drive data for ' + area, token);
 }
 
@@ -269,6 +278,7 @@ function commitDashboardFiles_(files, message, token) {
     message, tree, parents: [head]
   }, token);
   dashboardGithub_('/git/refs' + ref, 'patch', { sha: commit.sha, force: false }, token);
+  return commit.sha;
 }
 
 function dashboardGithub_(path, method, body, token) {
