@@ -456,6 +456,8 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertEqual(pressed.evaluate('b => getComputedStyle(b).color'), 'rgb(255, 255, 255)')
         # The period tiles keep the shared dashboard style.
         self.assertEqual(figure.locator('.seg button[aria-pressed=false]').first.evaluate('b => getComputedStyle(b).backgroundColor'), 'rgb(243, 245, 246)')
+        # Only these periods are offered, then "Choose dates".
+        expect(figure.locator('.seg button')).to_have_text(['6m', '1a', '4a', '10a', 'Todo'] if page.evaluate('document.documentElement.lang') == 'es' else ['6m', '1y', '4y', '10y', 'All'])
         # "Choose dates" follows the last period tile instead of sitting at the far right.
         last_tile = figure.locator('.seg button').last.bounding_box()
         choose = figure.locator('.chart-date-range summary').bounding_box()
@@ -480,10 +482,27 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bbchart [data-axis-label]')).to_have_count(0)
         self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Billions of USD · Index 2017=100')
         expect(page.locator('#bbchart .chart-reading-label').first).to_contain_text('(eje izq.)')
-        page.locator('[data-bbax]').nth(2).click()
-        self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Index 2017=100 · Billions of USD')
-        self.assertRegex(figure.locator('h3').text_content(), r'^USA: Real GDP, Industrial Production Index & Personal Consumption Expenditures$')
-        page.locator('[data-bbax]').nth(2).click()
+        # Axes are assigned by unit, not by hand: the first unit goes left, the others right.
+        expect(page.locator('[data-bbax]')).to_have_count(0)
+        expect(page.locator('#bbchart path[data-axis=left]')).to_have_count(1)
+        expect(page.locator('#bbchart path[data-axis=right]')).to_have_count(2)
+        # With a common unit there is a single axis, and it is the left one.
+        page.locator('#board-transform').select_option('yoy')
+        expect(page.locator('#bbchart path[data-axis=left]')).to_have_count(3)
+        expect(page.locator('#bbchart [data-axis-tick=right]')).to_have_count(0)
+        expect(page.locator('#bbchart [data-axis-tick=left]').first).to_be_visible()
+        page.locator('#board-transform').select_option('original')
+        # The heat map is always monthly, also with a quarterly series (Real GDP) selected.
+        page.locator('[data-bbm=heat]').click()
+        expect(page.locator('#bbchart .note').first).to_contain_text('Mensual')
+        headers = page.locator('#bbchart table.bbheat thead th').all_text_contents()[1:]
+        self.assertTrue(all(re.fullmatch(r'[0-9]{4}-[0-9]{2}', h) for h in headers), headers[:5])
+        months = [int(h[:4]) * 12 + int(h[5:]) for h in headers]
+        self.assertEqual(months, list(range(months[0], months[0] + len(months))))
+        gdp = page.locator('#bbchart table.bbheat tbody tr').first.locator('td:not(.bbmissing)')
+        self.assertGreaterEqual(gdp.count(), 6)
+        self.assertEqual(gdp.count() % 3, 0)
+        page.locator('[data-bbm=dual]').click()
         # The scatterplot keeps the menus in the left panel too.
         page.locator('[data-bbm=scatter]').click()
         expect(page.locator('.bbside #board-transform')).to_be_visible()
@@ -870,7 +889,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.goto(f'{ORIGIN}/usa.html?lang=es#explorador')
         self.assert_blackboard(page, 'es')
         page.locator('[data-bbm=dual]').click()
-        for transformation in ('original', 'yoy'):
+        for transformation in ('original',):
             for period in ('1a', '4a', '10a'):
                 with self.subTest(transformation=transformation, period=period):
                     page.locator('#board-transform').select_option(transformation)

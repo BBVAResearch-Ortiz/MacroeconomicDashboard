@@ -647,6 +647,7 @@ const S = () => DATA.series;
 const state = {tab:IS_EXTERNAL_MONITOR?'explorador':'resumen', range:'4a'};
 const SHORT_RANGES=['1m','3m','6m'];
 const RANGES=[...SHORT_RANGES,'1a','4a','10a','todo','custom'];
+const USA_RANGES=['6m','1a','4a','10a','todo'];
 const customRange={start:'',end:''};try{Object.assign(customRange,JSON.parse(localStorage.getItem('mme-custom-range')||'{}'))}catch(e){}
 let rangeCoverage;
 const MES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], MES_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1034,7 +1035,9 @@ function rangeButtons(selected,attribute,compact=false){
   const names={todo:en?'All':'Todo',
     '1m':en?'1 month':'1 mes','3m':en?'3 months':'3 meses','6m':en?'6 months':'6 meses',
     '1a':en?'1 year':'1 año','4a':en?'4 years':'4 años','10a':en?'10 years':'10 años'};
-  const ranges=RANGES.filter(r=>r!=='custom'&&(compact||!SHORT_RANGES.includes(r)||r===selected));
+  // USA: siempre los mismos cinco periodos, con etiqueta corta.
+  if(IS_USA) compact=true;
+  const ranges=IS_USA?USA_RANGES:RANGES.filter(r=>r!=='custom'&&(compact||!SHORT_RANGES.includes(r)||r===selected));
   return `<div class="seg" role="group" aria-label="${en?'Period':'Periodo'}">${ranges.map(r=>{
     const label=compact&&r!=='todo'?(en?r.replace('a','y'):r):names[r];
     return `<button type="button" ${attribute}="${r}" aria-label="${names[r]}" aria-pressed="${selected===r}">${label}</button>`;
@@ -2060,7 +2063,7 @@ function bbSel(plan){
     return `<div class="row" data-bb-row="${key}">
       <span class="series-grip" style="--series-color:var(${COLORS[i%4]})" ${movable?'draggable="true" data-bb-grip':''} aria-hidden="true">⠿</span>
       <span>${esc(s.label)} <span class="u">${esc(s.unit)}</span></span>
-      ${bb.mode==='dual'?`<button type="button" data-bbax="${key}" title="${en?'Change axis':'Cambiar de eje'}">${bb.axis[id]==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
+      ${bb.mode==='dual'&&!IS_USA?`<button type="button" data-bbax="${key}" title="${en?'Change axis':'Cambiar de eje'}">${bb.axis[id]==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
       <button type="button" data-bbrm="${key}" aria-label="${en?'Remove':'Quitar'} ${name}">✕</button>
       ${movable?`<div class="bb-order"><button type="button" data-bb-move="-1" aria-label="${up}" title="${up}"${i===0?' disabled':''}>↑</button>
       <button type="button" data-bb-move="1" aria-label="${down}" title="${down}"${i===bb.picks.length-1?' disabled':''}>↓</button></div>`:'<span></span>'}
@@ -2217,6 +2220,14 @@ function viewBoard(){
   const ids=plots.map(p=>p.id);
   // USA, dos ejes: título y unidades van primero con el eje izquierdo y después con el derecho.
   const usaDual=IS_USA&&bb.mode==='dual'&&ids.length>0;
+  // USA: los ejes se asignan solos por unidad. Las series con la unidad de la primera van al eje
+  // izquierdo y las demás al derecho; si todas comparten unidad hay un único eje, el izquierdo.
+  if(usaDual){
+    const leftUnit=S()[plots[0].id].unit;
+    let changed=false;
+    plots.forEach(p=>{const axis=S()[p.id].unit===leftUnit?'L':'R'; if(bb.axis[p.baseId]!==axis){bb.axis[p.baseId]=axis;changed=true;}});
+    if(changed) saveBB();
+  }
   const headIds=usaDual?[...plots.filter(p=>bb.axis[p.baseId]==='L'),...plots.filter(p=>bb.axis[p.baseId]!=='L')].map(p=>p.id):ids;
   const H=bbFigHead(headIds), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
   if(usaDual) H.sub=esc([...new Set(headIds.map(id=>S()[id].unit))].map(u=>UNIT_ES[u]||u).join(' · '));
@@ -2381,14 +2392,17 @@ function drawBoard(plots,start){
 }
 function drawHeatBoard(host,ids,start){
   bindChartSources(host,ids.map(id=>S()[id]));
-  const end=upperCutoff(), freq=ids.some(id=>S()[id].freq==='Q')?'Q':'M';
-  const rows=ids.map(id=>{const src=S()[id],d=toFreq(src.data,src.freq,freq).filter(([day,value])=>ts(day)>=start&&ts(day)<=end&&Number.isFinite(value)),v=d.map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
+  // USA: el mapa de calor es siempre mensual; una serie trimestral repite su valor en los tres meses del trimestre.
+  const end=upperCutoff(), freq=IS_USA?'M':ids.some(id=>S()[id].freq==='Q')?'Q':'M';
+  const monthsOfQuarter=data=>data.flatMap(([day,value])=>{const year=+day.slice(0,4), first=Math.floor((+day.slice(5,7)-1)/3)*3+1;
+    return [0,1,2].map(k=>[periodKey(year+'-'+String(first+k).padStart(2,'0')+'-01','M'),value]);});
+  const rows=ids.map(id=>{const src=S()[id],spread=freq==='M'&&src.freq==='Q',d=(spread?monthsOfQuarter(src.data):toFreq(src.data,src.freq,freq)).filter(([day,value])=>ts(day)>=start&&ts(day)<=end&&Number.isFinite(value)),v=(spread?d.filter(o=>(+o[0].slice(5,7)-1)%3===0):d).map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
   const standardize=(r,value)=>r.sd?(value-r.mean)/r.sd:0;
   bindSeriesCsv(host,'blackboard',rows.map(r=>({...r.src,freq,unit:'σ',calculated:true,transform:isEN()?'Standardized for heat map':'Estandarizado para mapa de calor',data:r.d.map(([day,value])=>[day,standardize(r,value)])})));
   const dates=[...new Set(rows.flatMap(r=>r.d.map(o=>o[0])))].sort();
   if(!dates.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return;}
   const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=standardize(r,v),a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
-  host.innerHTML=`<p class="note">${freq==='Q'?'Trimestral':'Mensual'} · azul: sobre la media · naranja: bajo la media · intensidad: distancia a la media (σ) · gris: sin datos</p><div class="bbheat-scroll"><table class="bbheat"><thead><tr><th>Serie</th>${dates.map(d=>`<th title="${d}">${freq==='Q'?d.slice(0,4)+' T'+(Math.floor((+d.slice(5,7)-1)/3)+1):d.slice(0,7)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th title="${esc(r.src.label)}">${esc(r.src.label)}</th>${dates.map(d=>cell(r,d)).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${ids.some(id=>S()[id].freq==='W')?(isEN()?'Weekly averages require at least 3 observations per month or 10 per quarter. ':'Los promedios semanales requieren al menos 3 observaciones por mes o 10 por trimestre. '):''}Los datos diarios se promedian por mes o trimestre y los mensuales por trimestre; se requieren 15 días por mes, 40 por trimestre o los tres meses. La media y desviación típica se calculan por serie en el periodo visible; una serie constante tiene z = 0.</p>`;
+  host.innerHTML=`<p class="note">${freq==='Q'?'Trimestral':'Mensual'}${rows.some(r=>freq==='M'&&r.src.freq==='Q')?' (las series trimestrales repiten el valor del trimestre en sus tres meses)':''} · azul: sobre la media · naranja: bajo la media · intensidad: distancia a la media (σ) · gris: sin datos</p><div class="bbheat-scroll"><table class="bbheat"><thead><tr><th>Serie</th>${dates.map(d=>`<th title="${d}">${freq==='Q'?d.slice(0,4)+' T'+(Math.floor((+d.slice(5,7)-1)/3)+1):d.slice(0,7)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th title="${esc(r.src.label)}">${esc(r.src.label)}</th>${dates.map(d=>cell(r,d)).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${ids.some(id=>S()[id].freq==='W')?(isEN()?'Weekly averages require at least 3 observations per month or 10 per quarter. ':'Los promedios semanales requieren al menos 3 observaciones por mes o 10 por trimestre. '):''}Los datos diarios se promedian por mes o trimestre y los mensuales por trimestre; se requieren 15 días por mes, 40 por trimestre o los tres meses. La media y desviación típica se calculan por serie en el periodo visible; una serie constante tiene z = 0.</p>`;
 }
 let BIGDATA={"series":[]};
 const bigState={
@@ -3164,6 +3178,7 @@ async function reload(manual){
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
+if(IS_USA&&state.range!=='custom'&&!USA_RANGES.includes(state.range)) state.range='todo';
 const LEGACY_BOARD_MODES={galeria:'multiples',multiserie:'lines',dispersion:'scatter',apiladas:'stack'};
 function openLegacyBoard(hash){
   if(hash!=='pizarra'&&!Object.hasOwn(LEGACY_BOARD_MODES,hash)) return false;

@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import time
 import os
 import urllib.parse
 import urllib.request
@@ -1178,16 +1179,36 @@ def main():
     check_bea_api()
 
     out_series = {}
-    for code, cfg in SERIES_CONFIG.items():
-        try:
-            obs = fetch_fred_series(cfg["fred_id"])
-        except Exception as exc:
-            print(f"[WARN] {code}: {exc}", flush=True)
-            continue
+    # Datos de la ejecución anterior: si una descarga falla se conserva lo que había.
+    previous = {}
+    try:
+        with open(SNAPSHOT_PATH, encoding="utf-8") as handle:
+            previous = json.load(handle).get("series", {})
+    except (OSError, ValueError):
+        pass
 
-        if not obs:
+    for code, cfg in SERIES_CONFIG.items():
+        obs, error = None, None
+        # FRED limita las peticiones por minuto: pausa entre series y reintentos con espera.
+        for wait in (0, 10, 30, 60):
+            time.sleep(wait or 0.6)
+            try:
+                obs = fetch_fred_series(cfg["fred_id"])
+                error = None
+                break
+            except Exception as exc:
+                error = exc
+                if getattr(exc, "code", None) in (400, 404):
+                    break
+        if error is not None:
+            print(f"[WARN] {code}: {error}", flush=True)
+        elif not obs:
             print(f"[WARN] {code}: sin observaciones", flush=True)
-            continue
+        if not obs:
+            obs = (previous.get(code) or {}).get("observaciones")
+            if not obs:
+                continue
+            print(f"[KEEP] {code}: se conservan los datos anteriores", flush=True)
 
         out_series[code] = {
             "titulo_serie": cfg["titulo_serie"],
