@@ -214,6 +214,18 @@ table.fc td.f{font-weight:600}
 .transform-field>select.axsel{min-width:0;max-width:none;text-overflow:ellipsis}
 .transform-field>.picklab{font-size:10px;letter-spacing:.06em}
 #bblg:empty{display:none}
+/* Blackboard de USA (.bbfig): título en una línea, subtítulo y periodos; lecturas como leyenda inferior */
+.bbfig h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-wrap:nowrap;overflow-wrap:normal}
+.bbfig>.figure-csv-title{min-width:0}
+.bbfig>.chart-range{display:contents}
+.bbfig>.chart-range>.date-coverage{order:2}
+.bbfig #bbchart .chart-body{grid-template-columns:minmax(0,1fr)}
+.bbfig #bbchart .chart-readings{border-left:0;border-top:1px solid var(--chart-grid);padding:10px 0 0}
+.bbfig #bbchart .chart-readings ul{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px 18px}
+.board-csv{flex:none;margin-inline-start:auto}
+.board-csv:empty{display:none}
+.board-transform-group .transform-sources{flex-direction:column;gap:3px}
+@media(min-width:901px){.board-transform-group .transform-control{grid-template-columns:minmax(0,1fr)}}
 .transform-sources{display:flex;flex-wrap:wrap;gap:4px 8px}
 .transform-sources span{font-size:12px;color:var(--muted)}
 .transform-sources b{font-weight:600}
@@ -1264,7 +1276,7 @@ function downloadCsvRows(name,rows){
 }
 function bindFigureCsv(figure,download,enabled=true){
   if(!figure) return;
-  let header=figure.querySelector(':scope > .figure-csv-header');
+  let header=(figure.dataset.csvSlot&&document.getElementById(figure.dataset.csvSlot))||figure.querySelector(':scope > .figure-csv-header');
   if(!header){
     const title=figure.firstElementChild;
     header=document.createElement('div');
@@ -1689,7 +1701,7 @@ function toFreq(data,from,to){ if(from===to&&to!=='W') return data.map(o=>[o[0],
   data.forEach(([d,v])=>{ const k=periodKey(d,to); const a=g.get(k)||[0,0]; a[0]+=v; a[1]++; g.set(k,a); });
   return [...g.entries()].filter(([,a])=>a[1]>=need).map(([k,a])=>[k,a[0]/a[1]]).sort((a,b)=>a[0]<b[0]?-1:1); }
 
-function boardHeader(){ return '<div class="sechead"><h2>Blackboard</h2></div>'; }
+function boardHeader(){ return '<div class="sechead"><h2>Blackboard</h2>'+(IS_USA?'<div class="figure-csv-header board-csv" id="bb-csv"></div>':'')+'</div>'; }
 
 const UNIT_ES={'€/m²':'€/m²','% a/a':'% a/a','%':'%','% PIB':'% del PIB','pp':'pp','pb':'pb','M€':'millones de euros','mm€':'miles de millones de euros','miles':'miles','índice':'índice','saldo':'saldo'};
 function scatterData(xId,yId){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
@@ -1863,7 +1875,7 @@ const SCATTER_FITS=[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal
 function scatterControls(plan){
   return `<section class="scatter-analysis" aria-label="${isEN()?'Scatterplot analysis':'Análisis de dispersión'}">
     <h4 style="margin:0">${isEN()?'Scatterplot analysis':'Análisis de dispersión'}</h4>
-    ${transformationControls('board-transform',plan)}
+    ${IS_USA?'':transformationControls('board-transform',plan)}
     ${[...new Set(bb.picks)].map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join('')}
     <div class="fit-tools"><div class="seg" role="group" aria-label="${isEN()?'Fit':'Ajuste'}">
       ${SCATTER_FITS.map(([kind,label])=>`<button type="button" data-bbf="${kind}" aria-pressed="${bb.fit===kind}">${label}</button>`).join('')}
@@ -2142,10 +2154,11 @@ function viewBoard(){
      :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
+     ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:''}
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
    </aside>
-   <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
-     ${bb.mode==='scatter'?'':transformationControls('board-transform',plan)}
+   <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${IS_USA?' data-csv-slot="bb-csv"':''} style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div${IS_USA?' class="figure-csv-title"':''}><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
+     ${IS_USA||bb.mode==='scatter'?'':transformationControls('board-transform',plan)}
      ${bb.mode==='scatter'?'':chartRangeCtl()}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${bb.mode==='scatter'?scatterControls(plan):''}
@@ -2209,6 +2222,7 @@ function viewBoard(){
   document.getElementById('bbswap')?.addEventListener('click',()=>{bb.picks.reverse();rerender();});
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
+  panel.querySelectorAll('.bbfig h3').forEach(title=>{title.title=title.textContent;});
   if(searchInput){
     const next=document.getElementById(searchInput.id);
     next?.focus({preventScroll:true});
