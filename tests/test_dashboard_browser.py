@@ -53,6 +53,7 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bbchart svg').first).to_be_visible()
         self.assert_language(page, language)
 
+
     def test_blackboard_click_and_keyboard_preserve_language(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en')
@@ -82,6 +83,8 @@ class DashboardBrowserTests(unittest.TestCase):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=es#pizarra')
         self.assert_blackboard(page, 'es')
+        expect(page.locator('.board-head [data-bbm]')).to_have_count(7)
+        expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
         for mode in ('dual', 'bars', 'stack', 'scatter', 'heat', 'multiples', 'lines'):
             with self.subTest(mode=mode):
                 button = page.locator(f'[data-bbm="{mode}"]')
@@ -198,12 +201,35 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#bbcatalog summary').first.tap()
         expect(page.locator('#bblist')).to_be_visible()
 
+    def test_spain_header_is_compact_and_tabs_stay_in_one_row(self):
+        page = self.start_page(viewport={'width': 1440, 'height': 900})
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        expect(page.locator('.mast .lede')).to_be_hidden()
+        expect(page.locator('.mast #stamp')).to_be_hidden()
+        self.assertLessEqual(page.locator('.mast #liveMsg').bounding_box()['height'], 1)
+        tabs = page.get_by_role('tablist')
+        expect(tabs.get_by_role('tab')).to_have_count(10)
+        for width in (1440, 390):
+            with self.subTest(width=width):
+                page.set_viewport_size({'width': width, 'height': 900})
+                positions = tabs.get_by_role('tab').evaluate_all(
+                    'buttons => buttons.map(button => button.getBoundingClientRect().top)'
+                )
+                self.assertEqual(len(set(positions)), 1)
+                overflows = tabs.evaluate('bar => bar.scrollWidth > bar.clientWidth')
+                self.assertEqual(overflows, width == 390)
+        page.locator('#tab-resumen').press('ArrowLeft')
+        expect(page.locator('#tab-fuentes')).to_be_focused()
+        self.assertGreater(tabs.evaluate('bar => bar.scrollLeft'), 0)
+
     def test_custom_dates_open_to_the_right_and_apply_on_change(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         page.wait_for_function('!spainDriveLoading')
         dates = page.locator('.chart-date-range')
+        expect(page.locator('.board-figure .date-coverage')).to_have_count(0)
         dates.locator('summary').click()
         expect(dates.get_by_role('button', name='Apply dates')).to_have_count(0)
         quick_ranges = page.locator('.chart-range .seg').bounding_box()
@@ -219,7 +245,8 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(start).to_be_focused()
         expect(dates.locator('form')).to_be_visible()
         end.fill('2025-07-01')
-        expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jul 2025')
+        expect(start).to_have_value('2025-01-01')
+        expect(end).to_have_value('2025-07-01')
         expect(end).to_be_focused()
         chart = page.locator('#bbchart')
         chart.locator('svg').press('ArrowRight')
@@ -228,15 +255,17 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLessEqual(tooltip_date.get_attribute('datetime'), '2025-07-01')
         end.fill('2024-12-01')
         expect(dates.get_by_role('alert')).to_contain_text('chronological order')
-        expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jul 2025')
+        self.assertEqual(page.evaluate('customRange.end'), '2025-07-01')
         end.fill('2025-06-01')
-        expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jun 2025')
+        expect(end).to_have_value('2025-06-01')
 
         page.set_viewport_size({'width': 320, 'height': 900})
         fields = dates.locator('form').bounding_box()
         self.assertLessEqual(fields['x'] + fields['width'], 320)
         page.reload()
-        expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jun 2025')
+        self.assert_blackboard(page, 'en')
+        expect(start).to_have_value('2025-01-01')
+        expect(end).to_have_value('2025-06-01')
 
     def test_scatter_analysis_and_calculated_csv(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
@@ -254,11 +283,10 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bb-fit-stats')).to_contain_text('LOWESS R²')
         transform = page.locator('.board-layout > aside').get_by_label('Transformation')
         expect(transform.locator('option[value=delta]')).to_have_text(
-            'Change from previous observation (Calculated here)'
+            'Change from previous observation'
         )
         transform.select_option('delta')
-        page.locator('.transform-details summary').click()
-        expect(page.locator('.transform-details [data-status=calculated]')).to_have_count(2)
+        expect(page.locator('[data-status=calculated], [data-status=documented]')).to_have_count(0)
         expect(chart.locator('svg')).to_be_visible()
         with page.expect_download() as pending:
             page.locator('.board-figure > .figure-csv-footer .csv-action').click()
@@ -351,6 +379,41 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertGreater(bounds['height'], 380)
         self.assertGreaterEqual(footer.bounding_box()['y'], bounds['y'] + bounds['height'])
 
+    def test_blackboard_copies_a_png_from_chart_and_heat_map(self):
+        page = self.start_page(viewport={'width': 1440, 'height': 900})
+        page.add_init_script("""
+            window.ClipboardItem = class {
+                constructor(items) { this.items=items; }
+            };
+            Object.defineProperty(navigator,'clipboard',{value:{write:async ([item])=>{
+                const png=await item.items['image/png'];
+                const header=new DataView(await png.slice(0,24).arrayBuffer());
+                window.copiedChart={
+                    format:png.type, signature:header.getUint32(0),
+                    width:header.getUint32(16), height:header.getUint32(20)
+                };
+            }}});
+        """)
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        marker = page.locator('.chart-date-range summary')
+        copy_button = page.locator('#bb-copy-image')
+        self.assertGreaterEqual(copy_button.bounding_box()['x'], marker.bounding_box()['x'] + marker.bounding_box()['width'])
+        self.assertGreater(page.locator('#bbchart svg').bounding_box()['height'], 500)
+
+        for mode in ('lines', 'heat'):
+            with self.subTest(mode=mode):
+                page.locator(f'[data-bbm={mode}]').click()
+                page.evaluate('window.copiedChart=null')
+                expect(copy_button).to_have_text('Copy image')
+                copy_button.click()
+                expect(copy_button).to_have_text('Image copied')
+                result = page.evaluate('window.copiedChart')
+                self.assertEqual(result['format'], 'image/png')
+                self.assertEqual(result['signature'], 0x89504E47)
+                self.assertGreater(result['width'], 0)
+                self.assertGreater(result['height'], 0)
+
     def test_overview_card_headings_stay_on_one_line(self):
         page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
         page.goto(f'{ORIGIN}/espana.html?lang=en')
@@ -384,7 +447,7 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertIn('Source URL', csv)
         self.assertIn('CVEC INE', csv)
 
-    def test_transform_menu_labels_only_calculated_options(self):
+    def test_transform_menu_uses_plain_labels_and_preserves_csv_metadata(self):
         page = self.start_page()
         page.add_init_script("""
             localStorage.setItem('mme-bb', JSON.stringify({
@@ -395,10 +458,9 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assert_blackboard(page, 'en')
         select = page.locator('#board-transform')
         expect(select.locator('option[value=yoy]')).to_have_text('Year-on-year change')
-        expect(select.locator('option[value=delta]')).to_have_text('Change from previous observation (Calculated here)')
+        expect(select.locator('option[value=delta]')).to_have_text('Change from previous observation')
         select.select_option('delta')
-        page.locator('.transform-details summary').click()
-        expect(page.locator('[data-status=calculated]')).to_have_count(1)
+        expect(page.locator('[data-status=calculated], [data-status=documented]')).to_have_count(0)
         with page.expect_download() as pending:
             page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
@@ -472,6 +534,8 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.goto(f'{ORIGIN}/{country}.html?lang=en')
                 page.locator('#tab-explorador').click()
                 self.assert_blackboard(page, 'en')
+                expect(page.locator('.board-head [data-bbm]')).to_have_count(7)
+                expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
 
     def test_turkiye_keeps_verified_data_when_the_workbook_contains_only_examples(self):
         page = self.start_page()
