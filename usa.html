@@ -917,6 +917,19 @@ function drawChart(host, cfg){
   const ticks=hasLeft?niceTicks(lo,hi,tickCount):[0,1]; lo=ticks[0]; hi=ticks.at(-1);
   const rightValues=rlines.flatMap(s=>s.data.map(o=>o[1]));
   const rightTicks=hasRight?niceTicks(Math.min(...rightValues),Math.max(...rightValues),tickCount):[0,1];
+  if(cfg.alignAxes&&hasLeft&&hasRight&&ticks.length>1){
+    const lowR=Math.min(...rightValues), highR=Math.max(...rightValues), count=ticks.length-1;
+    const raw=((highR-lowR)||Math.abs(highR)||1)/count, power=Math.pow(10,Math.floor(Math.log10(raw)));
+    let aligned=null;
+    for(const scale of [power/10,power,power*10]){
+      for(const factor of [1,2,2.5,5,10]){
+        const step=factor*scale, base=Math.floor(lowR/step)*step;
+        if(base+count*step>=highR-step*1e-9){ aligned=ticks.map((_,i)=>+(base+i*step).toFixed(10)); break; }
+      }
+      if(aligned) break;
+    }
+    if(aligned){ rightTicks.length=0; rightTicks.push(...aligned); }
+  }
   const rlo=rightTicks[0], rhi=rightTicks.at(-1);
   const leftDecimals=axisTickDecimals(ticks), rightDecimals=axisTickDecimals(rightTicks);
   const leftLabels=ticks.map(v=>cfg.percentScale?formatBigPercent(v):fmtN(v||0,leftDecimals));
@@ -1577,14 +1590,14 @@ Object.assign(EN,{'PIB y cuentas nacionales':'GDP and national accounts','Activi
   'Inflación y precios':'Inflation and prices','Tipos de interés y condiciones financieras':'Interest rates and financial conditions',
   'Confianza y encuestas':'Confidence and surveys','PMI e ISM':'PMI and ISM'});
 // Desplegable de USA: solo las grandes categorías, en este orden y sin subcategorías.
-const USA_CATEGORIES=['Actividad','Empleo','Precios','Monetario','Fiscal','Exterior','Vivienda'];
+const USA_CATEGORIES=['Actividad','Empleo','Precios','Monetario','Financiero','Fiscal','Exterior','Vivienda'];
 const USA_CATEGORY_BY_BLOCK={actividad:'Actividad',GDP:'Actividad',GDP_EXPENDITURE:'Actividad',GDP_PRODUCTION:'Actividad',ACTIVITY:'Actividad',
   HIGH_FREQUENCY_ACTIVITY:'Actividad',CONSUMPTION:'Actividad',INDUSTRIAL_PRODUCTION:'Actividad',CONFIDENCE:'Actividad',PMI:'Actividad',
   empleo:'Empleo',LABOUR_MARKET:'Empleo',precios:'Precios',INFLATION:'Precios',
-  tipos:'Monetario',monetario:'Monetario',INTEREST_RATES:'Monetario',FINANCIAL:'Monetario',
+  tipos:'Monetario',monetario:'Monetario',INTEREST_RATES:'Monetario',financiero:'Financiero',FINANCIAL:'Financiero',
   fiscal:'Fiscal',PUBLIC_SECTOR:'Fiscal',exterior:'Exterior',EXTERNAL_SECTOR:'Exterior',TRADE_BALANCE:'Exterior',
   vivienda:'Vivienda',HOUSING:'Vivienda'};
-Object.assign(EN,{Actividad:'Activity',Empleo:'Employment',Precios:'Prices',Monetario:'Monetary',Fiscal:'Fiscal',Exterior:'External',Vivienda:'Housing',
+Object.assign(EN,{Actividad:'Activity',Empleo:'Employment',Precios:'Prices',Monetario:'Monetary',Financiero:'Financial',Fiscal:'Fiscal',Exterior:'External',Vivienda:'Housing',
   'Sin series todavía.':'No series yet.'});
 const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',coyuntura:'Coyuntura',empleo:'Empleo',precios:'Precios',
   vivienda:'Vivienda',credito:'Créditos y depósitos',publico:'Sector público',exterior:'Sector exterior',financiero:'Financiero'};
@@ -2233,14 +2246,14 @@ function bindBoardBaseDates(plan,rerender){
 const BOARD_COUNTRY=IS_USA?'USA':'';
 const boardCountry=()=>BOARD_COUNTRY?`<span class="board-country">${BOARD_COUNTRY}: </span>`:'';
 // En USA la fuente va entre paréntesis al final del nombre («Real GDP (BEA)»): el título la omite.
-const boardSeriesName=id=>{ const label=String(S()[id].label); return BOARD_COUNTRY?label.replace(/\s*\([^()]*\)\s*$/,''):label; };
+const boardSeriesName=id=>{ const label=String(S()[id].label); return BOARD_COUNTRY?label.split(' · ')[0].replace(/\s*\([^()]*\)\s*$/,''):label; };
 const boardJoinNames=names=>!BOARD_COUNTRY?names.join(' / '):names.length<3?names.join(' & '):names.slice(0,-1).join(', ')+' & '+names.at(-1);
 function bbFigHead(ids){ const head=bbFigHeadBase(ids); return ids.length?{...head,t:boardCountry()+head.t}:head; }
 function bbFigHeadBase(ids){ if(!ids.length) return bb.picks.length?
   {t:isEN()?'No compatible series':'No hay series compatibles',sub:''}:{t:'Pizarra vacía',sub:'Elige series en el panel de la izquierda'};
   const units=[...new Set(ids.map(id=>S()[id].unit))].map(u=>UNIT_ES[u]||u);
   if(bb.mode==='scatter'){ if(ids.length<2) return {t:esc(boardSeriesName(ids[0])),sub:'Dispersión: elige una segunda serie para el eje Y'};
-    return {t:`${esc(boardSeriesName(ids[1]))} frente a ${esc(boardSeriesName(ids[0]))}`,
+    return {t:BOARD_COUNTRY?esc(boardJoinNames(ids.slice(0,2).map(boardSeriesName))):`${esc(boardSeriesName(ids[1]))} frente a ${esc(boardSeriesName(ids[0]))}`,
       sub:esc(`X: ${unitLabel(S()[ids[0]].unit)} · Y: ${unitLabel(S()[ids[1]].unit)} · ${isEN()?'Full history':'Historia completa'}`)}; }
   if(bb.mode==='heat') return {t:'Mapa de calor',sub:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
   if(bb.mode==='bands') return {t:'Confidence Bands',sub:''};
@@ -2457,7 +2470,7 @@ function drawBoard(plots,start){
       (bb.axis[p.baseId]==='L'?L:R).push(lines[i]);
     });
     const labelAxis=(list,suffix)=>list.map(line=>({...line,name:line.name+suffix}));
-    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),axisLabels:!IS_USA,seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
+    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),axisLabels:!IS_USA,alignAxes:IS_USA,seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
   }else if(bb.mode==='bars'||bb.mode==='stack'){
     const C=bbCommon(plots);
     drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true,csvName:'blackboard'});

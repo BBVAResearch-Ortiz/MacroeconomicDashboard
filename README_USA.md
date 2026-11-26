@@ -32,3 +32,22 @@ La ficha «DSGE FRB-NY» de la sección Modelos muestra las previsiones que publ
 - Es un cálculo propio, no un escenario de la Fed: los parámetros por defecto no tienen por qué coincidir con su estimación actual, y las bandas no se recalculan.
 - `dsge_irf.jl` regenera el archivo (instrucciones de instalación en su cabecera). Solo hace falta si cambian el modelo o los parámetros; no depende de los datos de cada trimestre.
 
+## Catálogo de series (FRED)
+
+`scripts/fetch_usa_apis.py` descarga 55 series de FRED. El campo `bloque` de cada serie decide su categoría en el desplegable del Blackboard, que solo muestra estas ocho, sin subcategorías:
+
+| Categoría | `bloque` | Series |
+|---|---|---|
+| Actividad | `actividad` | GDPC1, PCE, PCEC96, INDPRO, TCU, RSAFS, DGORDER, UMCSENT, CFNAI |
+| Empleo | `empleo` | UNRATE, U6RATE, PAYEMS, CIVPART, JTSJOL, CES0500000003, ICSA, CCSA |
+| Precios | `precios` | CPIAUCSL, CPILFESL, PCEPI, PCEPILFE, PPIFIS, MICH, T5YIE, DCOILWTICO |
+| Monetario | `monetario` | FEDFUNDS, DFEDTARU, DGS2, DGS10, T10Y2Y, M2SL, WALCL |
+| Financiero | `financiero` | SP500, VIXCLS, BAA10Y, NFCI, MORTGAGE30US, DTWEXBGS |
+| Fiscal | `fiscal` | MTSDS133FMS, GFDEBTN, GFDEGDQ188S, W006RC1Q027SBEA, FGEXPND, A091RC1Q027SBEA |
+| Exterior | `exterior` | BOPGSTB, BOPTEXP, BOPTIMP, IEABC, DEXUSEU |
+| Vivienda | `vivienda` | HOUST, PERMIT, HSN1F, EXHOSLUSM495S, CSUSHPISA, MSPUS |
+
+Para añadir una serie basta una entrada nueva en `SERIES_CONFIG` con su `fred_id`, frecuencia (`D`, `W`, `M` o `Q`; nunca anual) y `bloque`. El título debe acabar con la fuente entre paréntesis («Real GDP (BEA)»): los títulos de los gráficos la omiten. Las tres primeras entradas del catálogo son las series que se muestran por defecto.
+
+Los datos llegan cuando se ejecuta el flujo «Update USA Macro Data from APIs» (a diario, o a mano con *Run workflow*). Una serie cuyo identificador falle se omite con un aviso y no interrumpe el resto.
+

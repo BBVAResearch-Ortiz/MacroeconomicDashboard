@@ -738,20 +738,69 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLess(a['x'] + a['width'], b['x'])
 
     def test_usa_series_menu_lists_only_the_main_categories(self):
+        snapshot = json.loads((ROOT / 'drive_ingestion' / 'snapshots' / 'usa.json').read_text(encoding='utf-8'))
         page = self.start_page(viewport={'width': 1180, 'height': 900})
-        for lang, expected in (
-            ('es', ['Actividad (3)', 'Empleo (3)', 'Precios (2)', 'Monetario (3)', 'Fiscal (0)', 'Exterior (0)', 'Vivienda (0)']),
-            ('en', ['Activity (3)', 'Employment (3)', 'Prices (2)', 'Monetary (3)', 'Fiscal (0)', 'External (0)', 'Housing (0)']),
+        for lang, names in (
+            ('es', ['Actividad', 'Empleo', 'Precios', 'Monetario', 'Financiero', 'Fiscal', 'Exterior', 'Vivienda']),
+            ('en', ['Activity', 'Employment', 'Prices', 'Monetary', 'Financial', 'Fiscal', 'External', 'Housing']),
         ):
             with self.subTest(lang=lang):
                 page.goto(f'{ORIGIN}/usa.html?lang={lang}#explorador')
                 self.assert_blackboard(page, lang)
                 groups = page.locator('.bbside .bbcatalog [data-catalog-group]')
-                expect(groups.locator('> summary')).to_have_text(expected)
-                # No nested subcategories: series hang directly from each category.
+                labels = groups.locator('> summary').all_inner_texts()
+                self.assertEqual([re.sub(r' \(\d+\)$', '', label) for label in labels], names)
+                # Every series sits in exactly one category and there are no nested subcategories.
+                counts = [int(re.search(r'\((\d+)\)$', label).group(1)) for label in labels]
+                self.assertEqual(sum(counts), len(snapshot['series']))
                 expect(page.locator('.bbside [data-catalog-group] [data-catalog-group]')).to_have_count(0)
                 groups.nth(3).locator('> summary').click()
-                expect(groups.nth(3).locator('[data-catalog-pick]')).to_have_count(3)
+                expect(groups.nth(3).locator('[data-catalog-pick]')).to_have_count(counts[3])
+                self.assertGreaterEqual(counts[3], 3)
+
+    def test_usa_titles_follow_the_country_and_ampersand_rule(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#explorador')
+        self.assert_blackboard(page, 'es')
+        page.locator('.bbside [data-bbrm]').nth(2).click()
+        title = page.locator('figure.bbfig h3')
+        expected = 'USA: Real GDP & Personal Consumption Expenditures'
+        for mode in ('lines', 'dual', 'bars', 'stack', 'scatter'):
+            page.locator(f'[data-bbm={mode}]').click()
+            for transformation in ('original', 'yoy', 'b100'):
+                with self.subTest(mode=mode, transformation=transformation):
+                    page.locator('#board-transform').select_option(transformation)
+                    expect(page.locator('#bbchart svg').first).to_be_visible()
+                    expect(title).to_have_text(expected)
+            page.locator('#board-transform').select_option('original')
+
+    def test_usa_dual_axis_ticks_share_the_grid(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#explorador')
+        self.assert_blackboard(page, 'es')
+        page.locator('[data-bbm=dual]').click()
+        for transformation in ('original', 'yoy'):
+            for period in ('1a', '4a', '10a'):
+                with self.subTest(transformation=transformation, period=period):
+                    page.locator('#board-transform').select_option(transformation)
+                    page.locator(f'figure.bbfig .seg button:text-is("{period}")').click()
+                    expect(page.locator('#bbchart [data-axis-tick=right]').first).to_be_visible()
+                    marks = page.locator('#bbchart svg').first.evaluate("""svg => ({
+                        left: [...svg.querySelectorAll('[data-axis-tick=left]')].map(t => +t.getAttribute('y')),
+                        right: [...svg.querySelectorAll('[data-axis-tick=right]')].map(t => +t.getAttribute('y')),
+                        rightText: [...svg.querySelectorAll('[data-axis-tick=right]')].map(t => t.textContent),
+                        paths: [...svg.querySelectorAll('path[data-axis=right]')].map(p => p.getBBox()).map(b => [b.y, b.y + b.height]),
+                        plot: (() => { const hit = svg.querySelector('#hit'); return [+hit.getAttribute('y'), +hit.getAttribute('y') + +hit.getAttribute('height')]; })(),
+                    })""")
+                    # Same number of ticks, at the same heights as the left axis.
+                    self.assertEqual(len(marks['left']), len(marks['right']))
+                    for left, right in zip(marks['left'], marks['right']):
+                        self.assertAlmostEqual(left, right, delta=0.5)
+                    self.assertEqual(len(set(marks['rightText'])), len(marks['rightText']))
+                    # The right-axis series stays inside the plot area.
+                    for top, bottom in marks['paths']:
+                        self.assertGreaterEqual(top, marks['plot'][0] - 0.5)
+                        self.assertLessEqual(bottom, marks['plot'][1] + 0.5)
 
     def test_other_blackboards_keep_their_layout(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
