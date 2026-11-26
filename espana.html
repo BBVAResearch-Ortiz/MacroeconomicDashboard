@@ -239,8 +239,10 @@ table.fc td.f{font-weight:600}
 /* Blackboard de USA (.bbfig): título en una línea, subtítulo y periodos; lecturas como leyenda inferior */
 .bbfig h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-wrap:nowrap;overflow-wrap:normal}
 .bbfig>.figure-csv-title{min-width:0}
+.bbfig .sub:not(:empty)::before{content:"("}
+.bbfig .sub:not(:empty)::after{content:")"}
 .bbfig>.chart-range{display:contents}
-.bbfig>.chart-range>.date-coverage{order:2}
+.bbfig .chart-date-range{margin-inline-start:0}
 .bbfig #bbchart .chart-body{grid-template-columns:minmax(0,1fr)}
 .bbfig #bbchart .chart-readings{border-left:0;border-top:1px solid var(--chart-grid);padding:10px 0 0}
 .bbfig #bbchart .chart-readings{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px}
@@ -253,13 +255,21 @@ table.fc td.f{font-weight:600}
 .bbfig #bbchart .chart-readings li time,.bbfig #bbchart .chart-reading-source{display:none}
 .bbfig #bbchart .chart-readings>p{order:2;margin:0;visibility:hidden;white-space:nowrap}
 .bbfig #bbchart .chart-readings.is-hovering>p{visibility:visible}
+.band-note{margin:0 0 4px}
+.band-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.band-key span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.band-swatch{display:inline-block;inline-size:16px;block-size:10px;border-radius:2px;background:var(--band-color)}
+.band-swatch.mean{block-size:0;border-top:2px dashed var(--band-color);background:none;border-radius:0}
+.band-swatch.one{opacity:.34}
+.band-swatch.two{opacity:.14}
 .board-head{align-items:center;margin-bottom:10px}
 .board-modes{flex:1;min-width:0}
 .board-modes .bbmodes{display:flex;flex-wrap:wrap}
 .board-modes .bbmodes button{padding:7px 10px;white-space:nowrap}
 @media(max-width:900px){.board-modes{flex-basis:100%;order:3}}
-.board-csv{flex:none;margin-inline-start:auto}
-.board-csv:empty{display:none}
+@media(min-width:901px){html[data-monitor="usa"] .board-head{display:grid;grid-template-columns:300px minmax(0,1fr);gap:32px}}
+html[data-monitor="usa"] .board-modes .bbmodes button{border:0;border-radius:7px;background:#f3f5f6;color:var(--accent);font-weight:600;box-shadow:none}
+html[data-monitor="usa"] .board-modes .bbmodes button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 .board-transform-group .transform-sources{flex-direction:column;gap:3px}
 @media(min-width:901px){.board-transform-group .transform-control{grid-template-columns:minmax(0,1fr)}}
 .transform-sources{display:flex;flex-wrap:wrap;gap:4px 8px}
@@ -814,6 +824,12 @@ function drawChart(host, cfg){
   // y extent
   let ys=[]; lines.forEach(s=>s.data.forEach(o=>ys.push(o[1])));
   if(bars.length){ if(cfg.stack){ barDates.forEach(d=>{let p=0,n=0; bars.forEach(s=>{const o=s.data.find(x=>x[0]===d); if(o){ if(o[1]>=0)p+=o[1]; else n+=o[1]; }}); ys.push(p,n);}); } else bars.forEach(s=>s.data.forEach(o=>ys.push(o[1]))); }
+  let band=null;
+  if(cfg.bands&&lines.length===1&&!bars.length&&lines[0].data.length>2){
+    const values=lines[0].data.map(o=>o[1]), mean=values.reduce((a,b)=>a+b,0)/values.length;
+    const sd=Math.sqrt(values.reduce((a,b)=>a+(b-mean)**2,0)/(values.length-1));
+    if(sd>0){ band={mean,sd,n:values.length}; ys.push(mean-2*sd,mean+2*sd); }
+  }
   let lo=Math.min(...ys), hi=Math.max(...ys); if(cfg.zero!==false && bars.length){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
   if(cfg.zero===true){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
   const tickCount=H<240?4:5;
@@ -849,6 +865,8 @@ function drawChart(host, cfg){
         const cx = cfg.stack? x(ts(d))-bw/2 : x(ts(d))-bw*bars.length/2+i*bw;
         const h=Math.max(1,yB-yA);
         g+=`<rect x="${cx+ (cfg.stack?0:0.5)}" y="${yA}" width="${Math.max(1,bw-(cfg.stack?0:1))}" height="${h}" fill="${css(s.color)}" stroke="${surf}" stroke-width="${cfg.stack?1:0}" rx="${Math.min(2,bw/4)}" opacity="${o[2]?0.55:1}"/>`; }); }); }
+  if(band){ const color=css(lines[0].color), bx=padL, bwidth=W-padL-padR, span=k=>`x="${bx}" y="${y(band.mean+k*band.sd)}" width="${bwidth}" height="${y(band.mean-k*band.sd)-y(band.mean+k*band.sd)}"`;
+    g+=`<g class="chart-bands" data-mean="${band.mean}" data-sd="${band.sd}" data-n="${band.n}"><rect data-band="2" ${span(2)} fill="${color}" opacity="0.10"/><rect data-band="1" ${span(1)} fill="${color}" opacity="0.14"/><line data-band="mean" x1="${bx}" x2="${bx+bwidth}" y1="${y(band.mean)}" y2="${y(band.mean)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4"/></g>`; }
   if(cfg.featured) g+=`<line class="chart-end-guide" x1="${x(last)}" x2="${x(last)}" y1="${padT}" y2="${H-padB}" stroke="${rule}" stroke-dasharray="4 4"/>`;
   // lines
   [...lines,...rlines].forEach(s=>{ if(!s.data.length) return; let dpath=''; let prev=null; const y=yOf(s);
@@ -1743,8 +1761,7 @@ function toFreq(data,from,to){ if(from===to&&to!=='W') return data.map(o=>[o[0],
 function boardHeader(loading=false){
   const modes=BB_MODES.map(([key,label])=>`<button type="button" data-bbm="${key}" aria-pressed="${bb.mode===key}"${loading?' disabled':''}>${label}</button>`).join('');
   return `<div class="sechead board-head"><h2>Blackboard</h2>
-    <div class="board-modes" role="group" aria-label="${isEN()?'Chart type':'Modalidad de gráfico'}"><div class="bbmodes">${modes}</div></div>
-    ${IS_USA?'<div class="figure-csv-header board-csv" id="bb-csv"></div>':''}</div>`;
+    <div class="board-modes" role="group" aria-label="${isEN()?'Chart type':'Modalidad de gráfico'}"><div class="bbmodes">${modes}</div></div></div>`;
 }
 
 function scatterData(xId,yId){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
@@ -1910,7 +1927,8 @@ bb.axis=Object.fromEntries(Object.entries(bb.axis||{}).filter(([,axis])=>axis===
 bb.baseDates=Object.fromEntries(Object.entries(bb.baseDates||{}).filter(([,day])=>validDay(day)));
 function saveBB(){ try{ localStorage.setItem(boardKey,JSON.stringify({...bb,q:'',transformMenu:true})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
-const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
+const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica'],...(IS_USA?[['bands','Confidence Bands']]:[])];
+const bbGallery=()=>bb.mode==='multiples'||bb.mode==='bands';
 const SCATTER_FITS=[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal (LOWESS)']];
 function scatterControls(plan){
   return `<section class="scatter-analysis" aria-label="${isEN()?'Scatterplot analysis':'Análisis de dispersión'}">
@@ -1943,7 +1961,7 @@ function renderScatterStats(host,points,fit){
 }
 Object.assign(EN,{'Ordenada en el origen':'Intercept',semanal:'weekly',
   'Diferencia respecto al dato anterior':'Change from previous observation'});
-const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bb.mode==='multiples')?8:4);
+const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bbGallery())?8:4);
 function assignBoardAxes(){
   let assigned=false;
   bb.picks.forEach((id,index)=>{
@@ -2153,6 +2171,7 @@ function usaBoardFigureTitle(series,mixedFrequencies,comparisonTitle){
   if(bb.mode==='heat') return {title:comparisonTitle,subtitle:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
   const mode=BB_MODES.find(([key])=>key===bb.mode)?.[1];
   const units=[...new Set(series.map(s=>s.unit==='% PIB'?'% del PIB':s.unit))];
+  if(bb.mode==='dual') return {title:comparisonTitle,subtitle:units.join(' · ')};
   const conversion=mixedFrequencies?' · las series de mayor frecuencia se promedian a la menor':'';
   return {title:comparisonTitle,subtitle:`${mode} · ${units.join(' · ')}${conversion}`};
 }
@@ -2208,10 +2227,13 @@ function viewBoard(){
   const units=new Set(series.map(s=>unitLabel(s.unit)));
   const mixedUnits=['lines','bars','stack'].includes(bb.mode)&&units.size>1;
   const mixedFrequencies=['bars','stack'].includes(bb.mode)&&new Set(series.map(s=>s.freq)).size>1;
-  const gallery=bb.mode==='multiples';
+  const gallery=bbGallery();
   const scatter=bb.mode==='scatter';
-  const comparisonTitle=boardComparisonTitle(plan.rows,catalog);
-  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(series,mixedFrequencies,comparisonTitle):null;
+  const titleRows=IS_USA&&bb.mode==='dual'?
+    [...plan.rows.filter(row=>bb.axis[row.id]==='L'),...plan.rows.filter(row=>bb.axis[row.id]!=='L')]:plan.rows;
+  const title=boardComparisonTitle(titleRows,catalog);
+  const comparisonTitle=IS_USA&&title?`USA: ${title}`:title;
+  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(titleRows.flatMap(row=>row.series?[row.series]:[]),mixedFrequencies,comparisonTitle):null;
   const usaIds=IS_USA&&!gallery?registerPlotSeries(plan.rows,'__plot_board_').map(({id})=>id):[];
   const transformFocused=document.activeElement?.id;
   const tree=explorerGroups();
@@ -2227,14 +2249,15 @@ function viewBoard(){
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${scatter?scatterControls(plan):''}
    </aside>
-   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-csv-slot="bb-scatter-csv" data-sources-slot="bb-scatter-sources"':IS_USA?' data-csv-slot="bb-csv"':''}>
+   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-csv-slot="bb-scatter-csv" data-sources-slot="bb-scatter-sources"':''}>
      ${usaHeading?`<div class="figure-csv-title"><h3 class="board-chart-title">${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:
        comparisonTitle?`<h3 class="board-chart-title">${esc(comparisonTitle)}</h3>`:''}
-     ${bb.mode==='scatter'?`<div class="board-image-tools">${downloadImage}</div>`:chartRangeCtl(IS_USA,downloadImage)}
+     ${scatter?`<div class="board-image-tools">${downloadImage}</div>`:chartRangeCtl(false,downloadImage)}
      <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
      ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
      ${!IS_USA&&mixedFrequencies?`<p class="note board-chart-note">${isEN()?'Higher-frequency series are averaged to match the lowest frequency.':'Las series de mayor frecuencia se promedian a la menor.'}</p>`:''}
-     ${scatter?'':IS_USA?(usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''):'<div class="figure-csv-footer"></div>'}
+     ${scatter?'':'<div class="figure-csv-footer"></div>'}
+     ${IS_USA&&!scatter&&usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}
    </figure></div>`;
   bindRange();
   if(bb.mode!=='scatter') bindExplorerSearch();
@@ -2444,16 +2467,27 @@ function drawBoard(plots,start){
   const W=Math.max(280,h.clientWidth);
   const height=Math.round(IS_USA?Math.min(670,Math.max(380,W*0.57)):Math.min(760,Math.max(420,W*0.66)));
   if(bb.mode==='heat'){drawHeatBoard(h,ids,start);lg.innerHTML='';return;}
-  if(bb.mode==='multiples'){
+  if(bbGallery()){
+    const bands=bb.mode==='bands';
     const frequency=isEN()?{D:'daily',W:'weekly',M:'monthly',Q:'quarterly'}:{D:'diaria',W:'semanal',M:'mensual',Q:'trimestral'};
     lg.innerHTML='';
-    h.innerHTML='<div class="bbmultiples">'+lines.map((line,i)=>{
+    h.innerHTML=(bands?`<p class="note band-note">${isEN()?'Mean of the period on screen with bands of ±1 and ±2 standard deviations. They describe how far each series has moved from its average; they are not forecast intervals.':'Media del periodo en pantalla con bandas de ±1 y ±2 desviaciones típicas. Describen cuánto se ha alejado cada serie de su media; no son intervalos de previsión.'}</p>`:'')+'<div class="bbmultiples">'+lines.map((line,i)=>{
       const s=S()[line.id];
       const label=[L10(s.label),L10(unitLabel(s.unit))].filter(Boolean).join(' · ');
-      if(IS_USA) return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div><figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
+      if(IS_USA) return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div>${bands?`<div class="band-key" data-band-key="${i}"></div>`:''}<figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
       return `<figure class="fig bbmini" style="margin:0"><div class="bbmini-chart chart" data-mini="${i}"></div><div class="lg">${legendHTML([{...line,name:label}],null,true)}</div><div class="figure-csv-footer"></div></figure>`;
     }).join('')+'</div>';
-    lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:L10(line.name),height:IS_USA?210:250,zero:false,start,hoverOnly:!IS_USA}));
+    lines.forEach((line,i)=>{
+      const mini=h.querySelector(`[data-mini="${i}"]`);
+      drawChart(mini,{lines:[line],aria:L10(line.name),height:bands?240:IS_USA?210:250,zero:false,start,hoverOnly:!IS_USA,bands});
+      if(!bands) return;
+      const key=h.querySelector(`[data-band-key="${i}"]`), stats=mini.querySelector('.chart-bands')?.dataset;
+      if(!stats){ key.textContent=isEN()?'Not enough observations to compute bands.':'No hay observaciones suficientes para calcular las bandas.'; return; }
+      const mean=+stats.mean, sd=+stats.sd, last=S()[line.id].data.filter(([day,value])=>Number.isFinite(value)&&ts(day)>=start&&ts(day)<=upperCutoff()).at(-1)[1];
+      const digits=Math.abs(mean)>=1000?0:Math.abs(mean)>=100?1:2, z=(last-mean)/sd;
+      key.style.setProperty('--band-color',css(line.color));
+      key.innerHTML=`<span><i class="band-swatch mean"></i>${isEN()?'Mean':'Media'} ${fmtN(mean,digits)}</span><span><i class="band-swatch one"></i>±1σ ${fmtN(mean-sd,digits)} – ${fmtN(mean+sd,digits)}</span><span><i class="band-swatch two"></i>±2σ ${fmtN(mean-2*sd,digits)} – ${fmtN(mean+2*sd,digits)}</span><span data-band-z>${isEN()?'Latest':'Último'}: ${z>=0?'+':'−'}${fmtN(Math.abs(z),1)}σ</span>`;
+    });
     const end=upperCutoff();
     bindSeriesCsv(h,'blackboard',ids.map(id=>({...S()[id],data:S()[id].data.filter(([day])=>ts(day)>=start&&ts(day)<=end)})));
     return;

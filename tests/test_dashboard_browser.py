@@ -549,8 +549,12 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.goto(f'{ORIGIN}/{country}.html?lang=en')
                 page.locator('#tab-explorador').click()
                 self.assert_blackboard(page, 'en')
-                expect(page.locator('.board-head [data-bbm]')).to_have_count(7)
+                expect(page.locator('.board-head [data-bbm]')).to_have_count(8 if country == 'usa' else 7)
                 expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
+                if country == 'usa':
+                    page.locator('[data-bbm=bands]').click()
+                    expect(page.locator('#bbchart .chart-bands').first).to_be_visible()
+                    expect(page.locator('#bbchart .band-key [data-band-z]').first).to_contain_text('Latest')
 
     def test_turkiye_keeps_verified_data_when_the_workbook_contains_only_examples(self):
         page = self.start_page()
