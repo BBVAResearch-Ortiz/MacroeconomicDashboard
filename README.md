@@ -11,7 +11,7 @@ Antes de subir este paquete, compara su contenido con la rama actual de GitHub p
 GitHub Actions ejecuta las pruebas en cada pull request y cada push a `main`. Las pruebas de navegador usan los datos del repositorio y comprueban la navegación, el idioma, las modalidades de Blackboard, el ajuste estacional y las descargas CSV.
 
 ```sh
-node --test tests/series_transforms.test.cjs
+node --test
 python -m pip install playwright==1.65.2
 python -m playwright install chromium --only-shell
 python -B -m unittest discover -s tests -v

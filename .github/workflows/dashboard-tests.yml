@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run unit tests
-        run: node --test tests/series_transforms.test.cjs
+        run: node --test
       - name: Check generated pages
         run: |
           python build_page.py
