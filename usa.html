@@ -373,7 +373,7 @@ footer .wrap{padding-block:0 32px}
 <footer><div class="wrap" id="foot"></div></footer>
 
 <script id="embedded-data" type="application/json">{"series":{},"meta":{"refreshed":"","n_series":0}}</script>
-<script src="series_transforms.js?v=9"></script>
+<script src="series_transforms.js?v=10"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1791,7 +1791,8 @@ Object.assign(EN,Object.fromEntries(transformKinds.map(kind=>[
 ])));
 const transformStatuses={
   original:['Guardada','Stored'], documented:['Documentada','Documented'],
-  calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable']
+  calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable'],
+  kept:['Tal como se publicó','As published']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
 function seasonalChoices(ids,kind,catalog,requested){
@@ -1824,9 +1825,11 @@ function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjust
     options.set(k,rows);
   }
   const usable=(key,rows)=>key==='original'||key==='b100'&&canSetBase||
-    (fullHistory?rows.length===2&&rows.every(row=>row.series):rows.some(row=>row.series));
-  const selected=options.has(kind)&&(usable(kind,options.get(kind))||explicit&&!fullHistory)?kind:'original';
-  return {selected,options,rows:options.get(selected),usable,adjustment,availableAdjustments};
+    (rows.some(row=>row.series)&&(!fullHistory||rows.length===2&&rows.every(row=>row.series||row.publishedFallback)));
+  const requestedRows=options.get(kind);
+  const selected=requestedRows&&(usable(kind,requestedRows)||explicit&&!fullHistory&&!requestedRows.some(row=>row.publishedFallback))?kind:'original';
+  const rows=options.get(selected).map(row=>row.publishedFallback?{...row,...row.publishedFallback}:row);
+  return {selected,options,rows,usable,adjustment,availableAdjustments};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
@@ -2105,7 +2108,7 @@ function chooseScatterPair(catalog,kind,adjustment){
   const picks=[];
   for(const id of candidates){
     const row=SERIES_TRANSFORMS.resolve(id,kind,catalog,-Infinity,ts(todayInMadrid()),isEN(),bb.baseDates[id],adjustment);
-    if(row.series) picks.push(id);
+    if(row.series||row.publishedFallback&&bb.picks.includes(id)) picks.push(id);
     if(picks.length===2){bb.picks=picks;return;}
   }
 }

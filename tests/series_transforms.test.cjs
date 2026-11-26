@@ -100,7 +100,40 @@ test('differences of published growth rates use percentage points and keep the s
   assert.equal(change.series.data[1][1], 12);
   assert.equal(change.series.source, 'Statistics office');
   assert.match(change.series.transform, /previous available observation/);
-  assert.equal(resolve('growth', 'mom', catalogue).series.unit, 'pp');
+  assert.equal(resolve('growth', 'mom', catalogue).status, 'unavailable');
+});
+
+test('published employment growth stays interannual even when the matching level can be transformed', () => {
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'data.json'), 'utf8')).series;
+  const catalogue = transforms.catalogue(['ocup_epa', 'ocup_epa_yoy'].map(id => [id, source[id]]), 'board');
+  const result = resolve('ocup_epa_yoy', 'qoq', catalogue);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.publishedFallback.origin, 'ocup_epa_yoy');
+  assert.equal(result.publishedFallback.series, source.ocup_epa_yoy);
+  assert.equal(resolve('ocup_epa', 'qoq', catalogue).status, 'calculated');
+  assert.equal(resolve('ocup_epa', 'yoy', catalogue).origin, 'ocup_epa_yoy');
+});
+
+test('published monthly rates produce means across three or twelve consecutive months', () => {
+  const data = Array.from({length:14}, (_,i) => [new Date(Date.UTC(2025,i,1)).toISOString().slice(0,10),i+1]);
+  const catalogue = transforms.catalogue([
+    ['mom', sourceSeries('Monthly growth', {unit:'% m/m', data})],
+    ['gap', sourceSeries('With a missing month', {unit:'% m/m', data:data.filter((_,i)=>i!==1)})],
+    ['qoq', sourceSeries('Quarterly growth', {unit:'% q/q', freq:'Q', data})]
+  ], 'board');
+  const quarter = resolve('mom', 'qoq', catalogue);
+  assert.equal(quarter.series.freq, 'Q');
+  assert.equal(quarter.series.unit, '% m/m');
+  assert.equal(quarter.series.data[0][1], 2);
+  assert.match(quarter.series.label, /Quarterly average/);
+  const year = resolve('mom', 'yoy', catalogue);
+  assert.equal(year.series.freq, 'M');
+  assert.equal(year.series.data[0][0], '2025-12-01');
+  assert.equal(year.series.data[0][1], 6.5);
+  assert.equal(resolve('gap', 'qoq', catalogue).series.data[0][0], '2025-04-01');
+  assert.equal(resolve('gap', 'yoy', catalogue).series.data.length, 1);
+  assert.equal(resolve('qoq', 'mom', catalogue).status, 'unavailable');
+  assert.equal(resolve('qoq', 'yoy', catalogue).status, 'unavailable');
 });
 
 test('the current account ratio compares quarter ends in percentage points', () => {

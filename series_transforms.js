@@ -137,6 +137,14 @@ const SERIES_TRANSFORMS = (() => {
       return [monthDate(k),a.reduce((sum,p)=>sum+p[1],0)/(how==='mean'?3:1),a.some(p=>p[2])?1:0];
     });
   }
+  function annualMean(data){
+    const byMonth=new Map(data.filter(numeric).map(p=>[months(p[0]),p]));
+    return [...byMonth].flatMap(([month,[day]])=>{
+      const window=Array.from({length:12},(_,offset)=>byMonth.get(month-offset));
+      if(window.some(point=>!point)) return [];
+      return [[day,window.reduce((sum,point)=>sum+point[1],0)/12,Number(window.some(point=>point[2]))]];
+    });
+  }
   function monthly(data,from,how){
     const grouped=new Map();
     for(const point of data.filter(numeric)){
@@ -190,9 +198,9 @@ const SERIES_TRANSFORMS = (() => {
     const {p,series:s}=row, family=cat.byFamily.get(p.family), big=cat.scope==='big';
     const stored=(variant,status='documented')=>({status,series:variant.series,percentScale:big,origin:variant.id});
     if(kind==='original') return stored(row,p.hasMethod?'documented':'original');
-    const calc=(from,data,unit,freq,note)=>data.length?{
+    const calc=(from,data,unit,freq,note,label=names(kind,false))=>data.length?{
       status:'calculated',percentScale:false,origin:from.id,reason:note,
-      series:{...from.series,unit,freq,data,calculated:true,label:from.series.label+' · '+names(kind,false),
+      series:{...from.series,unit,freq,data,calculated:true,label:from.series.label+' · '+label,
         transform:t('Calculada aquí. ','Calculated here. ')+note}
     }:unavailable(t('Faltan observaciones comparables para calcularla.','Comparable observations are missing.'));
     if(kind==='delta'){
@@ -226,6 +234,28 @@ const SERIES_TRANSFORMS = (() => {
     const published=matches(row)?[row,...variants.filter(v=>v!==row&&matches(v))]:variants.filter(matches);
     const candidate=published.find(v=>v.series.data.some(p=>numeric(p)&&visible(p)));
     if(candidate) return stored(candidate);
+    const reportedRate=['mom','qoq','yoy'].includes(selected.p.kind)?selected.p.kind:p.kind;
+    if(['mom','qoq','yoy'].includes(reportedRate)){
+      if(reportedRate==='mom'&&p.kind==='mom'&&s.freq==='M'&&['qoq','yoy'].includes(kind)){
+        const isQuarter=kind==='qoq';
+        const data=isQuarter?quarterly(s.data,'mean'):annualMean(s.data);
+        if(data.some(visible)){
+          const label=isQuarter?t('Media trimestral de tasas mensuales','Quarterly average of monthly rates')
+            :t('Media de 12 tasas mensuales','12-month average of monthly rates');
+          const scale=big||fractionUnit(s)?100:1;
+          const values=data.map(([day,value,flag])=>[day,value*scale,flag]);
+          return calc(row,values,'% m/m',isQuarter?'Q':'M',t(
+            isQuarter?'Media aritmética de las tres tasas mensuales del trimestre.':'Media aritmética de las últimas doce tasas mensuales consecutivas.',
+            isQuarter?'Arithmetic mean of the quarter’s three monthly growth rates.':'Arithmetic mean of the last twelve consecutive monthly growth rates.'
+          ),label);
+        }
+      }
+      const original=adjustedRow(id,'original',cat,adjustment);
+      const keep=kind!==reportedRate&&original?.series.data.some(point=>numeric(point)&&visible(point));
+      const result=unavailable(t('No se puede calcular a partir de la tasa publicada.','Cannot be calculated from the published growth rate.'));
+      if(keep) result.publishedFallback={...stored(original,'kept'),reason:names(reportedRate,en)};
+      return result;
+    }
     if(kind==='mom'&&p.quarterlyDenominator){
       return unavailable(t('El PIB del denominador solo está disponible por trimestre.','The GDP denominator is only available quarterly.'));
     }

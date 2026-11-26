@@ -280,6 +280,33 @@ class DashboardBrowserTests(unittest.TestCase):
                     self.assertLess(transform['x'] + transform['width'], seasonal['x'])
                     self.assertLessEqual(seasonal['x'] + seasonal['width'], width)
 
+    def test_employment_yoy_is_kept_when_the_level_is_transformed_to_qoq(self):
+        page = self.start_page()
+        page.add_init_script("""
+            localStorage.setItem('mme-bb', JSON.stringify({
+                mode:'dual', picks:['ocup_epa_yoy','ocup_epa'], tr:'qoq', adjustment:'raw'
+            }))
+        """)
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        select = page.locator('#board-transform')
+        expect(select).to_have_value('qoq')
+        expect(page.locator('[data-status=kept]')).to_contain_text('Year-on-year change')
+        expect(page.locator('[data-status=calculated]')).to_have_count(1)
+        with page.expect_download() as pending:
+            page.locator('.figure-csv-header .csv-action').click()
+        with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
+            units = {row['Transformation']: row['Unit'] for row in csv.DictReader(downloaded)}
+        self.assertEqual(len(units), 2)
+        self.assertIn('yoy', units)
+        self.assertTrue(any(key.startswith('Calculated here') for key in units))
+        page.locator('[data-bbm=scatter]').click()
+        expect(page.locator('[data-status=kept]')).to_contain_text('Year-on-year change')
+        page.locator('[data-bbm=dual]').click()
+        page.evaluate("bb.picks=['ocup_epa_yoy']; render()")
+        expect(select).to_have_value('original')
+        expect(select.locator('option[value=qoq]')).to_be_disabled()
+
     def test_big_data_catalogue_and_csv_header(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#bigdata')
