@@ -1,1 +1,43 @@
+name: Update USA Macro Data from APIs
 
+on:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-usa-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch USA series from FRED / BEA / BLS APIs
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          BEA_API_KEY: ${{ secrets.BEA_API_KEY }}
+          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+        run: python3 scripts/fetch_usa_apis.py
+
+      - name: Commit and push updated usa.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add usa.json
+          if [ -d "drive_ingestion/snapshots" ]; then
+            git add drive_ingestion/snapshots/usa.json
+          fi
+          if git diff --staged --quiet; then
+            echo "No changes to USA data files"
+          else
+            git commit -m "Update USA macro data via APIs"
+            git push
+          fi
