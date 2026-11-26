@@ -624,6 +624,26 @@ class DashboardBrowserTests(unittest.TestCase):
         page.goto(f'{ORIGIN}/usa.html?lang=es#dsge')
         expect(page.locator('#model-dsge')).to_be_visible()
 
+    def test_usa_model_pages_drop_the_section_heading(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=en#modelos')
+        heading = page.locator('#usa-models-host .sechead h2')
+        expect(heading).to_have_text('Tracking and simulation models')
+        expect(heading).to_be_visible()
+        for model in ('gdpnow', 'frbus', 'dsge'):
+            with self.subTest(model=model):
+                page.locator(f'[data-open-model={model}]').click()
+                expect(page.locator(f'#model-{model}')).to_be_visible()
+                expect(heading).to_be_hidden()
+                page.locator(f'#model-{model} [data-close-model]').first.click()
+                expect(heading).to_be_visible()
+                # A direct link to the model hides it too.
+                page.goto(f'{ORIGIN}/usa.html?lang=en#{model}')
+                expect(page.locator(f'#model-{model}')).to_be_visible()
+                expect(heading).to_be_hidden()
+                page.goto(f'{ORIGIN}/usa.html?lang=en#modelos')
+                expect(heading).to_be_visible()
+
     def test_usa_dsge_shock_simulator(self):
         published = json.loads((ROOT / 'dsge_frbny.json').read_text(encoding='utf-8'))
         irf = json.loads((ROOT / 'dsge_irf.json').read_text(encoding='utf-8'))
