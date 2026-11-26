@@ -615,8 +615,23 @@ const RULES = [
   [/^(\d+) series$/, "$1 series"], [/^Barras apiladas( y línea)? · (.*)$/, (m,a,b)=>"Stacked bars"+(a?" and line":"")+" · "+b.split(" · ").map(p=>p.startsWith("las series de mayor frecuencia se promedian a ")?"higher-frequency series averaged to "+core(p.slice(46)):core(p)).join(" · ")], [/^Misma escala · (.*)$/, (m,a)=>"Same scale · "+a.split(" · ").map(core).join(" · ")], [/^Dos escalas · eje izquierdo: (.*) · eje derecho \(línea discontinua\): (.*)$/, (m,a,b)=>"Two scales · left axis: "+a.split(", ").map(core).join(", ")+" · right axis (dashed line): "+b.split(", ").map(core).join(", ")], [/^(.+) \(eje izq\.\)$/, (m,a)=>core(a)+" (left axis)"], [/^(.+) \(eje dcho\.\)$/, (m,a)=>core(a)+" (right axis)"], [/^Cambiar eje de (.+)$/, (m,a)=>"Change axis of "+core(a)], [/^(.+) frente a (.+)$/, (m,a,b)=>core(a)+" vs "+core(b)], [/^X: (.+?) · Y: (.+?) · (\w+) · (.*)$/, (m,a,b,c,d)=>"X: "+core(a)+" · Y: "+core(b)+" · "+core(c)+" · "+d.replace(/T(\d) /g,"Q$1 ").replace(" · la serie de mayor frecuencia se promedia a trimestral"," · higher-frequency series averaged to quarterly").replace(" · la serie de mayor frecuencia se promedia a mensual"," · higher-frequency series averaged to monthly")], [/ % t\/t · /, " % q/q · "], [/^% a\/a$/, "% y/y"],
 ];
 
-let LANG='es'; try{ LANG=new URLSearchParams(location.search).get('lang')||localStorage.getItem('mme-lang')||'es'; }catch(e){}
+const validLanguage=value=>value==='es'||value==='en';
+const linkedLanguage=new URLSearchParams(location.search).get('lang');
+let savedLanguage;
+try{ savedLanguage=localStorage.getItem('mme-lang'); }catch(e){}
+let LANG=validLanguage(linkedLanguage)?linkedLanguage:validLanguage(savedLanguage)?savedLanguage:'es';
 const isEN=()=>LANG==='en';
+function setLanguage(language){
+  if(!validLanguage(language)) return;
+  LANG=language;
+  try{localStorage.setItem('mme-lang',language);}catch(e){}
+  const url=new URL(location.href);
+  if(url.searchParams.has('lang')){
+    url.searchParams.set('lang',language);
+    try{history.replaceState(null,'',url);}catch(e){}
+  }
+  render();
+}
 function rules(x){ for(const [re,rep] of RULES) x=x.replace(re,rep); return x; }
 const TABEN={resumen:'overview',explorador:'explorer',pizarra:'blackboard',actividad:'activity',empleo:'employment',precios:'prices',publico:'public sector',financiero:'financial',credito:'credit and deposits'};
 function core(x){ if(EN[x]!=null) return EN[x]; let m;
@@ -2317,6 +2332,11 @@ function loadHeatExample(){
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
 function viewBoard(){
+  if((spainDriveLoading||turkeyLoading||usaLoading)&&bb.picks.some(id=>!Object.hasOwn(S(),id))){
+    panel.innerHTML=exHeader()+`<p class="note" role="status">${isEN()?'Loading selected series…':'Cargando las series seleccionadas…'}</p>`;
+    bindExplorerViews();
+    return;
+  }
   const searchFocused=document.activeElement?.id==='explorer-search';
   const focusedSeries=document.activeElement?.dataset.catalogPick;
   const catalogScroll=document.getElementById('bblist')?.scrollTop;
@@ -2367,8 +2387,13 @@ function viewBoard(){
   const rerender=()=>{ saveBB(); viewBoard(); };
   bindBoardOrder(rerender);
   bindBoardBaseDates(plan,rerender);
-  const catalogDisclosure=document.getElementById('bbcatalog');
-  catalogDisclosure?.addEventListener('toggle',()=>{bb.listOpen=catalogDisclosure.open;if(IS_EXTERNAL_MONITOR)bb.catalogPreference=true;saveBB();});
+  const catalogue=document.getElementById('bbcatalog');
+  catalogue?.addEventListener('toggle',()=>{
+    if(!catalogue.isConnected) return;
+    bb.listOpen=catalogue.open;
+    if(IS_EXTERNAL_MONITOR) bb.catalogPreference=true;
+    saveBB();
+  });
   const list=document.getElementById('bblist');
   if(list){
     if(catalogScroll!==undefined) list.scrollTop=catalogScroll;
@@ -2379,7 +2404,22 @@ function viewBoard(){
     });
   }
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
-  panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{ bb.mode=b.dataset.bbm; rerender(); }));
+  panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{
+    const mode=b.dataset.bbm;
+    if(mode==='scatter'&&bb.mode!=='scatter'){
+      const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
+      const candidates=new Set([...bb.picks,...defaults,...exIds()]);
+      const picks=[];
+      for(const id of candidates){
+        const row=SERIES_TRANSFORMS.resolve(id,bb.tr,catalog,0,Infinity,isEN(),bb.baseDates[id],plan.adjustment);
+        if(row.series) picks.push(id);
+        if(picks.length===2) break;
+      }
+      if(picks.length===2) bb.picks=picks;
+    }
+    bb.mode=mode;
+    rerender();
+  }));
   bindTransformationControls('board-transform',value=>{bb.tr=value;rerender();},value=>{bb.adjustment=value;rerender();});
   panel.querySelectorAll('[data-bbf]').forEach(b=>b.addEventListener('click',()=>{ bb.fit=b.dataset.bbf; rerender(); }));
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
@@ -3014,10 +3054,14 @@ function isDashboardTab(key){
   return dashboardTabs().some(tab=>tab.k===key)||THEME_TABS.some(tab=>tab.k===key);
 }
 function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTabs(), split=tabs.length<=4?tabs.length:Math.ceil(tabs.length/2);
-  const buttons=items=>items.map(x=>`<button type="button" role="tab" id="tab-${x.k}" aria-selected="${x.k===state.tab}" tabindex="${x.k===state.tab?0:-1}" data-k="${x.k}">${esc(x.l)}</button>`).join('');
+  const restoreFocus=t.contains(document.activeElement);
+  const buttons=items=>items.map(x=>`<button type="button" role="tab" id="tab-${x.k}" aria-controls="panel" aria-selected="${x.k===state.tab}" tabindex="${x.k===state.tab?0:-1}" data-k="${x.k}">${esc(x.l)}</button>`).join('');
   t.innerHTML=`<div class="tabs-row" role="presentation">${buttons(tabs.slice(0,split))}</div>`+(tabs.length>split?`<div class="tabs-row" role="presentation">${buttons(tabs.slice(split))}</div>`:'');
-  t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; all[j].focus(); go(all[j].dataset.k); }); });
-  const sel=t.querySelector('[aria-selected="true"]'); if(sel) sel.scrollIntoView({block:'nearest',inline:'nearest'}); }
+  t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; go(all[j].dataset.k); }); });
+  const sel=t.querySelector('[aria-selected="true"]');
+  if(restoreFocus) sel?.focus({preventScroll:true});
+  sel?.scrollIntoView({block:'nearest',inline:'nearest'});
+}
 function go(k){ state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
 function applyDriveLocale(){
   const language=isEN()?'en':'es';
@@ -3208,7 +3252,7 @@ async function reload(manual){
   }
 }
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
-document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; try{localStorage.setItem('mme-lang',LANG)}catch(e){} render(); }));
+document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
 const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
