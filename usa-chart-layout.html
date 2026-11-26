@@ -3,70 +3,125 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>USA Chart Layout</title>
+  <title>USA Chart Layout v3</title>
   <link rel="stylesheet" href="usa-chart-layout.css" />
 </head>
-<body>
+<body data-min-frequency="Q" data-allow-annual="false">
   <div class="dashboard-wrapper">
-    <!-- Barra externa: Transformación y Descarga fuera del contenedor del gráfico -->
+    <!-- Únicamente el título en la cabecera: 1 sola línea, sin bold grueso -->
+    <header class="chart-top-title-only">
+      <h2 class="chart-title">Real GDP (BEA) / CPI All Urban Consumers (BLS) / Unemployment Rate (BLS)</h2>
+    </header>
+
+    <!-- Todo lo que antes estaba aquí se traslada a otro lugar (barra superior externa y pie/panel) -->
     <div class="external-controls-bar" role="region" aria-label="Controles de serie y descarga">
-      <div class="control-field">
-        <label for="transformation-select">Transformación</label>
-        <select id="transformation-select">
-          <option value="raw">Original</option>
-          <option value="standardized">Estandarizado</option>
-          <option value="yoy">Variación interanual (%)</option>
+      <div class="control-group">
+        <label for="subtitle-meta-display">Resumen de series</label>
+        <div id="subtitle-meta-display" class="moved-subtitle">
+          Lines · Chained 2017 USD · Index 1982-84=100 · %
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="frequency-select">Frecuencia (mín. Trimestral)</label>
+        <select id="frequency-select" aria-label="Frecuencia mínima trimestral">
+          <option value="Q" selected>Quarterly (Trimestral · mínimo)</option>
+          <option value="M">Monthly (Mensual)</option>
+          <option value="W">Weekly (Semanal)</option>
+          <option value="D">Daily (Diaria)</option>
         </select>
       </div>
 
-      <button type="button" id="download-csv-btn" class="btn-secondary">
+      <div class="control-group">
+        <label for="transformation-select">Transformation</label>
+        <select id="transformation-select">
+          <option value="raw">Raw</option>
+          <option value="standardized">Standardized</option>
+          <option value="yoy">YoY (%)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="seasonal-select">Seasonal adjustment</label>
+        <select id="seasonal-select">
+          <option value="nsa">Not seasonally adjusted</option>
+          <option value="sa">Seasonally adjusted</option>
+        </select>
+      </div>
+
+      <button type="button" id="download-csv-btn" class="btn-download">
         Download CSV
       </button>
     </div>
 
-    <!-- Tarjeta limpia del gráfico -->
-    <section class="chart-card">
-      <header class="chart-header">
-        <h2 class="chart-title">
-          Real GDP (BEA) / CPI All Urban Consumers (BLS) / Unemployment Rate (BLS)
-        </h2>
-        <p class="chart-subtitle">
-          Líneas · Chained 2017 USD · Index 1982-84=100 · %
-        </p>
-      </header>
+    <div class="meta-strip">
+      <span class="doc-item"><strong class="doc-ok">Documented</strong> · Real GDP (BEA)</span>
+      <span class="doc-item"><strong class="doc-ok">Documented</strong> · CPI All Urban Consumers (BLS)</span>
+      <span class="doc-item"><strong class="doc-ok">Documented</strong> · Unemployment Rate (BLS)</span>
+      <span class="range-summary"><strong>Shown</strong> 1 Oct 2022 – 1 Oct 2026 · Data available 1 Jan 1947 – 1 Oct 2026</span>
+    </div>
 
-      <div class="chart-body">
-        <div class="chart-main">
-          <div class="range-bar">
-            <button type="button" class="range-btn">1m</button>
-            <button type="button" class="range-btn">3m</button>
-            <button type="button" class="range-btn">6m</button>
-            <button type="button" class="range-btn">1a</button>
-            <button type="button" class="range-btn is-active">4a</button>
-            <button type="button" class="range-btn">10a</button>
-            <button type="button" class="range-btn">Todo</button>
-            <span class="range-dates">1 oct 2022 → 1 oct 2026</span>
-          </div>
-          <div id="chart-canvas" class="chart-canvas">
-            <!-- Renderizar aquí el gráfico -->
-          </div>
-        </div>
-
-        <aside class="chart-sidebar">
-          <h3 class="sidebar-title">Últimos datos visibles</h3>
-          <div id="latest-values-list">
-            <!-- Valores recientes -->
-          </div>
-        </aside>
+    <!-- Gráfico con transformación destacada en el eje izquierdo y debajo -->
+    <section class="chart-stage" aria-label="Gráfico">
+      <div class="chart-axis-y-badge" id="y-axis-transform-badge">
+        Eje Y · Transformación: Raw
       </div>
 
-      <footer class="chart-footer">
-        <p class="footer-source">Fuente: BEA / FRED y BLS / FRED</p>
-        <p class="footer-note">
-          Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.
-        </p>
-      </footer>
+      <div id="chart-canvas" class="chart-canvas">
+        <!-- Área del gráfico -->
+      </div>
+
+      <div class="chart-bottom-transform-bar" id="bottom-transform-highlight">
+        <span class="bottom-label">Transformación activa:</span>
+        <strong class="bottom-value" id="active-transform-label">Raw (Original)</strong>
+        <span class="bottom-sep">·</span>
+        <span class="bottom-meta" id="active-frequency-label">Frecuencia: Quarterly (mín. Q, sin anual)</span>
+      </div>
     </section>
   </div>
+
+  <script>
+    const ALLOWED_FREQUENCIES = new Set(["Q", "M", "W", "D"]); // Nunca anual ("A" / "Annual")
+    const freqSelect = document.getElementById("frequency-select");
+    const transformSelect = document.getElementById("transformation-select");
+    const yBadgeEl = document.getElementById("y-axis-transform-badge");
+    const bottomLabelEl = document.getElementById("active-transform-label");
+    const bottomFreqEl = document.getElementById("active-frequency-label");
+
+    const transformMap = {
+      raw: "Raw (Original)",
+      standardized: "Standardized (Z-score)",
+      yoy: "YoY (% interanual)"
+    };
+
+    const freqMap = {
+      Q: "Quarterly (Trimestral · mínimo)",
+      M: "Monthly (Mensual)",
+      W: "Weekly (Semanal)",
+      D: "Daily (Diaria)"
+    };
+
+    function sanitizeFrequency(val) {
+      if (!val || val === "A" || val === "Annual" || !ALLOWED_FREQUENCIES.has(val)) {
+        return "Q";
+      }
+      return val;
+    }
+
+    function syncState() {
+      const safeFreq = sanitizeFrequency(freqSelect.value);
+      freqSelect.value = safeFreq;
+
+      const tVal = transformSelect.value;
+      const tText = transformSelect.options[transformSelect.selectedIndex].text;
+      yBadgeEl.textContent = "Eje Y · Transformación: " + tText;
+      bottomLabelEl.textContent = transformMap[tVal] || tText;
+      bottomFreqEl.textContent = "Frecuencia: " + (freqMap[safeFreq] || "Quarterly (Trimestral)");
+    }
+
+    freqSelect.addEventListener("change", syncState);
+    transformSelect.addEventListener("change", syncState);
+    syncState();
+  </script>
 </body>
 </html>

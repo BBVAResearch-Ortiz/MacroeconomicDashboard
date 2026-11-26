@@ -13,6 +13,9 @@ FRED_API_KEY = os.environ.get("FRED_API_KEY", "").strip()
 BEA_API_KEY = os.environ.get("BEA_API_KEY", "").strip()
 BLS_API_KEY = os.environ.get("BLS_API_KEY", "").strip()
 
+# Frecuencia mínima: Trimestral ("Q"). Nunca anual ("A").
+ALLOWED_FREQUENCIES = {"Q", "M", "W", "D"}
+
 SERIES_CONFIG = {
     "GDPC1": {
         "titulo_serie": "Real GDP (BEA)",
@@ -127,6 +130,13 @@ SERIES_CONFIG = {
 }
 
 
+def normalize_frequency(freq: str) -> str:
+    f = (freq or "Q").strip().upper()
+    if f in {"A", "ANNUAL", "YEARLY"} or f not in ALLOWED_FREQUENCIES:
+        return "Q"
+    return f
+
+
 def http_get_json(url: str, timeout: int = 30):
     req = urllib.request.Request(url, headers={"User-Agent": "Macroeconomic-Dashboard/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -199,6 +209,7 @@ def main():
 
     out_series = {}
     for code, cfg in SERIES_CONFIG.items():
+        safe_freq = normalize_frequency(cfg["frecuencia"])
         try:
             obs = fetch_fred_series(cfg["fred_id"])
         except Exception as exc:
@@ -213,18 +224,20 @@ def main():
             "titulo_serie": cfg["titulo_serie"],
             "subtitulo_descripcion": cfg["subtitulo_descripcion"],
             "unidad": cfg["unidad"],
-            "frecuencia": cfg["frecuencia"],
+            "frecuencia": safe_freq,
             "bloque": cfg["bloque"],
             "fuente": cfg["fuente"],
             "transformacion_y_calculo": cfg["transformacion_y_calculo"],
             "observaciones": obs,
         }
-        print(f"[OK] {code}: {len(obs)} obs ({obs[0][0]} -> {obs[-1][0]})", flush=True)
+        print(f"[OK] {code} [{safe_freq}]: {len(obs)} obs ({obs[0][0]} -> {obs[-1][0]})", flush=True)
 
     payload = {
         "country": "USA",
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": ["FRED", "BEA", "BLS"],
+        "min_frequency": "Q",
+        "allow_annual": False,
         "series": out_series,
     }
 
