@@ -6,8 +6,8 @@ const SERIES_TRANSFORMS = (() => {
     yoy:['Variación interanual','Year-on-year change'],
     b100:['Base 100','Base 100'], z:['Estandarizado','Standardised']
   };
-  const adjustments={published:['Como se publica','As published'],adjusted:['Desestacionalizada','Seasonally adjusted'],
-    raw:['Sin desestacionalizar','Not seasonally adjusted']};
+  const adjustments={raw:['Sin desestacionalizar','Not seasonally adjusted'],
+    adjusted:['Desestacionalizada','Seasonally adjusted']};
   const base={};
   function pair(family,series){
     for(const [id,kind] of Object.entries(series)) base[id]={family,kind};
@@ -27,16 +27,18 @@ const SERIES_TRANSFORMS = (() => {
   const normalize=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   function documentedAdjustment(code,series){
     const original=series.originalText||series;
-    const text=[original.label,original.original_name,series.transform].filter(Boolean).join(' ');
+    const text=[series.adjustment,original.label,original.original_name,series.transform].filter(Boolean).join(' ');
     if(/(?:^|[_ .-])(?:nsa|raw)(?:[_ .-]|$)/i.test(code)) return 'raw';
     if(/(?:^|[_ .-])(?:sa|sca|cvec)(?:[_ .-]|$)/i.test(code)) return 'adjusted';
     if(/sin (?:ajustar|ajuste estacional|desestacionalizar)|no ajustad|unadjusted|not seasonally adjusted|without seasonal|no seasonal adjustment/i.test(text)) return 'raw';
-    if(/\bcvec\b|desestacionaliz|ajustad[oa]s? (?:estacionalmente|de estacionalidad)|seasonally (?:and calendar[- ]?)?adjusted|adjusted for seasonality/i.test(text)) return 'adjusted';
+    if(/\bcvec\b|desestacionaliz|ajustad[oa]s? (?:estacionalmente|de estacionalidad)|corregid[oa]s? de (?:efectos estacionales|estacionalidad)|seasonally (?:and calendar[- ]?)?adjusted|adjusted for seasonality/i.test(text)) return 'adjusted';
     return '';
   }
   function profile(id,s,scope){
-    const code=s.code||id, block=s.family||s.block, unit=s.unit||'';
-    const meta={family:id,kind:'level',adjustment:'',method:'',aggregate:'',canGrow:false,hasMethod:false};
+    const code=s.code||id, unit=s.unit||'';
+    const block=s.family||s.block;
+    const adjustment=documentedAdjustment(code,s);
+    const meta={family:id,kind:'level',adjustment:adjustment||'raw',method:'',aggregate:'',canGrow:false,hasMethod:false};
     const shape=(fields)=>({...meta,...fields});
     if(scope==='big'){
       const parts=s.label.split(' · '), price=parts.pop()?.toLowerCase();
@@ -46,31 +48,29 @@ const SERIES_TRANSFORMS = (() => {
     }
     let m;
     if(id==='ipi_yoy') return shape({...INE_GENERAL_YOY,hasMethod:true});
-    if(block==='INDUSTRIAL_PRODUCTION'&&(m=code.match(/^IPI_(.+?)_(CVEC_INE|CVEC_BBVA|RAW)(?:_(AA|MM))?$/))){
+    if((block==='INDUSTRIAL_PRODUCTION'||block==='IPI')&&(m=code.match(/^IPI_(.+?)_(CVEC_INE|CVEC_BBVA|RAW)(?:_(AA|MM))?$/))){
       return shape({family:'IPI:'+m[1],method:{CVEC_INE:'ine',CVEC_BBVA:'bbva',RAW:'raw'}[m[2]],
         adjustment:m[2]==='RAW'?'raw':'adjusted',kind:({AA:'yoy',MM:'mom'})[m[3]]||'level',
         aggregate:'mean',canGrow:!m[3],hasMethod:true});
     }
-    if(block==='LARGE_ENTERPRISES'&&(m=code.match(/^(.+)_(NIV|TRIM|AA|MM)$/))){
+    if((block==='LARGE_ENTERPRISES'||block==='GGEE')&&(m=code.match(/^(.+)_(NIV|TRIM|AA|MM)$/))){
       const kind=({AA:'yoy',MM:'mom'})[m[2]]||'level';
-      return shape({family:m[1],kind,adjustment:'adjusted',method:'bbva',aggregate:'mean',canGrow:kind==='level',hasMethod:true});
+      return shape({family:m[1],kind,method:adjustment==='adjusted'?'bbva':'',aggregate:'mean',canGrow:kind==='level',hasMethod:true});
     }
-    if((block==='SERVICES_ACTIVITY'||block==='TRADE_BALANCE')&&(m=code.match(/^(.+)_(CVEC|RAW|BRUTO)$/))){
-      const flow=block==='TRADE_BALANCE';
+    const flow=block==='TRADE_BALANCE'||block==='BAL_COM';
+    if((block==='SERVICES_ACTIVITY'||block==='IASS'||flow)&&(m=code.match(/^(.+)_(CVEC|RAW|BRUTO)$/))){
       return shape({family:m[1],adjustment:m[2]==='CVEC'?'adjusted':'raw',
         aggregate:flow?'sum':'mean',canGrow:!code.startsWith('BC_SALDO'),hasMethod:true});
     }
     if(id.startsWith('drive_us_')){
-      const adjustment=documentedAdjustment(code,s);
       const kind=/% y\/y|% a\/a|year-on-year/i.test(unit)?'yoy':/% q\/q|% t\/t|quarter-on-quarter/i.test(unit)?'qoq':/% m\/m|month-on-month/i.test(unit)?'mom':'level';
       const canGrow=kind==='level'&&(/index|usd|dollar|billion|million|thousand|people|person|level|índice|miles|millones/i.test(unit))&&!/balance|saldo|rate|spread|%/i.test(unit);
-      return shape({adjustment,kind,aggregate:/index|índice/i.test(unit)?'mean':'',canGrow,hasMethod:Boolean(adjustment||s.transform)});
+      return shape({kind,aggregate:/index|índice/i.test(unit)?'mean':'',canGrow,hasMethod:Boolean(adjustment||s.transform)});
     }
     if(id.startsWith('drive_tr_')){
-      const adjustment=code.includes('_RAW_')?'raw':/_SC?A_/.test(code)?'adjusted':'';
       const isGDP=/^TR_Q_(EXP|PROD)_/.test(code);
       const indexed=/^Index \(base/.test(unit)&&!code.includes('CONFIDENCE');
-      return shape({family:isGDP?code.replace(/_(RAW|SCA)_/,'_'):id,adjustment,
+      return shape({family:isGDP?code.replace(/_(RAW|SCA|SA)_/,'_'):id,
         aggregate:indexed?'mean':'',canGrow:isGDP&&!/_(S|TAXES_SUBSIDIES)$/.test(code)||indexed||/People/.test(unit),hasMethod:Boolean(adjustment)});
     }
     if(id.startsWith('public_tr_')){
@@ -88,11 +88,10 @@ const SERIES_TRANSFORMS = (() => {
     const kind=documented.kind||(/% a\/a|y\/y|year-on-year/i.test(unit)||/^(yoy|sum12yoy|qavg_yoy)$/.test(s.transform)?'yoy':
       /sum12|suma móvil de 12 meses/.test(s.transform)?'sum12':unit==='% PIB'?'gdp':
       /^Month-on-month/.test(unit)?'mom':'level');
-    const adjustment=documentedAdjustment(code,s);
-    const flow=monthlyFlows.has(id);
+    const monthlyFlow=monthlyFlows.has(id);
     const measure=['miles','€/m²','M€','mm€','miles €','índice'].includes(unit);
-    return shape({...documented,kind,adjustment,canGrow:kind==='level'&&measure&&!flow,
-      aggregate:flow?'sum':unit==='índice'?'mean':'',hasMethod:Boolean(s.transform||kind!=='level'||adjustment||['ESI','PMI'].includes(block))});
+    return shape({...documented,kind,canGrow:kind==='level'&&measure&&!monthlyFlow,
+      aggregate:monthlyFlow?'sum':unit==='índice'?'mean':'',hasMethod:Boolean(s.transform||kind!=='level'||adjustment||['ESI','PMI'].includes(block))});
   }
   const numeric=p=>Number.isFinite(p[1]);
   const timestamp=d=>Date.parse(d+'T00:00:00Z');
@@ -140,7 +139,7 @@ const SERIES_TRANSFORMS = (() => {
   }
   function adjustedRow(id,kind,cat,adjustment){
     const selected=cat.byId.get(id);
-    if(!selected||adjustment==='published'||selected.p.adjustment===adjustment) return selected;
+    if(!selected||!adjustment||selected.p.adjustment===adjustment) return selected;
     const equivalent=row=>row.series.freq===selected.series.freq&&row.p.kind===selected.p.kind;
     const sameMeasure=['original','b100','z'].includes(kind);
     const candidates=cat.byFamily.get(selected.p.family).filter(row=>row.p.adjustment===adjustment&&(!sameMeasure||equivalent(row)));
@@ -149,11 +148,7 @@ const SERIES_TRANSFORMS = (() => {
     const choices=official.length?official:candidates;
     return choices.find(equivalent)||choices[0];
   }
-  function hasAdjustment(id,cat,adjustment){
-    const selected=cat.byId.get(id);
-    return Boolean(selected&&cat.byFamily.get(selected.p.family).some(row=>row.p.adjustment===adjustment));
-  }
-  function resolve(id,kind,cat,start,end,en,baseDate,adjustment='published'){
+  function resolve(id,kind,cat,start,end,en,baseDate,adjustment){
     const selected=cat.byId.get(id), row=adjustedRow(id,kind,cat,adjustment);
     const t=(es,english)=>en?english:es;
     const unavailable=reason=>({status:'unavailable',reason,baseSeries:row?.series});
@@ -204,5 +199,5 @@ const SERIES_TRANSFORMS = (() => {
       : t('Comparación con el periodo correspondiente, sin rellenar huecos.','Comparison with the corresponding period, with no gap filling.');
     return calc(level,growth(data,desiredFreq,kind),unit,desiredFreq,note);
   }
-  return {names,kinds,adjustments,catalogue,resolve,adjustedRow,hasAdjustment};
+  return {names,kinds,adjustments,catalogue,resolve,adjustedRow};
 })();

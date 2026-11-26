@@ -318,7 +318,7 @@ footer .wrap{padding-block:0 32px}
 
 <script id="embedded-data" type="application/json">{"series":{},"meta":{"refreshed":"","n_series":0}}</script>
 <script src="turkey_public.js"></script>
-<script src="series_transforms.js?v=4"></script>
+<script src="series_transforms.js?v=5"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -384,7 +384,7 @@ const EN = {
   "Series (hasta seis)": "Series (up to six)", "Máximo seis series: quita una para añadir otra": "Maximum six series: remove one to add another",
   // explorer views
   "Galería": "Gallery", "Gráfico multiserie": "Multi-series chart", "Dispersión": "Scatter", "Vistas del explorador": "Explorer views",
-  "Mostrar": "Show", "Como se publica": "As published", "Estandarizado": "Standardised", "Eje horizontal (X)": "Horizontal axis (X)", "Eje vertical (Y)": "Vertical axis (Y)",
+  "Mostrar": "Show", "Estandarizado": "Standardised", "Eje horizontal (X)": "Horizontal axis (X)", "Eje vertical (Y)": "Vertical axis (Y)",
   "Intercambiar ejes": "Swap axes", "Opciones": "Options", "Unir puntos en orden temporal": "Join points in time order",
   "Observaciones": "Observations", "Correlación": "Correlation", "Pendiente (MCO)": "Slope (OLS)", "R²": "R²", "σ": "σ",
   "mensual": "monthly", "trimestral": "quarterly", "diaria": "daily", "% del PIB": "% of GDP", "millones de euros": "€ million",
@@ -1393,7 +1393,7 @@ const explorerKey=IS_TURKEY?'mme-ex-turkey':IS_USA?'mme-ex-usa':'mme-ex';
 const ex={...explorerDefaults, view:'pizarra', axis2:{}, trail:false, range:'4a'};
 try{ const saved=JSON.parse(localStorage.getItem(explorerKey)||'null'); if(saved&&typeof saved==='object') Object.assign(ex,saved); }catch(e){}
 if(!Array.isArray(ex.multiTransforms)) ex.multiTransforms=[ex.mode==='z'?'z':'original','original'];
-if(!Array.isArray(ex.multiAdjustments)) ex.multiAdjustments=['published','published'];
+if(!Array.isArray(ex.multiAdjustments)) ex.multiAdjustments=[null,null];
 delete ex.mode;
 if(!RANGES.includes(ex.range)) ex.range='4a';
 for(const key of ['picks','mpicks','mpicks2','spicks','spicks2']){
@@ -1760,7 +1760,7 @@ function applyTurkeyTopic(){
   ex.view='pizarra';
   bb.mode='lines';
   bb.tr='original';
-  bb.adjustment='published';
+  bb.adjustment=null;
   bb.picks=ids;
   return true;
 }
@@ -2007,17 +2007,24 @@ const transformStatuses={
   calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
-const seasonalChoice=value=>Object.hasOwn(SERIES_TRANSFORMS.adjustments,value)?value:'published';
+function seasonalChoices(ids,kind,catalog,requested){
+  const keys=Object.keys(SERIES_TRANSFORMS.adjustments);
+  const counts=keys.map(key=>ids.filter(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,key)).length);
+  const available=keys.filter((_,i)=>counts[i]>0);
+  const explicit=available.includes(requested);
+  const native=ids.map(id=>catalog.byId.get(id)?.p.adjustment).find(Boolean)||'raw';
+  const adjustment=explicit?requested:counts[0]===counts[1]?native:keys[counts[0]>counts[1]?0:1];
+  return {adjustment,explicit,available};
+}
 function adjustmentInputs(ids,kind,catalog,adjustment){
-  return ids.map(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,seasonalChoice(adjustment))?.series).filter(Boolean);
+  const choice=seasonalChoices(ids,kind,catalog,adjustment).adjustment;
+  return ids.map(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,choice)?.series).filter(Boolean);
 }
 function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjustment:requested}={}){
-  const adjustment=seasonalChoice(requested), explicit=adjustment!=='published';
+  const {adjustment,explicit,available:availableAdjustments}=seasonalChoices(ids,kind,catalog,requested);
   const start=fullHistory?0:cutoff(), end=fullHistory?Infinity:upperCutoff();
   const options=new Map();
-  const canSetBase=baseDates&&adjustmentInputs(ids,'b100',catalog,adjustment).some(series=>boardBaseBounds(series).first);
-  const availableAdjustments=Object.keys(SERIES_TRANSFORMS.adjustments).filter(key=>key==='published'||
-    ids.some(id=>SERIES_TRANSFORMS.hasAdjustment(id,catalog,key)));
+  const canSetBase=baseDates&&ids.some(id=>boardBaseBounds(SERIES_TRANSFORMS.adjustedRow(id,'b100',catalog,adjustment)?.series).first);
   for(const k of transformKinds){
     const alwaysShow=k==='mom'||k==='qoq';
     const rows=ids.map((id,index)=>{
@@ -2071,7 +2078,7 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', adjustment:'published', picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
@@ -2400,7 +2407,7 @@ const bigState={
   view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
   requests:{},
   geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
-  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original',adjustment:'published'
+  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original',adjustment:null
 };
 const bigCatalogGroups=new Set();
 async function fetchBigData(path){
