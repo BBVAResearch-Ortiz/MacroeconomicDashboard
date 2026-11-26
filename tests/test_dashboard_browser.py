@@ -117,6 +117,17 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertEqual(overview_style, board_style)
         self.assertLess(title_size, board_title_size)
 
+    def test_overview_card_headings_stay_on_one_line(self):
+        page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+        page.goto(f'{ORIGIN}/espana.html?lang=en')
+        headings = page.locator('.gcard :is(h3,.sub)')
+        expect(headings.first).to_be_visible()
+        self.assertTrue(headings.evaluate_all('''nodes => nodes.length > 0 && nodes.every(node => {
+            const style = getComputedStyle(node);
+            return style.whiteSpace === 'nowrap' && style.textOverflow === 'ellipsis'
+                && node.title === node.textContent;
+        })'''))
+
     def test_ipi_switch_and_csv_keep_the_source(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')

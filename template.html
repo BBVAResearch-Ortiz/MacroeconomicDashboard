@@ -159,6 +159,7 @@ a{color:var(--accent)}
 .pchip button:hover{background:var(--surface-2);color:var(--ink)}
 select#addSeries{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);max-width:420px;width:100%}
 .gcard h3{font-size:clamp(15px,1.4vw,18px)}
+.gcard h3,.gcard .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gread{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
 .gread .chart-reading-value{--reading-color:var(--s1)}
 .gread .reading-context{margin-top:2px;font-variant-numeric:tabular-nums}
@@ -1115,7 +1116,7 @@ function ovCard(id,i,attr,extra){ const s=S()[id]; if(!s) return ''; const Lx=la
   const quarter=gdp?`${fmtN(Q[1],1)} ${isEN()?'% q/q':'% t/t'} · `:'';
   const date=`<time datetime="${esc(Lx[0])}">${esc(fmtDate(Lx[0],s.freq))}</time>${Lx[2]?(isEN()?' · flash':' · avance'):''}`;
   const lg=gdp?legendHTML([{name:'PIB t/t',color:'--qbar'},{name:'PIB a/a',color:'--s1'}],[{name:'PIB t/t',color:'--qbar'}]):extra?legendHTML([{name:s.label,color:'--s1'},{name:S()[extra].label,color:'--s2'}]):'';
-  return `<figure class="fig gcard" style="margin:0"><div><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div></div>
+  return `<figure class="fig gcard" style="margin:0"><div><h3 title="${esc(title)}">${esc(title)}</h3><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div>
     <div class="gread"><div><strong class="chart-reading-value">${chartReadingMarkup(reading)}</strong><div class="reading-context">${quarter}${date}</div></div>${chg(id,pol)}</div>${lg}
     <div class="chart" ${attr}="${i}"></div>
     <figcaption class="src">Fuente: ${srcLine([id].concat(gdp?['pib_qoq']:extra?[extra]:[]))}</figcaption></figure>`; }
