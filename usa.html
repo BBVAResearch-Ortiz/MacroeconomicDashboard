@@ -191,7 +191,6 @@ table.fc td.f{font-weight:600}
 .tblhead2{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:space-between;margin-bottom:4px}
 .stack{display:flex;flex-direction:column;gap:28px}
 .tblfig .tblwrap{border:0;border-radius:0}
-.subnav{margin:4px 0 6px}
 .pchip .axbtn{font-size:11.5px;border:1px solid var(--rule);border-radius:4px;padding:2px 6px;color:var(--accent)}
 .mcol{display:flex;flex-direction:column;gap:0;min-width:0}
 .bbwrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:32px;align-items:start}
@@ -219,9 +218,8 @@ table.fc td.f{font-weight:600}
 .transform-sources [data-status="documented"] b{color:var(--good)}
 .transform-sources [data-status="calculated"] b{color:var(--accent)}
 .bbmodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.bbmodes button,.bbtr button{font:500 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left}
-.bbmodes button[aria-pressed="true"],.bbtr button[aria-pressed="true"],.bbtabs button[aria-selected="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.bbtr{display:flex;gap:6px;flex-wrap:wrap}
+.bbmodes button{font:500 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left}
+.bbmodes button[aria-pressed="true"],.bbtabs button[aria-selected="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .bbtabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}
 .bbtabs button{font:600 13px/1 var(--sans);padding:10px 6px;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer}
 .bbtabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);box-shadow:none}
@@ -272,12 +270,13 @@ table.fc td.f{font-weight:600}
 .mixnote{font-family:var(--sans);color:var(--flag)}
 .mcol .pickrow{flex-direction:column;align-items:stretch;gap:12px}
 .mcol .pickrow .picks{flex:0 0 auto}
-.subnav button{padding:9px 16px;font-size:13.5px}
 .warnline{font-size:13px;color:var(--flag);background:var(--flag-bg);border-radius:6px;padding:8px 12px;margin:0 0 12px;max-width:80ch}
-.scatwrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 28px;align-items:start}@media(max-width:820px){.scatwrap{grid-template-columns:minmax(0,1fr)}}
-.stats{display:flex;flex-direction:column;gap:0;padding-top:46px}
-.stats div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--grid);font-size:13.5px;color:var(--muted)}
-.stats b{color:var(--ink);font-variant-numeric:tabular-nums;font-size:15px}
+.fig>.scatter-analysis{order:2;display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--chart-grid)}
+.scatter-analysis .fit-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+.scatter-analysis .seg{flex-wrap:wrap}
+.scatter-analysis dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px 16px;margin:6px 0}
+.scatter-analysis dt{font-size:12px;color:var(--muted)}
+.scatter-analysis dd{margin:2px 0 0;color:var(--chart-ink);font-variant-numeric:tabular-nums;font-weight:600}
 .chk{display:inline-flex;gap:8px;align-items:center;font-size:13.5px;color:var(--ink);cursor:pointer;padding:8px 0}
 .ylab{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
 select.axsel{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;max-width:420px}
@@ -373,7 +372,7 @@ footer .wrap{padding-block:0 32px}
 <footer><div class="wrap" id="foot"></div></footer>
 
 <script id="embedded-data" type="application/json">{"series":{},"meta":{"refreshed":"","n_series":0}}</script>
-<script src="series_transforms.js?v=6"></script>
+<script src="series_transforms.js?v=7"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1454,36 +1453,6 @@ const BLOCKS=IS_TURKEY?TURKEY_BLOCKS:IS_USA?USA_BLOCKS:{actividad:'Actividad',co
 const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
 const turkeyCashIds=()=>turkeyIds('HMB_M_CASH_BALANCE','HMB_M_CASH_REVENUE','HMB_M_CASH_EXPENDITURE');
 const turkeyBankIds=()=>turkeyIds('BDDK_W_LOANS','BDDK_M_LOANS','BDDK_M_DEPOSITS');
-const turkeyStackPresets={
-  spending:{label:'Consumo, gasto público e inversión',bars:turkeyIds('Q_EXP_RAW_C','Q_EXP_RAW_G','Q_EXP_RAW_I'),line:''},
-  production:{label:'Agricultura, industria y construcción',bars:turkeyIds('Q_PROD_RAW_AGRICULTURE','Q_PROD_RAW_INDUSTRY','Q_PROD_RAW_CONSTRUCTION'),line:''},
-  trade:{label:'Exportaciones e importaciones',bars:turkeyIds('Q_EXP_RAW_X','Q_EXP_RAW_M'),line:''}
-};
-const explorerDefaults=IS_TURKEY?{
-  picks:[...turkeyCashIds(),...turkeyBankIds()],
-  mpicks:turkeyCashIds(), mpicks2:turkeyBankIds().slice(1),
-  spicks:[], sline:'', spicks2:[], sline2:'',
-  sx:turkeyCashIds()[1], sy:turkeyCashIds()[2]
-}:IS_USA?{
-  picks:[], mpicks:[], mpicks2:[], spicks:[], sline:'', spicks2:[], sline2:'', sx:'', sy:''
-}:{
-  picks:['pib_yoy','paro_epa','afil_yoy','ipc','deuda','prima'], mpicks:['ipc','ipc_sub','ipc_ser'],
-  mpicks2:['pib_yoy','prima'], spicks:['ap_dn','ap_de'], sline:'pib_yoy',
-  spicks2:['ipc_ene','ipc_ali','ipc_ser'], sline2:'ipc', sx:'paro_epa', sy:'ipc_sub'
-};
-const explorerKey=IS_TURKEY?'mme-ex-turkey':IS_USA?'mme-ex-usa':'mme-ex';
-const ex={...explorerDefaults, view:'pizarra', axis2:{}, trail:false, range:'4a'};
-try{ const saved=JSON.parse(localStorage.getItem(explorerKey)||'null'); if(saved&&typeof saved==='object') Object.assign(ex,saved); }catch(e){}
-if(!Array.isArray(ex.multiTransforms)) ex.multiTransforms=[ex.mode==='z'?'z':'original','original'];
-if(!Array.isArray(ex.multiAdjustments)) ex.multiAdjustments=[null,null];
-delete ex.mode;
-if(!RANGES.includes(ex.range)) ex.range='4a';
-for(const key of ['picks','mpicks','mpicks2','spicks','spicks2']){
-  if(!Array.isArray(ex[key])) ex[key]=explorerDefaults[key].slice();
-}
-if(!ex.axis2||typeof ex.axis2!=='object') ex.axis2={};
-function saveEx(){ try{ localStorage.setItem(explorerKey,JSON.stringify(ex)); }catch(e){} }
-const EXVIEWS=[['pizarra','Blackboard'],['galeria','Galería'],['multi','Gráfico multiserie'],['scatter','Scatterplot'],['stack','Barras apiladas']];
 const exIds=()=>Object.keys(S()).filter(k=>S()[k].block!=='aux');
 const DRIVE_FAMILIES={
   ESI:'ESI', PMI:'PMI', INDUSTRIAL_PRODUCTION:'Producción industrial (IPI)',
@@ -1719,21 +1688,10 @@ function setSearchPick(picks,id,slot){
   else picks[slot]=id;
 }
 function bindExplorerSearch(){
-  const board=ex.view==='pizarra';
-  const axes=ex.view==='scatter'||board&&bb.mode==='scatter';
-  const collection=({multi:'mpicks',stack:'spicks'})[ex.view]||'picks';
-  const picks=board?bb.picks:axes?[ex.sx,ex.sy]:ex[collection];
-  const firstChart=ex.view==='multi'||ex.view==='stack';
   bindSectionSearch('explorer-search',{
-    entries:explorerSearchEntries,picks,limit:board?bbMax():collection==='picks'?6:4,axes,
-    destination:firstChart?(isEN()?'First chart':'Primer gráfico'):'',
-    choose:(item,slot)=>{
-      if(axes&&!board) ex[slot===0?'sx':'sy']=item.id;
-      else setSearchPick(picks,item.id,slot);
-      if(board) saveBB(); else saveEx();
-      return true;
-    },
-    redraw:viewExplorer
+    entries:explorerSearchEntries,picks:bb.picks,limit:bbMax(),axes:bb.mode==='scatter',
+    choose:(item,slot)=>{setSearchPick(bb.picks,item.id,slot);saveBB();return true;},
+    redraw:viewBoard
   });
 }
 const pickerGroups=new Map();
@@ -1805,8 +1763,6 @@ function bindSeriesPickers(){
     });
   });
 }
-function withRange(fn){ const keep=state.range; state.range=ex.range; try{ return fn(); } finally{ state.range=keep; } }
-
 /* Frequency alignment for bars, scatterplots and heat maps. Weeks start on Monday. */
 const FRANK={D:4,W:3,M:2,Q:1};
 function periodKey(d,f){
@@ -1824,148 +1780,14 @@ function toFreq(data,from,to){ if(from===to&&to!=='W') return data.map(o=>[o[0],
   data.forEach(([d,v])=>{ const k=periodKey(d,to); const a=g.get(k)||[0,0]; a[0]+=v; a[1]++; g.set(k,a); });
   return [...g.entries()].filter(([,a])=>a[1]>=need).map(([k,a])=>[k,a[0]/a[1]]).sort((a,b)=>a[0]<b[0]?-1:1); }
 
-function exHeader(){ return `<div class="sechead"><h2>Blackboard</h2>
-   ${ex.view==='pizarra'||ex.view==='scatter'?'':rangeControl(ex.range,'data-er')}</div>
-  <div class="seg subnav" role="tablist" aria-label="Vistas del explorador">${EXVIEWS.map(([k,l])=>`<button type="button" role="tab" data-ev="${k}" aria-pressed="${ex.view===k}" aria-selected="${ex.view===k}">${l}</button>`).join('')}</div>
-  ${ex.view==='pizarra'?'':sectionSearch('explorer-search',true)}`; }
-const axisOf=(id,i)=>ex.axis2[id]||(i===0?'L':'R');
-function pickRow(list,key,max){ const col=i=>COLORS[i%4];
-  const full=list.length>=max, word={4:'cuatro',6:'seis'}[max]||max;
-  return `<div class="pickrow"><div class="picks"><span class="picklab">Series (hasta ${word})</span>
-   <div class="chips">${list.map((id,i)=>`<span class="pchip"><i style="background:var(${key==='picks'?'--s1':col(i)})"></i>${esc(S()[id].label)}${key==='mpicks2'?`<button type="button" class="axbtn" data-ax="${id}" aria-label="Cambiar eje de ${esc(S()[id].label)}">${axisOf(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:''}<button type="button" data-rm="${id}" data-key="${key}" aria-label="Quitar ${esc(S()[id].label)}">×</button></span>`).join('')}</div>
-   ${seriesPicker('add-'+key,explorerGroups(list),{disabled:full,placeholder:full?`Máximo ${word} series: quita una para añadir otra`:'',attrs:`data-add-series data-key="${key}"`})}</div></div>`; }
-function bindExplorerViews(){
-  panel.querySelectorAll('[data-ev]').forEach(b=>b.addEventListener('click',()=>{ex.view=b.dataset.ev; saveEx(); viewExplorer();}));
-}
-function ensureExternalExplorerPicks(){
-  if(!IS_USA) return;
-  const all=exIds();
-  if(!all.length) return;
-  if(!ex.picks.some(id=>S()[id])) ex.picks=all.slice(0,6);
-  if(!ex.mpicks.some(id=>S()[id])) ex.mpicks=all.slice(0,3);
-  if(!ex.mpicks2.some(id=>S()[id])) ex.mpicks2=all.slice(0,2);
-  if(!S()[ex.sx]) ex.sx=all[0];
-  if(!S()[ex.sy]) ex.sy=all[1]||all[0];
-}
-function viewExplorer(){
-  ensureExternalExplorerPicks();
-  if(ex.view==='pizarra'){viewBoard(); return;}
-  const searchFocused=document.activeElement?.id==='explorer-search';
-  const focusedTransform=document.activeElement?.id;
-  const ids=exIds();
-  if(ex.view==='scatter'&&ids.length<2){ex.view='pizarra';viewBoard();return;}
-  ex.picks=ex.picks.filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,6); ['mpicks','mpicks2','spicks','spicks2'].forEach(k=>ex[k]=ex[k].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,4)); ['sline','sline2'].forEach(k=>{ if(ex[k]&&!S()[ex[k]]) ex[k]=''; });
-  if(!ids.includes(ex.sx)) ex.sx=ids.includes(explorerDefaults.sx)?explorerDefaults.sx:ids[0];
-  if(!ids.includes(ex.sy)) ex.sy=ids.includes(explorerDefaults.sy)?explorerDefaults.sy:ids.find(id=>id!==ex.sx);
-  const visibleIds={galeria:ex.picks.flatMap(id=>isGDP(id)?[id,'pib_qoq']:[id]),multi:[...ex.mpicks,...ex.mpicks2],
-    stack:[...ex.spicks,ex.sline,...ex.spicks2,ex.sline2],scatter:[ex.sx,ex.sy]};
-  const catalog=ex.view==='multi'?SERIES_TRANSFORMS.catalogue(ids.map(id=>[id,S()[id]]),'board'):null;
-  const multiKeys=['mpicks','mpicks2'];
-  useRangeCoverage(catalog?multiKeys.flatMap((key,i)=>adjustmentInputs(ex[key],ex.multiTransforms[i],catalog,ex.multiAdjustments[i])):
-    (visibleIds[ex.view]||ex.picks).map(id=>S()[id]));
-  const plans=ex.view==='multi'?withRange(()=>{
-    return multiKeys.map((key,i)=>transformationPlan(ex[key],catalog,ex.multiTransforms[i],{adjustment:ex.multiAdjustments[i]}));
-  }):[];
-  const body = ex.view==='multi'? exMulti(plans) : ex.view==='scatter'? exScatter() : ex.view==='stack'? exStack() : exGallery();
-  panel.innerHTML = exHeader() + body;
-  bindPeriodControls('data-er',range=>{ex.range=range;saveEx();viewExplorer();});
-  bindExplorerViews();
-  bindExplorerSearch();
-  bindSeriesPickers();
-  panel.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.key; ex[k]=ex[k].filter(x=>x!==b.dataset.rm); saveEx(); viewExplorer();}));
-  panel.querySelectorAll('[data-add-series]').forEach(sel=>sel.addEventListener('change',()=>{ const k=sel.dataset.key, mx=k==='picks'?6:4; if(sel.value&&ex[k].length<mx){ ex[k].push(sel.value); saveEx(); viewExplorer(); } }));
-  plans.forEach((_,i)=>{
-    const id='multi-transform-'+(i+1);
-    bindTransformationControls(id,value=>{ex.multiTransforms[i]=value;saveEx();viewExplorer();},
-      value=>{ex.multiAdjustments[i]=value;saveEx();viewExplorer();});
-    if(focusedTransform===id||focusedTransform===id+'-seasonal') document.getElementById(focusedTransform)?.focus({preventScroll:true});
-  });
-  ['sx','sy'].forEach(k=>{ const el=document.getElementById('sel-'+k); if(el) el.addEventListener('change',()=>{ ex[k]=el.value; saveEx(); viewExplorer(); }); });
-  panel.querySelectorAll('[data-ax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.ax, i=ex.mpicks2.indexOf(id); ex.axis2[id]=axisOf(id,i)==='L'?'R':'L'; saveEx(); viewExplorer(); }));
-  panel.querySelectorAll('[data-fit]').forEach(b=>b.addEventListener('click',()=>{ ex.fit=b.dataset.fit; saveEx(); viewExplorer(); }));
-  const tg=document.getElementById('trail'); if(tg) tg.addEventListener('change',()=>{ ex.trail=tg.checked; saveEx(); viewExplorer(); });
-  const sw=document.getElementById('swapxy'); if(sw) sw.addEventListener('click',()=>{ [ex.sx,ex.sy]=[ex.sy,ex.sx]; saveEx(); viewExplorer(); });
-  [['',''],['2','2']].forEach(([n,sfx])=>{ const sl=document.getElementById('sel-sline'+n); if(sl) sl.addEventListener('change',()=>{ ex['sline'+sfx]=sl.value; saveEx(); viewExplorer(); });
-    const pr=document.getElementById('sel-preset'+n); if(pr) pr.addEventListener('change',()=>{ const P=STACK_PRESETS[pr.value]; if(P){ ex['spicks'+sfx]=P.bars.slice(); ex['sline'+sfx]=P.line; saveEx(); viewExplorer(); } }); });
-  const draw = ex.view==='multi'? ()=>drawMulti(plans) : ex.view==='scatter'? drawScatterView : ex.view==='stack'? drawStack : drawGallery;
-  draw(); observe(draw); tr(panel);
-  if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
-}
+function boardHeader(){ return '<div class="sechead"><h2>Blackboard</h2></div>'; }
 
-/* ---- gallery (same cards as the overview) */
-function exGallery(){ const ids=exIds();
-  return `<p class="note" style="margin:14px 0">${isEN()?"Pick up to six series from any block. Each panel follows the overview format: latest figure, change on the previous period and its path.":"Elige hasta seis series de cualquier bloque. Cada panel sigue el formato del Resumen: último dato, variación respecto al periodo anterior y evolución."}</p>
-   ${pickRow(ex.picks,'picks',6)}
-   <div class="grid3">${ex.picks.map((id,i)=>ovCard(id,i,'data-x',null)).join('')}</div>
-   ${ex.picks.length?'':'<p class="note">No hay series elegidas. Usa «Añadir una serie…» para empezar.</p>'}`; }
-function drawGallery(){ withRange(()=>ex.picks.forEach((id,i)=>{ const h=panel.querySelector(`.chart[data-x="${i}"]`); if(h) ovDraw(h,id,null); })); }
-
-/* ---- multi-series: two charts, each with up to four series on one axis */
 const UNIT_ES={'€/m²':'€/m²','% a/a':'% a/a','%':'%','% PIB':'% del PIB','pp':'pp','pb':'pb','M€':'millones de euros','mm€':'miles de millones de euros','miles':'miles','índice':'índice','saldo':'saldo'};
-function multiParts(key,plan,n){ const list=ex[key], two=key==='mpicks2';
-  const rows=plan.rows.filter(r=>r.series);
-  const units=[...new Set(rows.map(r=>r.series.unit))]; const mixed=!two&&units.length>1;
-  const labels=rows.length?rows.map(r=>r.series.label):list.map(id=>S()[id].label);
-  let sub;
-  if(two){ const u=axis=>[...new Set(rows.filter(r=>axisOf(r.id,r.index)===axis).map(r=>UNIT_ES[r.series.unit]||r.series.unit))].join(', ')||'–';
-    sub=`Dos escalas · eje izquierdo: ${u('L')} · eje derecho (línea discontinua): ${u('R')}`; }
-  else sub = plan.selected==='z' ? 'Estandarizado: desviación respecto a la media del periodo mostrado, en desviaciones típicas' : 'Misma escala · '+units.map(u=>UNIT_ES[u]||u).join(' · ');
-  const pick=`<div class="mcol"><p class="kicker" style="margin:0 0 8px">${two?'Dos escalas':'Misma escala'}</p>${pickRow(list,key,4)}</div>`;
-  const fig=list.length?`<figure class="fig" style="margin:0"><div><h3>${esc(labels.join(' / '))}</h3><div class="sub">${esc(sub)}</div></div>
-     ${transformationControls('multi-transform-'+n,plan)}
-     <div class="lg" id="mlg${n}"></div><div class="chart" id="mchart${n}"></div><figcaption class="src">Fuente: ${srcLine(list)}${mixed?`<br><span class="mixnote">Unidades distintas en un solo eje: usa Estandarizado o el gráfico de dos escalas para compararlas.</span>`:''}</figcaption></figure>`
-    :'<p class="note">No hay series elegidas. Usa «Añadir una serie…» para empezar.</p>';
-  return {pick,fig}; }
-function exMulti(plans){ const a=multiParts('mpicks',plans[0],1), b=multiParts('mpicks2',plans[1],2);
-  return `<p class="note" style="margin:14px 0">${isEN()?"Two charts with up to four series each. The first uses one scale for every series; the second uses two scales, and each series can be moved between the left and right axis.":"Dos gráficos con hasta cuatro series cada uno. El primero usa la misma escala para todas; el segundo usa dos escalas y cada serie puede pasarse del eje izquierdo al derecho."}</p>
-   <div class="grid mgrid">${a.pick}${b.pick}${a.fig}${b.fig}</div>`; }
-function drawMulti(plans){ withRange(()=>plans.forEach((plan,i)=>{
-  const n=i+1, host=document.getElementById('mchart'+n);
-  if(!host) return;
-  const lines=[], rlines=[];
-  for(const {id,baseId,index} of registerPlotSeries(plan.rows,'__plot_multi_'+n+'_')){
-    const axis=n===2?axisOf(baseId,index):'L';
-    const suffix=n===1?'':axis==='L'?' (eje izq.)':' (eje dcho.)';
-    const line={id,name:S()[id].label+suffix,color:COLORS[index%4]};
-    (axis==='L'?lines:rlines).push(line);
-  }
-  const legend=document.getElementById('mlg'+n);
-  legend.innerHTML=legendHTML([...lines,...rlines]);
-  if(!lines.length&&rlines.length) lines.push(rlines.shift());
-  drawChart(host,{lines,rlines,aria:'multi',height:280,zero:plan.selected==='z'});
-  tr(legend);
-})); }
-
-/* ---- stacked bars: components stacked by period, optional total as a line */
-const STACK_PRESETS=IS_TURKEY?turkeyStackPresets:IS_USA?{}:{
-  pib:{label:'Aportaciones al crecimiento del PIB',bars:['ap_dn','ap_de'],line:'pib_yoy'},
-  ipc:{label:'Componentes del IPC (tasas, no aportaciones)',bars:['ipc_ene','ipc_ali','ipc_ser'],line:'ipc'},
-  ext:{label:'Saldo exterior: bienes y servicios y cuenta corriente',bars:['bys_pib'],line:'cc_pib'}};
-function stackCommon(sfx){ const picks=ex['spicks'+sfx], line=ex['sline'+sfx]; const ids=picks.concat(line?[line]:[]); if(!ids.length) return null;
-  const f=ids.map(id=>S()[id].freq).reduce((a,b)=>FRANK[a]<=FRANK[b]?a:b);
-  const mk=id=>{ const s=S()[id]; const k='__st'+sfx+'_'+id; DATA.series[k]={...s,block:'aux',freq:f,data:toFreq(s.data,s.freq,f).map(o=>[o[0],o[1],0])}; return k; };
-  return {f, bars:picks.map((id,i)=>({id:mk(id),name:S()[id].label,color:COLORS[i%4]})), line: line?{id:mk(line),name:S()[line].label,color:'--ink'}:null}; }
-function stackParts(sfx){ const n=sfx||'', picks=ex['spicks'+sfx], line=ex['sline'+sfx]; const all=picks.concat(line?[line]:[]); const C=stackCommon(sfx);
-  const units=[...new Set(all.map(id=>S()[id].unit))];
-  const fN=C?{M:'mensual',Q:'trimestral',D:'diaria',W:'semanal'}[C.f]:''; const conv=C&&all.some(id=>S()[id].freq!==C.f)?` · las series de mayor frecuencia se promedian a ${fN}`:'';
-  const pick=`<div class="mcol"><div class="pickrow"><div class="picks"><label class="picklab" for="sel-preset${n}">Ejemplos</label><select id="sel-preset${n}" class="axsel"><option value="">Elige un ejemplo…</option>${Object.entries(STACK_PRESETS).filter(([,P])=>P.bars.every(id=>S()[id])&&(!P.line||S()[P.line])).map(([k,P])=>`<option value="${k}">${P.label}</option>`).join('')}</select></div>
-     <div class="picks"><label class="picklab" for="sel-sline${n}">Línea (total)</label>${seriesPicker('sel-sline'+n,explorerGroups(),{selected:line,placeholder:'Ninguna',allowClear:true,label:'Línea (total)'})}</div></div>
-   ${pickRow(picks,'spicks'+sfx,4)}</div>`;
-  const fig=C&&picks.length?`<figure class="fig" style="margin:0"><div><h3>${esc(picks.map(id=>S()[id].label).join(' / '))}${line?' / '+esc(S()[line].label):''}</h3><div class="sub">${esc(`Barras apiladas${line?' y línea':''} · ${units.map(u=>UNIT_ES[u]||u).join(' · ')} · ${fN}${conv}`)}</div></div>
-     <div class="lg" id="stlg${n}"></div><div class="chart" id="stchart${n}"></div><figcaption class="src">Fuente: ${srcLine(all)}${units.length>1?`<br><span class="mixnote">Las series tienen unidades distintas; el apilado solo es interpretable si los componentes suman al total.</span>`:''}</figcaption></figure>`:'<p class="note">No hay series elegidas. Usa «Añadir una serie…» o elige un ejemplo.</p>';
-  return {pick,fig}; }
-function exStack(){ const a=stackParts(''), b=stackParts('2');
-  return `<p class="note" style="margin:14px 0">${isEN()?"Two charts that stack up to four series each by period, with an optional line for the total. Stacking is meaningful for components that add up, such as contributions to growth.":"Dos gráficos que apilan hasta cuatro series cada uno por periodo, con una línea opcional para el total. El apilado tiene sentido para componentes que suman, como las aportaciones al crecimiento."}</p>
-   <div class="grid mgrid">${a.pick}${b.pick}${a.fig}${b.fig}</div>`; }
-function drawStack(){ withRange(()=>['','2'].forEach(sfx=>{ const n=sfx, h=document.getElementById('stchart'+n); if(!h) return; const C=stackCommon(sfx); if(!C) return;
-  document.getElementById('stlg'+n).innerHTML=legendHTML(C.bars.concat(C.line?[C.line]:[]),C.bars);
-  drawChart(h,{bars:C.bars,lines:C.line?[C.line]:[],stack:true,zero:true,height:300,aria:'stack'}); tr(document.getElementById('stlg'+n)); })); }
-
-/* ---- scatter */
-function scatterData(xId=ex.sx,yId=ex.sy){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
-  const c0=0; // long-run relationship: always the full history
-  const xs=new Map(toFreq(X.data,X.freq,f)), ys=toFreq(Y.data,Y.freq,f);
-  const pts=ys.filter(([d])=>xs.has(d)&&ts(d)>=c0).map(([d,y])=>({d,x:xs.get(d),y}));
+function scatterData(xId,yId){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
+  const today=todayInMadrid();
+  const pairs=s=>toFreq(s.data.filter(([d,v])=>d<=today&&Number.isFinite(v)),s.freq,f);
+  const xs=new Map(pairs(X)), ys=pairs(Y);
+  const pts=ys.filter(([d])=>xs.has(d)).map(([d,y])=>({d,x:xs.get(d),y})).sort((a,b)=>a.d.localeCompare(b.d));
   return {pts,f,X,Y}; }
 function ols(p){ const n=p.length; if(n<3) return null; const mx=p.reduce((a,o)=>a+o.x,0)/n, my=p.reduce((a,o)=>a+o.y,0)/n;
   let sxy=0,sxx=0,syy=0; p.forEach(o=>{ sxy+=(o.x-mx)*(o.y-my); sxx+=(o.x-mx)**2; syy+=(o.y-my)**2; });
@@ -1982,29 +1804,11 @@ function lowessAt(p,x0,frac){ const n=p.length, k=Math.max(4,Math.ceil(frac*n));
   const den=sw*sxx-sx*sx; if(!sw) return NaN; if(Math.abs(den)<1e-12) return sy/sw; const b=(sw*sxy-sx*sy)/den; return (sy-b*sx)/sw+b*x0; }
 function lowess(p,frac=0.5){ if(p.length<6) return null; const fx=x=>lowessAt(p,x,frac); return {fx,r2:r2(p,fx),frac}; }
 function r2(p,fx){ const my=p.reduce((a,o)=>a+o.y,0)/p.length; let ss=0,se=0; p.forEach(o=>{ ss+=(o.y-my)**2; se+=(o.y-fx(o.x))**2; }); return ss?1-se/ss:NaN; }
-function fitFor(pts){ const lin=ols(pts); if(ex.fit==='quad') return {kind:'quad',lin,q:quad(pts)}; if(ex.fit==='lowess') return {kind:'lowess',lin,lw:lowess(pts,0.5)}; return {kind:'lin',lin}; }
-function exScatter(){ const {pts,f,X,Y}=scatterData(); const F=fitFor(pts), fit=F.lin; const fN=(isEN()?{M:'monthly',Q:'quarterly',D:'daily',W:'weekly'}:{M:'mensual',Q:'trimestral',D:'diaria',W:'semanal'})[f];
-  const conv = X.freq!==Y.freq ? (isEN()?` · higher-frequency series averaged to ${fN}`:` · la serie de mayor frecuencia se promedia a ${fN}`) : '';
-  const first=pts.length?fmtDate(pts[0].d,f):'', last=pts.length?fmtDate(pts[pts.length-1].d,f):'';
-  return `<p class="note" style="margin:14px 0">${isEN()?`Long-run relationship: the scatter always uses the full common history (${first} – ${last}). Each dot is one period; darker dots are more recent and the latest period is labelled.`:`Relación de largo plazo: la dispersión usa siempre toda la historia común (${first} – ${last}). Cada punto es un periodo; los más oscuros son los más recientes y el último lleva etiqueta.`}</p>
-   <div class="pickrow"><div class="picks"><label class="picklab" for="sel-sx">Eje horizontal (X)</label>${seriesPicker('sel-sx',explorerGroups(),{selected:ex.sx,label:'Eje horizontal (X)'})}</div>
-     <div class="picks" style="flex:0 0 auto;justify-content:flex-end"><button type="button" class="btn ghost" id="swapxy">Intercambiar ejes</button></div>
-     <div class="picks"><label class="picklab" for="sel-sy">Eje vertical (Y)</label>${seriesPicker('sel-sy',explorerGroups(),{selected:ex.sy,label:'Eje vertical (Y)'})}</div>
-     <div class="picks" style="flex:0 0 auto"><span class="picklab">Opciones</span><label class="chk"><input type="checkbox" id="trail" ${ex.trail?'checked':''}> Unir puntos en orden temporal</label></div>
-     <div class="picks" style="flex:0 0 auto"><span class="picklab">Ajuste</span><div class="seg" role="group" aria-label="Ajuste">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal (LOWESS)']].map(([k,l])=>`<button type="button" data-fit="${k}" aria-pressed="${(ex.fit||'lin')===k}">${l}</button>`).join('')}</div></div></div>
-   <div class="scatwrap"><figure class="fig" style="margin:0;min-width:0"><div><h3>${esc(Y.label)} frente a ${esc(X.label)}</h3><div class="sub">${esc(`X: ${X.unit} · Y: ${Y.unit} · ${fN} · ${first} – ${last}${conv}`)}</div></div>
-     <div class="chart" id="schart"></div><figcaption class="src">Fuente: ${srcLine([ex.sx,ex.sy])}</figcaption></figure>
-     <div class="stats"><div><span>Observaciones</span><b>${pts.length}</b></div><div><span>Correlación</span><b>${fit?fmtN(fit.r,2):'–'}</b></div>
-       ${F.kind==='lin'?`<div><span>Pendiente (MCO)</span><b>${fit?fmtN(fit.b,2):'–'}</b></div><div><span>R²</span><b>${fit?fmtN(fit.r*fit.r,2):'–'}</b></div>`:''}
-       ${F.kind==='quad'?`<div><span>Término lineal</span><b>${F.q?fmtN(F.q.c[1],3):'–'}</b></div><div><span>Término cuadrático</span><b>${F.q?fmtN(F.q.c[2],3):'–'}</b></div><div><span>R² cuadrático</span><b>${F.q?fmtN(F.q.r2,2):'–'}</b></div><div><span>R² lineal</span><b>${fit?fmtN(fit.r*fit.r,2):'–'}</b></div>`:''}
-       ${F.kind==='lowess'?`<div><span>Ventana LOWESS</span><b>50 %</b></div><div><span>R² LOWESS</span><b>${F.lw?fmtN(F.lw.r2,2):'–'}</b></div><div><span>R² lineal</span><b>${fit?fmtN(fit.r*fit.r,2):'–'}</b></div>`:''}
-       <p class="note" style="font-size:12px;margin:6px 0 0">${isEN()?'Descriptive statistics for the full common history; they do not imply causality.'+(F.kind==='lowess'?' LOWESS: locally weighted regression using the nearest 50% of observations.':''):'Estadísticos descriptivos de toda la historia común; no implican causalidad.'+(F.kind==='lowess'?' LOWESS: regresión local ponderada con el 50 % de las observaciones más cercanas.':'')}</p></div></div>`; }
-function drawScatterView(){ const h=document.getElementById('schart'); if(!h) return; const {pts,f,X,Y}=scatterData(); bindScatterCsv(h,'dispersion',{pts,f,X,Y}); drawScatter(h,pts,f,X,Y,fitFor(pts)); }
 function bindScatterCsv(host,name,{pts,f,X,Y}){
   const series=[{...X,freq:f,data:pts.map(p=>[p.d,p.x])},{...Y,freq:f,data:pts.map(p=>[p.d,p.y])}];
   bindSeriesCsv(host,name,series);
 }
-function drawScatter(host,pts,f,X,Y,fit){
+function drawScatter(host,pts,f,X,Y,fit,trail=false){
   bindChartSources(host,[X,Y]);
   const W=Math.max(280,host.clientWidth), H=Math.min(460,Math.max(300,W*0.62)), padL=50,padR=16,padT=16,padB=42;
   if(pts.length<2){ host.innerHTML='<p class="note">Sin datos en este periodo.</p>'; tr(host); return; }
@@ -2024,7 +1828,7 @@ function drawScatter(host,pts,f,X,Y,fit){
       for(let i=0;i<=80;i++){ const xv=xmin+(xmax-xmin)*i/80, yv=fx(xv); if(isFinite(yv)) dd+=(dd?'L':'M')+sx(xv).toFixed(1)+','+sy(yv).toFixed(1); }
       g+=`<path d="${dd}" fill="none" stroke="${stroke}" stroke-width="2" clip-path="url(#sclip)"/>`; } }
   g+=`<defs><clipPath id="sclip"><rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}"/></clipPath></defs>`;
-  if(ex.trail) g+=`<path d="${pts.map((p,i)=>(i?'L':'M')+sx(p.x).toFixed(1)+','+sy(p.y).toFixed(1)).join('')}" fill="none" stroke="${c1}" stroke-width="1" opacity=".35"/>`;
+  if(trail) g+=`<path d="${pts.map((p,i)=>(i?'L':'M')+sx(p.x).toFixed(1)+','+sy(p.y).toFixed(1)).join('')}" fill="none" stroke="${c1}" stroke-width="1" opacity=".35"/>`;
   const n=pts.length; pts.forEach((p,i)=>{ const last=i===n-1; const op=(0.18+0.72*(i/(n-1||1))).toFixed(2);
     g+=`<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="${last?6:4.5}" fill="${c1}" fill-opacity="${last?1:op}" stroke="${surf}" stroke-width="${last?2:1}"/>`; });
   const L=pts[n-1]; const lx=sx(L.x), ly=sy(L.y), anchor=lx>W-120?'end':'start';
@@ -2068,36 +1872,41 @@ function adjustmentInputs(ids,kind,catalog,adjustment){
 }
 function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjustment:requested}={}){
   const {adjustment,explicit,available:availableAdjustments}=seasonalChoices(ids,kind,catalog,requested);
-  const start=fullHistory?0:cutoff(), end=fullHistory?Infinity:upperCutoff();
+  const start=fullHistory?-Infinity:cutoff(), end=fullHistory?ts(todayInMadrid()):upperCutoff();
   const options=new Map();
   const canSetBase=baseDates&&ids.some(id=>boardBaseBounds(SERIES_TRANSFORMS.adjustedRow(id,'b100',catalog,adjustment)?.series).first);
   for(const k of transformKinds){
-    const alwaysShow=k==='mom'||k==='qoq';
     const rows=ids.map((id,index)=>{
       const base=catalog.byId.get(id)?.series;
       const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN(),baseDates?.[id],adjustment);
-      if(alwaysShow&&result.series&&!result.series.data.some(([day])=>ts(day)>=start&&ts(day)<=end)){
+      if(k!=='original'&&result.series&&!result.series.data.some(([day])=>ts(day)>=start&&ts(day)<=end)){
         return {id,index,base,status:'unavailable',reason:isEN()?'No observations in this period.':'Sin observaciones en este periodo.'};
       }
       return {id,index,base,...result};
     });
-    if(k==='original'||alwaysShow||explicit&&k===kind||k==='b100'&&canSetBase||rows.some(row=>row.series)) options.set(k,rows);
+    options.set(k,rows);
   }
-  const selected=kind==='original'||explicit&&options.has(kind)||kind==='b100'&&canSetBase||options.get(kind)?.some(row=>row.series)?kind:'original';
-  return {selected,options,rows:options.get(selected),canSetBase,adjustment,availableAdjustments};
+  const usable=(key,rows)=>key==='original'||key==='b100'&&canSetBase||
+    (fullHistory?rows.length===2&&rows.every(row=>row.series):rows.some(row=>row.series));
+  const selected=options.has(kind)&&(usable(kind,options.get(kind))||explicit&&!fullHistory)?kind:'original';
+  return {selected,options,rows:options.get(selected),usable,adjustment,availableAdjustments};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
   const options=[...plan.options].map(([kind,rows])=>{
     const name=SERIES_TRANSFORMS.names(kind,en);
-    const unavailable=kind!==plan.selected&&kind!=='original'&&!(kind==='b100'&&plan.canSetBase)&&!rows.some(row=>row.series);
-    return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(name)}</option>`;
+    const unavailable=kind!==plan.selected&&!plan.usable(kind,rows);
+    const visible=rows.filter(row=>row.series);
+    const calculations=visible.filter(row=>row.status==='calculated').length;
+    const origin=unavailable?transformStatus('unavailable'):!calculations?'':calculations===visible.length
+      ?transformStatus('calculated'):en?'Includes calculations':'Incluye cálculos';
+    return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(origin?`${name} (${origin})`:name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
     const name=L10((r.series||r.base)?.label||r.id);
     const explanation=r.reason||r.series?.transform||r.series?.source||'';
-    const visibleReason=r.reason&&(r.status==='unavailable'||plan.selected==='b100')?' · '+r.reason:'';
+    const visibleReason=r.reason?' · '+r.reason:'';
     return `<span data-status="${r.status}" title="${esc(explanation)}"><b>${transformStatus(r.status)}</b> · ${esc(name+visibleReason)}</span>`;
   });
   const seasonal=Object.entries(SERIES_TRANSFORMS.adjustments).map(([key,names])=>{
@@ -2124,7 +1933,7 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', trail:false, listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
@@ -2135,6 +1944,37 @@ bb.baseDates=Object.fromEntries(Object.entries(bb.baseDates||{}).filter(([,day])
 function saveBB(){ try{ localStorage.setItem(boardKey,JSON.stringify({...bb,q:'',transformMenu:true})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
 const BB_MODES=[['lines','Líneas'],['dual','Dos ejes'],['bars','Barras'],['stack','Barras apiladas'],['scatter','Scatterplot'],['heat','Mapa de calor'],['multiples','Galería Gráfica']];
+const SCATTER_FITS=[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal (LOWESS)']];
+function scatterControls(plan){
+  return `<section class="scatter-analysis" aria-label="${isEN()?'Scatterplot analysis':'Análisis de dispersión'}">
+    <h4 style="margin:0">${isEN()?'Scatterplot analysis':'Análisis de dispersión'}</h4>
+    ${transformationControls('board-transform',plan)}
+    ${[...new Set(bb.picks)].map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join('')}
+    <div class="fit-tools"><div class="seg" role="group" aria-label="${isEN()?'Fit':'Ajuste'}">
+      ${SCATTER_FITS.map(([kind,label])=>`<button type="button" data-bbf="${kind}" aria-pressed="${bb.fit===kind}">${label}</button>`).join('')}
+    </div><label class="chk"><input type="checkbox" id="bb-trail"${bb.trail?' checked':''}> Unir puntos en orden temporal</label></div>
+    <div id="bb-fit-stats" aria-live="polite"></div></section>`;
+}
+function renderScatterStats(host,points,fit){
+  const {pts,f,X,Y}=points;
+  const en=isEN();
+  const n=(value,digits=2)=>Number.isFinite(value)?fmtN(value,digits):'–';
+  const metrics=[['Observaciones',n(pts.length,0)],['Correlación',n(fit.lin?.r)]];
+  if(fit.kind==='lin') metrics.push(['Ordenada en el origen',n(fit.lin?.a,3)],['Pendiente (MCO)',n(fit.lin?.b,3)],['R²',n(fit.lin?.r**2)]);
+  if(fit.kind==='quad') metrics.push(['Ordenada en el origen',n(fit.q?.c[0],3)],['Término lineal',n(fit.q?.c[1],3)],
+    ['Término cuadrático',n(fit.q?.c[2],3)],['R² cuadrático',n(fit.q?.r2)],['R² lineal',n(fit.lin?.r**2)]);
+  if(fit.kind==='lowess') metrics.push(['Ventana LOWESS','50 %'],['R² LOWESS',n(fit.lw?.r2)],['R² lineal',n(fit.lin?.r**2)]);
+  const frequency=({D:'diaria',W:'semanal',M:'mensual',Q:'trimestral'})[f];
+  const period=pts.length?`${fmtDate(pts[0].d,f)} – ${fmtDate(pts.at(-1).d,f)} · ${L10(frequency)}`:'';
+  const conversion=X.freq!==Y.freq?(en?'Higher-frequency observations are averaged to the common frequency.':'Las observaciones de mayor frecuencia se promedian a la frecuencia común.'):'';
+  const model=fit.kind==='lin'?fit.lin:fit.kind==='quad'?fit.q:fit.lw;
+  host.innerHTML=`<p class="note">${esc([period,conversion].filter(Boolean).join(' · '))}</p>
+    <dl>${metrics.map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>
+    ${model?'':`<p class="note">${en?'The selected fit needs more observations or more variation.':'El ajuste seleccionado necesita más observaciones o más variación.'}</p>`}`;
+  tr(host);
+}
+Object.assign(EN,{'Ordenada en el origen':'Intercept',semanal:'weekly',
+  'Diferencia respecto al dato anterior':'Change from previous observation'});
 const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bb.mode==='multiples')?8:4);
 const bbAxis=(id,i)=>bb.axis[id]||(i===0?'L':'R');
 function bbCommon(plots){ const f=plots.map(({id})=>S()[id].freq).reduce((a,b)=>FRANK[a]<=FRANK[b]?a:b);
@@ -2182,14 +2022,14 @@ function boardBaseBounds(series){
   const positive=([date,value])=>date<=today&&Number.isFinite(value)&&value>0;
   return {first:series?.data.find(positive)?.[0],last:series?.data.findLast(positive)?.[0]};
 }
-function boardBaseForm(plan,id){
+function boardBaseForm(plan,id,seriesLabel=''){
   if(plan.selected!=='b100') return '';
   const row=plan.rows.find(item=>item.id===id);
   const {first,last}=boardBaseBounds(row?.baseSeries);
   if(!first) return '';
   const en=isEN(), saved=bb.baseDates[id], effective=row.baseDate;
   const value=effective||saved||first, label=effective?fmtDate(effective,'D'):(en?'Choose base date':'Elegir fecha base');
-  return `<details class="bb-base" data-bb-base="${esc(id)}"><summary>Base 100 · ${esc(label)}</summary>
+  return `<details class="bb-base" data-bb-base="${esc(id)}"><summary>Base 100 · ${esc([seriesLabel,label].filter(Boolean).join(' · '))}</summary>
     <form novalidate><label>${en?'Date with a positive value':'Fecha con dato positivo'}
     <input type="date" name="baseDate" min="${first}" max="${last}" value="${value}" required></label>
     <button class="btn ghost" type="submit">${en?'Apply':'Aplicar'}</button>
@@ -2293,7 +2133,8 @@ function bbFigHead(ids){ if(!ids.length) return bb.picks.length?
   {t:isEN()?'No compatible series':'No hay series compatibles',sub:''}:{t:'Pizarra vacía',sub:'Elige series en el panel de la izquierda'};
   const units=[...new Set(ids.map(id=>S()[id].unit))].map(u=>UNIT_ES[u]||u);
   if(bb.mode==='scatter'){ if(ids.length<2) return {t:esc(S()[ids[0]].label),sub:'Dispersión: elige una segunda serie para el eje Y'};
-    return {t:`${esc(S()[ids[1]].label)} frente a ${esc(S()[ids[0]].label)}`,sub:esc(`X: ${S()[ids[0]].unit} · Y: ${S()[ids[1]].unit} · historia completa · ajuste ${({lin:'lineal',quad:'cuadrático',lowess:'no lineal (LOWESS)'})[bb.fit]}`)}; }
+    return {t:`${esc(S()[ids[1]].label)} frente a ${esc(S()[ids[0]].label)}`,
+      sub:esc(`X: ${unitLabel(S()[ids[0]].unit)} · Y: ${unitLabel(S()[ids[1]].unit)} · ${isEN()?'Full history':'Historia completa'}`)}; }
   if(bb.mode==='heat') return {t:'Mapa de calor',sub:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
   if(bb.mode==='multiples') return {t:isEN()?'Chart gallery':'Galería Gráfica',sub:isEN()?'Compare the selected series over the same period. Each chart has its own vertical scale.':'Compara las series seleccionadas en el mismo periodo. Cada gráfico tiene su propia escala vertical.'};
   const modeTxt={lines:'Líneas',dual:'Dos ejes',bars:'Barras',stack:'Barras apiladas'}[bb.mode];
@@ -2304,10 +2145,20 @@ function loadHeatExample(){
     :['ipi_yoy','icm_yoy','afil_yoy','paro_reg_yoy','ipc','euribor12','matric','turistas'].filter(id=>S()[id]&&S()[id].block!=='aux');
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
+let openScatterLink=false;
+function chooseScatterPair(catalog,kind,adjustment){
+  const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
+  const candidates=new Set([...bb.picks,...defaults,...exIds()]);
+  const picks=[];
+  for(const id of candidates){
+    const row=SERIES_TRANSFORMS.resolve(id,kind,catalog,-Infinity,ts(todayInMadrid()),isEN(),bb.baseDates[id],adjustment);
+    if(row.series) picks.push(id);
+    if(picks.length===2){bb.picks=picks;return;}
+  }
+}
 function viewBoard(){
   if((spainDriveLoading||turkeyLoading||usaLoading)&&bb.picks.some(id=>!Object.hasOwn(S(),id))){
-    panel.innerHTML=exHeader()+`<p class="note" role="status">${isEN()?'Loading selected series…':'Cargando las series seleccionadas…'}</p>`;
-    bindExplorerViews();
+    panel.innerHTML=boardHeader()+`<p class="note" role="status">${isEN()?'Loading selected series…':'Cargando las series seleccionadas…'}</p>`;
     return;
   }
   const searchFocused=document.activeElement?.id==='explorer-search';
@@ -2325,12 +2176,16 @@ function viewBoard(){
   if(IS_TURKEY&&hadPicks&&!bb.picks.length){
     bb.picks=[...new Set([...turkeyCashIds(),...exIds()])].filter(id=>S()[id]).slice(0,3);
   }
+  const catalog=SERIES_TRANSFORMS.catalogue(Object.entries(S()).filter(([id])=>!id.startsWith('__')),'board');
   if(bb.mode==='scatter'){
+    if(openScatterLink){
+      chooseScatterPair(catalog,bb.tr,seasonalChoices(bb.picks,bb.tr,catalog,bb.adjustment).adjustment);
+      openScatterLink=false;
+    }
     const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
     bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
-  const catalog=SERIES_TRANSFORMS.catalogue(Object.entries(S()).filter(([id])=>!id.startsWith('__')),'board');
   useRangeCoverage(adjustmentInputs(bb.picks,bb.tr,catalog,bb.adjustment));
   const start=cutoff();
   const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates,adjustment:bb.adjustment});
@@ -2339,24 +2194,24 @@ function viewBoard(){
   const ids=plots.map(p=>p.id);
   const H=bbFigHead(ids), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
   const transformFocused=document.activeElement?.id;
-  panel.innerHTML=exHeader()+`
+  panel.innerHTML=boardHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
      ${sectionSearch('explorer-search')}
-     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}${boardBaseForm(plan,bb.picks[0])}</div>
-     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}${boardBaseForm(plan,bb.picks[1])}</div>
+     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
+     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(explorerGroups(),S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
-     ${bb.mode==='scatter'?`<div class="bbgrp"><span class="picklab">Ajuste</span><div class="bbtr">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal']].map(([k,l])=>`<button type="button" data-bbf="${k}" aria-pressed="${bb.fit===k}">${l}</button>`).join('')}</div></div>`:''}
    </aside>
    <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}" style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
-     ${transformationControls('board-transform',plan)}
+     ${bb.mode==='scatter'?'':transformationControls('board-transform',plan)}
      ${bb.mode==='scatter'?'':chartRangeCtl()}
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
+     ${bb.mode==='scatter'?scatterControls(plan):''}
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
-  bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
+  bindRange(); bindSeriesPickers(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
   bindBoardOrder(rerender);
   bindBoardBaseDates(plan,rerender);
@@ -2379,22 +2234,21 @@ function viewBoard(){
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
   panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{
     const mode=b.dataset.bbm;
-    if(mode==='scatter'&&bb.mode!=='scatter'){
-      const defaults=IS_EXTERNAL_MONITOR?[]:['paro_epa','ipc_sub'];
-      const candidates=new Set([...bb.picks,...defaults,...exIds()]);
-      const picks=[];
-      for(const id of candidates){
-        const row=SERIES_TRANSFORMS.resolve(id,bb.tr,catalog,0,Infinity,isEN(),bb.baseDates[id],plan.adjustment);
-        if(row.series) picks.push(id);
-        if(picks.length===2) break;
-      }
-      if(picks.length===2) bb.picks=picks;
-    }
+    if(mode==='scatter'&&bb.mode!=='scatter') chooseScatterPair(catalog,bb.tr,plan.adjustment);
     bb.mode=mode;
     rerender();
   }));
   bindTransformationControls('board-transform',value=>{bb.tr=value;rerender();},value=>{bb.adjustment=value;rerender();});
-  panel.querySelectorAll('[data-bbf]').forEach(b=>b.addEventListener('click',()=>{ bb.fit=b.dataset.bbf; rerender(); }));
+  panel.querySelectorAll('[data-bbf]').forEach(b=>b.addEventListener('click',()=>{
+    bb.fit=b.dataset.bbf;
+    rerender();
+    panel.querySelector(`[data-bbf="${bb.fit}"]`)?.focus({preventScroll:true});
+  }));
+  document.getElementById('bb-trail')?.addEventListener('change',event=>{
+    bb.trail=event.target.checked;
+    saveBB();
+    draw();
+  });
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
   panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
   const sw=document.getElementById('bbswap'); if(sw) sw.addEventListener('click',()=>{ bb.picks.reverse(); rerender(); });
@@ -2436,14 +2290,14 @@ function drawBoard(plots,start){
       h.innerHTML=`<p class="note">${isEN()?'Both axes need compatible observations.':'Ambos ejes necesitan observaciones compatibles.'}</p>`;
       return;
     }
-    const keep=ex.fit;
-    ex.fit=bb.fit;
-    try{
-      const points=scatterData(...ids);
-      const {pts,f,X,Y}=points;
-      bindScatterCsv(h,'blackboard',points);
-      drawScatter(h,pts,f,X,Y,fitFor(pts));
-    }finally{ex.fit=keep;}
+    const points=scatterData(...ids);
+    const {pts,f,X,Y}=points;
+    const fit={kind:bb.fit,lin:ols(pts)};
+    if(bb.fit==='quad') fit.q=quad(pts);
+    if(bb.fit==='lowess') fit.lw=lowess(pts);
+    bindScatterCsv(h,'blackboard',points);
+    drawScatter(h,pts,f,X,Y,fit,bb.trail);
+    renderScatterStats(document.getElementById('bb-fit-stats'),points,fit);
     return;
   }
   if(bb.mode==='dual'){
@@ -2991,9 +2845,7 @@ function drawBigScatter(chosen,start){
  }
  const [X,Y]=chosen.slice(0,2).map(s=>({...s,unit:s.percentScale?'%':s.unit}));
  const pts=bigScatterPoints(chosen,start);
- const keep=ex.trail;
- ex.trail=false;
- try{drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)})}finally{ex.trail=keep;}
+ drawScatter(host,pts,'D',X,Y,{kind:'lin',lin:ols(pts)});
  return pts.length>=2;
 }
 function loadBigHeat(force=false){
@@ -3050,7 +2902,7 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
   if(IS_TURKEY){
     if(DATA.meta.n_series){
       if(state.tab==='resumen') viewTurkeyOverview();
-      else if(state.tab==='explorador') viewExplorer();
+      else if(state.tab==='explorador') viewBoard();
       else viewBlock(state.tab);
     }
     else panel.innerHTML=`<p class="note">${turkeyLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'Data unavailable.':'Datos no disponibles.')}</p>`;
@@ -3080,7 +2932,7 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     }else{
       if(modelsHost) modelsHost.hidden=true;
       if(mainWrap) mainWrap.hidden=false;
-      if(DATA.meta.n_series) viewExplorer();
+      if(DATA.meta.n_series) viewBoard();
       else panel.innerHTML=`<div class="sechead"><h2>Blackboard</h2></div><div class="fig"><p class="note">${usaLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'No USA Blackboard series loaded yet. Upload the USA master workbook to Google Drive (drive_ingestion/snapshots/usa.json) or switch to the Models tab to inspect GDPNow and FRB/US.':'Aún no hay series cargadas en el Blackboard de EE. UU. Sube el libro maestro de EE. UU. a Google Drive (drive_ingestion/snapshots/usa.json) o cambia a la pestaña Modelos para consultar GDPNow y FRB/US.')}</p></div>`;
     }
     const title=isEN()?'BBVA Research USA Macro Monitor':'BBVA Research Monitor Macro Estados Unidos';
@@ -3095,7 +2947,7 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
       ? 'BBVA Research · Macroeconomic Dashboard · United States'
       : 'BBVA Research · Monitor macroeconómico · Estados Unidos';
   }else{
-    if(state.tab==='resumen') viewResumen(); else if(state.tab==='explorador') viewExplorer(); else if(state.tab==='bigdata') viewBigData(); else if(state.tab==='tablas') viewTablas(); else if(state.tab==='previsiones') viewPrevisiones(); else if(state.tab==='fuentes') viewFuentes(); else viewBlock(state.tab);
+    if(state.tab==='resumen') viewResumen(); else if(state.tab==='explorador') viewBoard(); else if(state.tab==='bigdata') viewBigData(); else if(state.tab==='tablas') viewTablas(); else if(state.tab==='previsiones') viewPrevisiones(); else if(state.tab==='fuentes') viewFuentes(); else viewBlock(state.tab);
     document.getElementById('stamp').textContent='Datos: '+DATA.meta.refreshed+' · '+DATA.meta.n_series+' series';
     document.getElementById('foot').innerHTML=`Fuentes: INE, Banco de España, Banco Central Europeo, Comisión Europea, OCDE, Seguridad Social, SEPE, Ministerio de Vivienda y Ministerio de Economía (BDSICE). Elaboración: BBVA Research. Datos a ${esc(DATA.meta.refreshed)}.`;
     document.title=isEN()?'BBVA Research Spain Macro Monitor':'BBVA Research Monitor Macro España';
@@ -3249,17 +3101,24 @@ async function reload(manual){
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
-const EXHASH={galeria:'galeria',multiserie:'multi',dispersion:'scatter',apiladas:'stack'};
+const LEGACY_BOARD_MODES={galeria:'multiples',multiserie:'lines',dispersion:'scatter',apiladas:'stack'};
+function openLegacyBoard(hash){
+  if(hash!=='pizarra'&&!Object.hasOwn(LEGACY_BOARD_MODES,hash)) return false;
+  state.tab='explorador';
+  if(hash!=='pizarra'){
+    openScatterLink=hash==='dispersion'&&bb.mode!=='scatter';
+    bb.mode=LEGACY_BOARD_MODES[hash];
+  }
+  return true;
+}
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
 const h0=location.hash.slice(1);
 if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
-else if(h0==='pizarra'){state.tab='explorador';ex.view='pizarra';}
-else if(isDashboardTab(h0)) state.tab=h0;
-else if(Object.hasOwn(EXHASH,h0)){state.tab='explorador';ex.view=EXHASH[h0];}
+else if(!openLegacyBoard(h0)&&isDashboardTab(h0)) state.tab=h0;
 window.addEventListener('hashchange',()=>{
   const k=location.hash.slice(1);
   if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
-  if(k==='pizarra'){state.tab='explorador';ex.view='pizarra';render();return;}
+  if(openLegacyBoard(k)){render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}
 });
 render();

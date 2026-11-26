@@ -98,6 +98,33 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#bbcatalog summary').first.tap()
         expect(page.locator('#bblist')).to_be_visible()
 
+    def test_scatter_analysis_and_calculated_csv(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/espana.html?lang=en#dispersion')
+        self.assert_blackboard(page, 'en')
+        expect(page.locator('.subnav')).to_have_count(0)
+        expect(page.locator('[data-bbm]')).to_have_count(7)
+        chart = page.locator('#bbchart')
+        analysis = page.get_by_role('region', name='Scatterplot analysis')
+        self.assertGreaterEqual(analysis.bounding_box()['y'], chart.bounding_box()['y'] + chart.bounding_box()['height'])
+        expect(analysis.get_by_role('button', name='Linear', exact=True)).to_have_attribute('aria-pressed', 'true')
+        analysis.get_by_role('button', name='Quadratic').click()
+        expect(page.locator('#bb-fit-stats')).to_contain_text('Quadratic R²')
+        analysis.get_by_role('button', name='Non-linear (LOWESS)').click()
+        expect(page.locator('#bb-fit-stats')).to_contain_text('LOWESS R²')
+        transform = analysis.get_by_label('Transformation')
+        expect(transform.locator('option[value=delta]')).to_have_text(
+            'Change from previous observation (Calculated here)'
+        )
+        transform.select_option('delta')
+        expect(analysis.locator('[data-status=calculated]')).to_have_count(2)
+        expect(chart.locator('svg')).to_be_visible()
+        with page.expect_download() as pending:
+            page.locator('.figure-csv-header .csv-action').click()
+        downloaded = pending.value.path().read_text(encoding='utf-8-sig')
+        self.assertIn('Calculated here.', downloaded)
+        self.assertIn('Source URL', downloaded)
+
     def test_overview_and_blackboard_share_numeric_typography(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en')

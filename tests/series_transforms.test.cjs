@@ -71,3 +71,46 @@ test('Base 100 uses the chosen variant and base date', () => {
   assert.equal(result.baseDate, date);
   assert.equal(result.series.data.find(([day]) => day === date)[1], 100);
 });
+
+test('quarterly growth sums monthly flows and uses end-of-quarter values for stocks', () => {
+  const budget = 'TR_HMB_BUDGET_M_REVENUE';
+  const loans = 'TR_BDDK_M_LOANS';
+  const data = [10, 20, 30, 30, 20, 40].map((value, i) => [`2025-0${i + 1}-01`, value]);
+  const catalogue = transforms.catalogue([budget, loans].map(code => [
+    'drive_tr_' + code, sourceSeries(code, {code, data, unit:'Millones de TRY', source:'Official source'})
+  ]), 'board');
+  const flow = resolve('drive_tr_' + budget, 'qoq', catalogue);
+  const stock = resolve('drive_tr_' + loans, 'qoq', catalogue);
+  assert.equal(flow.status, 'calculated');
+  assert.equal(flow.series.data[0][0], '2025-04-01');
+  assert.equal(flow.series.data[0][1], 50);
+  assert.ok(Math.abs(stock.series.data[0][1] - 100 / 3) < 1e-9);
+  assert.match(flow.series.transform, /^Calculated here.*Sum of the three months/);
+  assert.match(stock.series.transform, /Level in the last month/);
+  assert.equal(flow.series.source, 'Official source');
+});
+
+test('differences of published growth rates use percentage points and keep the source', () => {
+  const catalogue = transforms.catalogue([
+    ['growth', sourceSeries('Published growth', {unit:'Var. a/a (%)', source:'Statistics office'})]
+  ], 'board');
+  const change = resolve('growth', 'delta', catalogue);
+  assert.equal(change.series.unit, 'pp');
+  assert.equal(change.series.data[0][1], 5);
+  assert.equal(change.series.data[1][1], 12);
+  assert.equal(change.series.source, 'Statistics office');
+  assert.match(change.series.transform, /previous available observation/);
+  assert.equal(resolve('growth', 'mom', catalogue).status, 'unavailable');
+});
+
+test('growth falls back to the underlying level if the published rate misses the chosen period', () => {
+  const catalogue = transforms.catalogue([
+    ['paro_reg', sourceSeries('Unemployment', {unit:'miles'})],
+    ['paro_reg_yoy', sourceSeries('Published growth', {unit:'% a/a', data:[['2025-01-01', 20]]})]
+  ], 'board');
+  assert.equal(resolve('paro_reg', 'yoy', catalogue).origin, 'paro_reg_yoy');
+  const result = transforms.resolve('paro_reg', 'yoy', catalogue, Date.parse('2026-01-01'), Infinity, true);
+  assert.equal(result.status, 'calculated');
+  assert.equal(result.origin, 'paro_reg');
+  assert.ok(Math.abs(result.series.data[0][1] - 17) < 1e-9);
+});

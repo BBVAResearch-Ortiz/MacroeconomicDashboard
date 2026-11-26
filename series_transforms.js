@@ -4,6 +4,7 @@ const SERIES_TRANSFORMS = (() => {
     original:['Original','Raw'],
     mom:['Variación mensual','Month-on-month change'], qoq:['Variación trimestral','Quarter-on-quarter change'],
     yoy:['Variación interanual','Year-on-year change'],
+    delta:['Diferencia respecto al dato anterior','Change from previous observation'],
     b100:['Base 100','Base 100'], z:['Estandarizado','Standardised']
   };
   const adjustments={raw:['Sin desestacionalizar','Not seasonally adjusted'],
@@ -70,8 +71,14 @@ const SERIES_TRANSFORMS = (() => {
     if(id.startsWith('drive_tr_')){
       const isGDP=/^TR_Q_(EXP|PROD)_/.test(code);
       const indexed=/^Index \(base/.test(unit)&&!code.includes('CONFIDENCE');
+      const fiscalOrTrade=/^TR_(?:HMB|TRADE)_/.test(code);
+      const stock=/^TR_BDDK_/.test(code);
+      const amount=/^Millones de (?:TRY|USD)$/.test(unit);
+      const signed=/(?:BALANCE|LENDING)$/.test(code);
       return shape({family:isGDP?code.replace(/_(RAW|SCA|SA)_/,'_'):id,
-        aggregate:indexed?'mean':'',canGrow:isGDP&&!/_(S|TAXES_SUBSIDIES)$/.test(code)||indexed||/People/.test(unit),hasMethod:Boolean(adjustment)});
+        aggregate:indexed?'mean':fiscalOrTrade&&amount?'sum':stock&&amount?'last':'',
+        canGrow:isGDP&&!/_(S|TAXES_SUBSIDIES)$/.test(code)||indexed||/People/.test(unit)||(fiscalOrTrade||stock)&&amount&&!signed,
+        hasMethod:Boolean(adjustment||s.transform)});
     }
     const documented=base[id]||{};
     const kind=documented.kind||(/% a\/a|y\/y|year-on-year/i.test(unit)||/^(yoy|sum12yoy|qavg_yoy)$/.test(s.transform)?'yoy':
@@ -79,7 +86,7 @@ const SERIES_TRANSFORMS = (() => {
       /^Month-on-month/.test(unit)?'mom':'level');
     const monthlyFlow=monthlyFlows.has(id);
     const measure=['miles','€/m²','M€','mm€','miles €','índice'].includes(unit);
-    return shape({...documented,kind,canGrow:kind==='level'&&measure&&!monthlyFlow,
+    return shape({...documented,kind,canGrow:kind==='level'&&(measure&&!monthlyFlow||id==='tur_ing_m'),
       aggregate:monthlyFlow?'sum':unit==='índice'?'mean':'',hasMethod:Boolean(s.transform||kind!=='level'||adjustment||['ESI','PMI'].includes(block))});
   }
   const numeric=p=>Number.isFinite(p[1]);
@@ -106,6 +113,8 @@ const SERIES_TRANSFORMS = (() => {
   }
   function quarterly(data,how){
     const byMonth=new Map(data.filter(numeric).map(p=>[months(p[0]),p]));
+    if(how==='last') return [...byMonth].filter(([month])=>month%3===2)
+      .map(([month,[,value,flag]])=>[monthDate(month-2),value,flag]);
     return [...byMonth.keys()].filter(k=>k%3===0&&byMonth.has(k+1)&&byMonth.has(k+2)).map(k=>{
       const a=[byMonth.get(k),byMonth.get(k+1),byMonth.get(k+2)];
       return [monthDate(k),a.reduce((sum,p)=>sum+p[1],0)/(how==='mean'?3:1),a.some(p=>p[2])?1:0];
@@ -130,7 +139,7 @@ const SERIES_TRANSFORMS = (() => {
     const selected=cat.byId.get(id);
     if(!selected||!adjustment||selected.p.adjustment===adjustment) return selected;
     const equivalent=row=>row.series.freq===selected.series.freq&&row.p.kind===selected.p.kind;
-    const sameMeasure=['original','b100','z'].includes(kind);
+    const sameMeasure=['original','b100','z','delta'].includes(kind);
     const candidates=cat.byFamily.get(selected.p.family).filter(row=>row.p.adjustment===adjustment&&(!sameMeasure||equivalent(row)));
     // When starting from an unadjusted IPI, prefer the INE's own adjustment.
     const official=candidates.filter(row=>row.p.method==='ine');
@@ -150,8 +159,17 @@ const SERIES_TRANSFORMS = (() => {
     if(kind==='original') return stored(row,p.hasMethod?'documented':'original');
     const calc=(from,data,unit,freq,note)=>data.length?{
       status:'calculated',percentScale:false,origin:from.id,reason:note,
-      series:{...from.series,unit,freq,data,label:from.series.label+' · '+names(kind,false)}
+      series:{...from.series,unit,freq,data,label:from.series.label+' · '+names(kind,false),
+        transform:t('Calculada aquí. ','Calculated here. ')+note}
     }:unavailable(t('Faltan observaciones comparables para calcularla.','Comparable observations are missing.'));
+    if(kind==='delta'){
+      const fraction=big||s.unit==='Rate (fraction of 1)';
+      const scale=fraction?100:1;
+      const unit=fraction||s.unit?.includes('%')?'pp':s.unit;
+      const values=s.data.filter(numeric);
+      const data=values.slice(1).map(([day,value,flag],i)=>[day,(value-values[i][1])*scale,flag||values[i][2]||0]).filter(numeric);
+      return calc(row,data,unit,s.freq,t('Diferencia entre cada dato y la observación anterior disponible.','Difference between each value and the previous available observation.'));
+    }
     if(kind==='z'||kind==='b100'){
       const data=s.data.filter(o=>numeric(o)&&timestamp(o[0])>=start&&timestamp(o[0])<=end);
       if(kind==='b100'){
@@ -162,7 +180,7 @@ const SERIES_TRANSFORMS = (() => {
         const [date,base]=observation;
         const note=t(`Base 100 el ${date}.`,`Base 100 on ${date}.`);
         const result=calc(row,data.map(([day,value,flag])=>[day,100*(value/base),flag]).filter(numeric),'índice',s.freq,note);
-        return result.series?{...result,baseDate:date,baseSeries:s,series:{...result.series,transform:note}}:result;
+        return result.series?{...result,baseDate:date,baseSeries:s}:result;
       }
       if(data.length<2) return unavailable(t('Se necesitan al menos dos observaciones visibles.','At least two visible observations are required.'));
       const mean=data.reduce((sum,o)=>sum+o[1],0)/data.length;
@@ -173,20 +191,29 @@ const SERIES_TRANSFORMS = (() => {
     const variants=family.filter(v=>compatible(row,v)&&(!big||v.p.price===p.price));
     const desiredFreq=kind==='mom'?'M':kind==='qoq'?'Q':selected.series.freq;
     const matches=v=>v.p.kind===kind&&v.series.freq===desiredFreq;
-    const candidate=matches(row)?row:variants.find(matches);
+    const visible=([day])=>timestamp(day)>=start&&timestamp(day)<=end;
+    const published=matches(row)?[row,...variants.filter(v=>v!==row&&matches(v))]:variants.filter(matches);
+    const candidate=published.find(v=>v.series.data.some(p=>numeric(p)&&visible(p)));
     if(candidate) return stored(candidate);
 
     const comparable=v=>v.p.kind==='level'&&v.p.canGrow;
     const native=variants.find(v=>comparable(v)&&v.series.freq===desiredFreq);
     const monthly=kind==='qoq'&&!native&&variants.find(v=>comparable(v)&&v.series.freq==='M'&&v.p.aggregate);
     const level=native||monthly;
-    if(!level) return unavailable(t('No está disponible el nivel de origen compatible con esta operación.','A compatible underlying level is not available for this operation.'));
+    if(!level) return published.length?stored(published[0]):
+      unavailable(t('No está disponible el nivel de origen compatible con esta operación.','A compatible underlying level is not available for this operation.'));
     const data=monthly?quarterly(level.series.data,level.p.aggregate):level.series.data;
     const unit='% '+({mom:'m/m',qoq:'t/t',yoy:'a/a'})[kind];
     const note=monthly
-      ? (level.p.aggregate==='sum'?t('Suma de los tres meses de cada trimestre.','Sum of the three months in each quarter.'):t('Media de los tres meses de cada trimestre.','Average of the three months in each quarter.'))
+      ? ({
+        sum:t('Suma de los tres meses de cada trimestre.','Sum of the three months in each quarter.'),
+        mean:t('Media de los tres meses de cada trimestre.','Average of the three months in each quarter.'),
+        last:t('Nivel del último mes de cada trimestre.','Level in the last month of each quarter.')
+      })[level.p.aggregate]
       : t('Comparación con el periodo correspondiente, sin rellenar huecos.','Comparison with the corresponding period, with no gap filling.');
-    return calc(level,growth(data,desiredFreq,kind),unit,desiredFreq,note);
+    const calculated=growth(data,desiredFreq,kind);
+    if(published.length&&!calculated.some(visible)) return stored(published[0]);
+    return calc(level,calculated,unit,desiredFreq,note);
   }
   return {names,kinds,adjustments,catalogue,resolve,adjustedRow};
 })();
