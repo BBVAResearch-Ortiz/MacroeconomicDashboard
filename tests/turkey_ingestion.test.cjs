@@ -68,3 +68,31 @@ test('the trade bulletin reads its monthly rows and checks the reference period 
   const bec = readBec([['GEG', becRows]], 2026, 10, 'genis ekonomik gruplarin siniflamasina gore ihracat');
   assert.equal(JSON.stringify(bec[3]), JSON.stringify([['2025-10-01', 40], ['2026-10-01', 44]]));
 });
+
+test('a ministry timeout imports the verified trade series without overwriting saved revisions', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const verified = snapshot('turkey-verified');
+  const calls = [];
+  const fetch = vm.runInNewContext(script + '\nfetchTurkeyTrade_', {
+    dashboardDate_: value => /^\d{4}-\d{2}-\d{2}$/.test(value),
+    UrlFetchApp: {
+      fetch(url) {
+        calls.push(url);
+        if (url.endsWith('turkey-verified.json')) {
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify({series: verified}) };
+        }
+        throw Error('Tiempo de espera');
+      }
+    }
+  });
+  const id = 'TR_TRADE_M_EXPORTS';
+  const latest = verified[id].observaciones.at(-1)[0];
+  const saved = {[id]: {...verified[id], observaciones: [[latest, 999]]}};
+  const rows = fetch('2026-11-26', saved);
+  assert.equal(rows.length, 23);
+  assert.equal(rows.flatMap(row => row.data).length, 45);
+  assert.ok(rows.every(row => row.entry.source_url.startsWith('https://ticaret.gov.tr/')));
+  assert.ok(rows.find(row => row.id === id).data.every(([day]) => day !== latest));
+  assert.equal(calls.length, 3);
+  assert.match(calls[0], /^https:\/\/dabm\.ticaret\.gov\.tr\//);
+});

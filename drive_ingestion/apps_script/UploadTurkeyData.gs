@@ -5,6 +5,8 @@ const TURKEY_PRODUCER = {
   weekly: 'https://www.bddk.org.tr/BultenHaftalik',
   monthly: 'https://www.bddk.org.tr/BultenAylik/tr/',
   trade: 'https://ticaret.gov.tr/istatistikler/bakanlik-istatistikleri/dis-ticaret-istatistikleri/',
+  tradeMirror: 'https://dabm.ticaret.gov.tr',
+  verified: 'https://bbvaresearch-ortiz.github.io/MacroeconomicDashboard/drive_ingestion/snapshots/turkey-verified.json',
   xls: 'application/vnd.ms-excel'
 };
 
@@ -76,7 +78,7 @@ function runTurkeyWorkbook_(publish) {
         ['Tesoro', () => fetchTurkeyTreasury_(today)],
         ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series.TR_BDDK_W_LOANS)],
         ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)],
-        ['Comercio exterior · cifras principales', () => fetchTurkeyTrade_(today)]
+        ['Comercio exterior · cifras principales', () => fetchTurkeyTrade_(today, previous.series)]
       ];
       const errors = [];
       const updates = sources.flatMap(([name, fetch]) => {
@@ -209,9 +211,9 @@ function readTurkeyTradeBec_(sheets, year, month, heading) {
   });
 }
 
-function fetchTurkeyTradeFile_(html, bulletin, file, year, month) {
+function fetchTurkeyTradeFile_(page, bulletin, file, year, month) {
   const [number, variant, qualifier, heading] = file;
-  const url = turkeyTradeWorkbookLink_(html, number);
+  const url = turkeyTradeWorkbookLink_(page.html, number).replace('https://ticaret.gov.tr', page.host);
   const blob = turkeyResponse_(UrlFetchApp.fetch(url, { muteHttpExceptions: true }), 'Excel de comercio exterior ' + number)
     .getBlob().setContentType(DASHBOARD_UPLOAD.xlsx);
   const bec = variant.startsWith('BEC_');
@@ -229,7 +231,47 @@ function fetchTurkeyTradeFile_(html, bulletin, file, year, month) {
     bulletin, data[i], unit));
 }
 
-function fetchTurkeyTrade_(today) {
+function fetchTurkeyTradePage_(bulletin) {
+  const errors = [];
+  for (const host of [TURKEY_PRODUCER.tradeMirror, 'https://ticaret.gov.tr']) {
+    try {
+      const url = bulletin.replace('https://ticaret.gov.tr', host);
+      const html = turkeyResponse_(UrlFetchApp.fetch(url, { muteHttpExceptions: true }), 'Boletín de comercio exterior').getContentText();
+      turkeyTradeWorkbookLink_(html);
+      return { html, host };
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+  throw new Error(errors.join(' | '));
+}
+
+function fetchTurkeyVerifiedTrade_(previous, live, today) {
+  const response = turkeyResponse_(UrlFetchApp.fetch(TURKEY_PRODUCER.verified, { muteHttpExceptions: true }), 'Copia verificada de Türkiye');
+  const records = JSON.parse(response.getContentText()).series || {};
+  const byId = new Map(live.map(series => [series.id, series]));
+  const verified = Object.entries(records).filter(([id, row]) => /^TR_TRADE_M_[A-Z0-9_]+$/.test(id)
+    && row.bloque === 'EXTERNAL_TRADE' && /^https:\/\/ticaret\.gov\.tr\//.test(row.source_url || ''));
+  if (!verified.length) throw new Error('La copia verificada no contiene series de comercio exterior.');
+  let latest = '';
+  for (const [id, row] of verified) {
+    const current = byId.get(id), saved = previous[id];
+    const known = new Set([...(saved?.observaciones || []), ...(current?.data || [])].map(([day]) => day));
+    const data = row.observaciones.filter(([day]) => day <= today && !known.has(day));
+    const verifiedDate = row.observaciones.at(-1)?.[0] || '';
+    if (verifiedDate > latest) latest = verifiedDate;
+    if (!data.length) continue;
+    const verifiedSeries = turkeySeries_(id, row.titulo_serie, row.subtitulo_descripcion, 'Monthly', row.bloque, row['área'],
+      row.fuente, row.source_url, data, row.unidad);
+    const savedDate = saved?.observaciones?.at(-1)?.[0];
+    const entry = current?.entry || (savedDate > verifiedDate ? saved : verifiedSeries.entry);
+    byId.set(id, { id, entry, data: [...verifiedSeries.data, ...(current?.data || [])].sort(([a], [b]) => a.localeCompare(b)) });
+  }
+  console.log('Comercio exterior · copia verificada hasta ' + latest + '. Se conservan las observaciones ya guardadas.');
+  return [...byId.values()];
+}
+
+function fetchTurkeyTrade_(today, previous = {}) {
   const [year, month] = today.split('-').map(Number);
   const errors = [];
   for (let offset = 1; offset <= 3; offset++) {
@@ -237,23 +279,30 @@ function fetchTurkeyTrade_(today) {
     const reportYear = period.getUTCFullYear(), reportMonth = period.getUTCMonth() + 1;
     const slug = TURKEY_TRADE_MONTHS[reportMonth - 1] + '-ayi-dis-ticaret-istatistik';
     const bulletin = TURKEY_PRODUCER.trade + slug + 'leri/' + slug + '-tablolari';
+    let live = [];
     try {
-      const html = turkeyResponse_(UrlFetchApp.fetch(bulletin, { muteHttpExceptions: true }), 'Boletín de comercio exterior').getContentText();
-      const series = TURKEY_TRADE_FILES.flatMap(file => {
+      const page = fetchTurkeyTradePage_(bulletin);
+      live = TURKEY_TRADE_FILES.flatMap(file => {
         try {
-          return fetchTurkeyTradeFile_(html, bulletin, file, reportYear, reportMonth);
+          return fetchTurkeyTradeFile_(page, bulletin, file, reportYear, reportMonth);
         } catch (error) {
           errors.push(file[0] + ': ' + error.message);
           return [];
         }
       });
-      if (series.length) {
-        if (errors.length) console.log('Comercio exterior: ' + errors.join(' | '));
-        return series;
-      }
+      if (live.length === TURKEY_TRADE_ITEMS.length * 3 + TURKEY_TRADE_BEC_GROUPS.length * 2) return live;
     } catch (error) {
       errors.push(reportYear + '-' + String(reportMonth).padStart(2, '0') + ': ' + error.message);
     }
+    if (offset === 1 || live.length) {
+      console.log('Comercio exterior · acceso directo incompleto: ' + errors.join(' | '));
+      try {
+        return fetchTurkeyVerifiedTrade_(previous, live, today);
+      } catch (error) {
+        errors.push(error.message);
+      }
+    }
+    if (live.length) return live;
   }
   throw new Error(errors.join(' | '));
 }

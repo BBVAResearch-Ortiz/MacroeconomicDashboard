@@ -175,8 +175,8 @@ class DashboardBrowserTests(unittest.TestCase):
         page.route('**/snapshots/turkey.json', lambda route: route.fulfill(json=example))
         page.goto(f'{ORIGIN}/turquia.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
-        expect(page.locator('#stamp')).to_contain_text('6 series')
-        expect(page.locator('#foot a')).to_have_count(2)
+        expect(page.locator('#stamp')).to_contain_text('29 series')
+        expect(page.locator('#foot a')).to_have_count(3)
         source = page.locator('#bbchart .source-publisher').first
         expect(source).to_contain_text('Ministry of Treasury and Finance of Türkiye')
         expect(source).to_have_attribute('href', 'https://en.hmb.gov.tr/public-finance')
