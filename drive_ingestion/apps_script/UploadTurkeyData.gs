@@ -4,6 +4,7 @@ const TURKEY_PRODUCER = {
   treasuryCatalogue: 'https://en.hmb.gov.tr/portal/v2/pages?slug=public-finance',
   weekly: 'https://www.bddk.org.tr/BultenHaftalik',
   monthly: 'https://www.bddk.org.tr/BultenAylik/tr/',
+  trade: 'https://ticaret.gov.tr/istatistikler/bakanlik-istatistikleri/dis-ticaret-istatistikleri/',
   xls: 'application/vnd.ms-excel'
 };
 
@@ -17,6 +18,22 @@ const TURKEY_MONTHLY_REPORTS = [
   ['TR_BDDK_M_LOANS', 'Total bank loans', 3, 'Toplam Krediler'],
   ['TR_BDDK_M_DEPOSITS', 'Total bank deposits', 9, 'Toplam Mevduat']
 ];
+const TURKEY_TRADE_MONTHS = 'ocak subat mart nisan mayis haziran temmuz agustos eylul ekim kasim aralik'.split(' ');
+const TURKEY_TRADE_ITEMS = [
+  ['EXPORTS', 'Goods exports', 'ihracat', 'Millones de USD'],
+  ['IMPORTS', 'Goods imports', 'ithalat', 'Millones de USD'],
+  ['TURNOVER', 'Goods trade volume', 'dis ticaret hacmi', 'Millones de USD'],
+  ['BALANCE', 'Goods trade balance', 'dis ticaret dengesi', 'Millones de USD'],
+  ['COVERAGE', 'Export-to-import ratio', 'ihr./ ith. (%)', '%']
+];
+const TURKEY_TRADE_FILES = [
+  ['01', '', '', 'dis ticaret verileri'],
+  ['09', 'BEC_EXPORTS', 'Goods exports', 'genis ekonomik gruplarin siniflamasina gore ihracat'],
+  ['10', 'BEC_IMPORTS', 'Goods imports', 'genis ekonomik gruplarin siniflamasina gore ithalat'],
+  ['14', 'EX_ENERGY', 'excluding energy', 'enerji haric dis ticaret verileri'],
+  ['15', 'EX_GOLD', 'excluding gold', 'altin haric dis ticaret verileri']
+];
+const TURKEY_TRADE_BEC_GROUPS = ['Capital goods', 'Intermediate goods', 'Consumer goods', 'Other goods'];
 
 function previewTurkeyWorkbook() {
   runTurkeyWorkbook_(false);
@@ -58,7 +75,8 @@ function runTurkeyWorkbook_(publish) {
       const sources = [
         ['Tesoro', () => fetchTurkeyTreasury_(today)],
         ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series.TR_BDDK_W_LOANS)],
-        ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)]
+        ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)],
+        ['Comercio exterior · cifras principales', () => fetchTurkeyTrade_(today)]
       ];
       const errors = [];
       const updates = sources.flatMap(([name, fetch]) => {
@@ -108,7 +126,7 @@ function turkeyResponse_(response, name) {
   return response;
 }
 
-function turkeySeries_(id, title, description, frequency, block, area, source, url, data) {
+function turkeySeries_(id, title, description, frequency, block, area, source, url, data, unit = 'Millones de TRY') {
   const byDate = new Map();
   for (const [date, value] of data) {
     if (!dashboardDate_(date, 'UTC') || !Number.isFinite(value) || byDate.has(date)) {
@@ -122,9 +140,122 @@ function turkeySeries_(id, title, description, frequency, block, area, source, u
       titulo_serie: title, subtitulo_descripcion: description,
       transformacion_y_calculo: 'Dato publicado en su frecuencia original.', fuente: source,
       frecuencia_y_cobertura_temporal: frequency, tipo_grafico: 'Line chart', bloque: block,
-      'área': area, frecuencia: frequency, unidad: 'Millones de TRY', source_url: url
+      'área': area, frecuencia: frequency, unidad: unit, source_url: url
     }
   };
+}
+
+function turkeyTradeText_(value) {
+  return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i')
+    .trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function turkeyTradeWorkbookLink_(html, fileNumber = '01') {
+  const pattern = /href\s*=\s*["'](https:\/\/ticaret\.gov\.tr\/data\/[a-f0-9]+\/(\d\d)_[^"'<>/#?]+\.xlsx)["']/gi;
+  const matches = new Set([...html.matchAll(pattern)].filter(match => match[2] === fileNumber).map(match => match[1]));
+  if (matches.size !== 1) throw new Error('No se encontró un único Excel para la tabla ' + fileNumber + '.');
+  return encodeURI([...matches][0]).replace(/%25([a-f0-9]{2})/gi, '%$1');
+}
+
+function turkeyTradeRows_(sheets, heading) {
+  const matches = sheets.filter(([, rows]) => rows.some(row => row.some(cell =>
+    turkeyTradeText_(cell) === heading + ' (milyon dolar)')));
+  if (matches.length !== 1) throw new Error('No se encontró una hoja del cuadro solicitado en millones de USD.');
+  return matches[0][1];
+}
+
+function turkeyTradePoint_(year, month, value) {
+  return [year + '-' + String(month).padStart(2, '0') + '-01', value];
+}
+
+function readTurkeyTrade_(sheets, year, month, heading = 'dis ticaret verileri') {
+  const rows = turkeyTradeRows_(sheets, heading);
+  const headers = TURKEY_TRADE_ITEMS.map(([, , label]) => label);
+  const header = rows.find(row => headers.every(label => row.some(cell => turkeyTradeText_(cell) === label)));
+  if (!header) throw new Error('Comercio exterior: faltan columnas del cuadro principal.');
+  const columns = headers.map(label => header.findIndex(cell => turkeyTradeText_(cell) === label));
+  const monthRow = rows.findIndex((row, index) => index > rows.indexOf(header) &&
+    turkeyTradeText_(row[0]) === TURKEY_TRADE_MONTHS[month - 1]);
+  const prior = rows[monthRow], current = rows[monthRow + 1];
+  if (monthRow < 0 || !current || Number(prior[1]) !== year - 1 || Number(current[1]) !== year) {
+    throw new Error('Comercio exterior: el mes o los años del Excel no coinciden con la publicación.');
+  }
+  for (const row of [prior, current]) {
+    const [exports, imports, volume, balance, coverage] = columns.map(column => row[column]);
+    if (![exports, imports, volume, balance, coverage].every(Number.isFinite) || exports < 0 || imports <= 0 ||
+        Math.abs(volume - exports - imports) > 0.05 || Math.abs(balance - exports + imports) > 0.05 || coverage < 0) {
+      throw new Error('Comercio exterior: cifras principales inconsistentes.');
+    }
+  }
+  return columns.map(column => [turkeyTradePoint_(year - 1, month, prior[column]), turkeyTradePoint_(year, month, current[column])]);
+}
+
+function readTurkeyTradeBec_(sheets, year, month, heading) {
+  const rows = turkeyTradeRows_(sheets, heading);
+  const headerIndex = rows.findIndex(row => turkeyTradeText_(row[0]) === 'geg kodu');
+  const monthColumn = headerIndex < 0 ? -1 : rows[headerIndex].findIndex(cell => turkeyTradeText_(cell) === TURKEY_TRADE_MONTHS[month - 1]);
+  const years = rows[headerIndex + 1];
+  if (monthColumn < 0 || Number(years?.[monthColumn]) !== year - 1 || Number(years?.[monthColumn + 1]) !== year) {
+    throw new Error('Comercio exterior BEC: mes o años inesperados.');
+  }
+  return TURKEY_TRADE_BEC_GROUPS.map((_, index) => {
+    const matched = rows.slice(headerIndex + 2).filter(row => Number(row[0]) === index + 1);
+    if (matched.length !== 1) throw new Error('Comercio exterior BEC: falta la categoría ' + (index + 1) + ' o está duplicada.');
+    const prior = matched[0][monthColumn], current = matched[0][monthColumn + 1];
+    if (![prior, current].every(value => Number.isFinite(value) && value >= 0)) {
+      throw new Error('Comercio exterior BEC: valor inválido para la categoría ' + (index + 1) + '.');
+    }
+    return [turkeyTradePoint_(year - 1, month, prior), turkeyTradePoint_(year, month, current)];
+  });
+}
+
+function fetchTurkeyTradeFile_(html, bulletin, file, year, month) {
+  const [number, variant, qualifier, heading] = file;
+  const url = turkeyTradeWorkbookLink_(html, number);
+  const blob = turkeyResponse_(UrlFetchApp.fetch(url, { muteHttpExceptions: true }), 'Excel de comercio exterior ' + number)
+    .getBlob().setContentType(DASHBOARD_UPLOAD.xlsx);
+  const bec = variant.startsWith('BEC_');
+  const data = withDashboardSpreadsheet_(blob, 'Foreign trade ' + number, workbook => {
+    const sheets = workbook.getSheets().map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]);
+    return bec ? readTurkeyTradeBec_(sheets, year, month, heading) : readTurkeyTrade_(sheets, year, month, heading);
+  });
+  const catalogue = bec
+    ? TURKEY_TRADE_BEC_GROUPS.map((group, i) => [variant + '_' + (i + 1), qualifier + ' · ' + group, '', 'Millones de USD'])
+    : TURKEY_TRADE_ITEMS.map(([code, title, label, unit]) =>
+      [variant ? variant + '_' + code : code, qualifier ? title + ' ' + qualifier : title, label, unit]);
+  return catalogue.map(([code, title, , unit], i) => turkeySeries_(
+    'TR_TRADE_M_' + code, title, 'General Trade System · Ministry of Trade monthly bulletin (preliminary for the latest reference month).',
+    'Monthly', 'EXTERNAL_TRADE', 'external_sector', 'Ministerio de Comercio de Türkiye · Boletín de comercio exterior',
+    bulletin, data[i], unit));
+}
+
+function fetchTurkeyTrade_(today) {
+  const [year, month] = today.split('-').map(Number);
+  const errors = [];
+  for (let offset = 1; offset <= 3; offset++) {
+    const period = new Date(Date.UTC(year, month - 1 - offset, 1));
+    const reportYear = period.getUTCFullYear(), reportMonth = period.getUTCMonth() + 1;
+    const slug = TURKEY_TRADE_MONTHS[reportMonth - 1] + '-ayi-dis-ticaret-istatistik';
+    const bulletin = TURKEY_PRODUCER.trade + slug + 'leri/' + slug + '-tablolari';
+    try {
+      const html = turkeyResponse_(UrlFetchApp.fetch(bulletin, { muteHttpExceptions: true }), 'Boletín de comercio exterior').getContentText();
+      const series = TURKEY_TRADE_FILES.flatMap(file => {
+        try {
+          return fetchTurkeyTradeFile_(html, bulletin, file, reportYear, reportMonth);
+        } catch (error) {
+          errors.push(file[0] + ': ' + error.message);
+          return [];
+        }
+      });
+      if (series.length) {
+        if (errors.length) console.log('Comercio exterior: ' + errors.join(' | '));
+        return series;
+      }
+    } catch (error) {
+      errors.push(reportYear + '-' + String(reportMonth).padStart(2, '0') + ': ' + error.message);
+    }
+  }
+  throw new Error(errors.join(' | '));
 }
 
 function fetchTurkeyTreasury_(today) {

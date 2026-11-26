@@ -1431,6 +1431,8 @@ Object.assign(EN,{'PIB por el gasto':'GDP by expenditure','PIB por la producció
   'Ingresos de caja del Tesoro':'Treasury cash revenue','Gastos de caja del Tesoro':'Treasury cash expenditure',
   'Saldo de caja del Tesoro':'Treasury cash balance','Crédito bancario total':'Total bank loans',
   'Depósitos bancarios totales':'Total bank deposits','Semanal':'Weekly','Mensual':'Monthly',
+  'Millones de USD':'USD millions',
+  'Ministerio de Comercio de Türkiye · Boletín de comercio exterior':'Ministry of Trade of Türkiye · Foreign Trade Bulletin',
   'Consumo, gasto público e inversión':'Consumption, government spending and investment',
   'Agricultura, industria y construcción':'Agriculture, industry and construction',
   'Exportaciones e importaciones':'Exports and imports'});
@@ -3061,7 +3063,10 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
         (workbookTime?' · '+publicationLabel+workbookTime:'') : '';
     document.getElementById('foot').innerHTML=`${isEN()?'Sources':'Fuentes'}:
       <a href="https://en.hmb.gov.tr/public-finance">${isEN()?'Ministry of Treasury and Finance of Türkiye (HMB)':'Ministerio de Tesoro y Finanzas de Türkiye (HMB)'}</a> ·
-      <a href="https://www.bddk.org.tr/Veri/Detay/74">${isEN()?'Banking Regulation and Supervision Agency (BDDK)':'Agencia de Regulación y Supervisión Bancaria (BDDK)'}</a>.`;
+      <a href="https://www.bddk.org.tr/Veri/Detay/74">${isEN()?'Banking Regulation and Supervision Agency (BDDK)':'Agencia de Regulación y Supervisión Bancaria (BDDK)'}</a>${
+        Object.values(driveData.series).some(series=>series.link?.startsWith('https://ticaret.gov.tr/'))
+          ? ` · <a href="https://ticaret.gov.tr/istatistikler/dis-ticaret-istatistikleri">${isEN()?'Ministry of Trade of Türkiye':'Ministerio de Comercio de Türkiye'}</a>` : ''
+      }.`;
   }else if(IS_USA){
     const mainWrap=panel.closest('main');
     const modelsHost=document.getElementById('usa-models-host');
