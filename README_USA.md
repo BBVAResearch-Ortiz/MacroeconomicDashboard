@@ -25,3 +25,10 @@ La ficha «DSGE FRB-NY» de la sección Modelos muestra las previsiones que publ
 - El flujo `update-data.yml` lo ejecuta los días laborables; la página también relee `dsge_frbny.json` al abrirse y con «Actualizar datos».
 - La Fed publica una previsión por trimestre (marzo, junio, septiembre y diciembre).
 
+### Simulador de shocks
+
+- `dsge_irf.json` contiene las respuestas al impulso de Model1002 (especificación `ss10`, parámetros por defecto del paquete) calculadas con DSGE.jl, el paquete público de la Fed de Nueva York: PIB, inflación PCE subyacente, tipo de los fondos federales, diferencial de crédito y tipo natural real ante seis shocks de una desviación típica.
+- Como el modelo es lineal, la página escala y suma esas respuestas según los deslizadores y dibuja el escenario sobre la previsión publicada. El shock ocurre en el trimestre siguiente al de la publicación.
+- Es un cálculo propio, no un escenario de la Fed: los parámetros por defecto no tienen por qué coincidir con su estimación actual, y las bandas no se recalculan.
+- `dsge_irf.jl` regenera el archivo (instrucciones de instalación en su cabecera). Solo hace falta si cambian el modelo o los parámetros; no depende de los datos de cada trimestre.
+

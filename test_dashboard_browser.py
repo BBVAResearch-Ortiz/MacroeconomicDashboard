@@ -564,11 +564,11 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(detail.locator('#dsge-stamp')).to_contain_text('18 de septiembre de 2026')
         expect(detail).to_contain_text('aquí no se ejecuta el modelo')
         expect(detail.locator('#dsge-source')).to_have_attribute('href', published['source_url'])
-        # Three fan charts, two revision charts and the table: three rows of two.
+        # Three fan charts, the rate effect, two revision charts and the table, in two columns.
         cards = detail.locator('#dsge-gallery > .card')
-        expect(cards).to_have_count(6)
-        boxes = [cards.nth(i).bounding_box() for i in range(6)]
-        self.assertEqual(len({round(box['y']) for box in boxes}), 3)
+        expect(cards).to_have_count(7)
+        boxes = [cards.nth(i).bounding_box() for i in range(7)]
+        self.assertEqual(len({round(box['y']) for box in boxes}), 4)
         self.assertLess(boxes[0]['x'] + boxes[0]['width'], boxes[1]['x'])
         # Bands are switchable; the default shows 50, 68 and 90 percent.
         gdp = detail.locator('[data-dsge-chart=gdp]')
@@ -613,6 +613,80 @@ class DashboardBrowserTests(unittest.TestCase):
         # A direct link opens the model, like the other two.
         page.goto(f'{ORIGIN}/usa.html?lang=es#dsge')
         expect(page.locator('#model-dsge')).to_be_visible()
+
+    def test_usa_dsge_shock_simulator(self):
+        published = json.loads((ROOT / 'dsge_frbny.json').read_text(encoding='utf-8'))
+        irf = json.loads((ROOT / 'dsge_irf.json').read_text(encoding='utf-8'))
+        number = lambda value: f'{round(value, 1) + 0:.1f}'.replace('.', ',')
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#dsge')
+        detail = page.locator('#model-dsge')
+        simulator = detail.locator('#dsge-sim')
+        expect(simulator).to_be_visible()
+        expect(simulator.locator('.dsge-slider')).to_have_count(len(irf['shocks']))
+        expect(simulator).to_contain_text('Cálculo propio con Model1002')
+        expect(simulator).to_contain_text('No es una previsión ni un escenario de la Fed de Nueva York')
+        expect(simulator).to_contain_text('ocurren en T4 2026')
+        expect(detail.locator('[data-dsge-scenario]')).to_have_count(0)
+
+        def set_shock(name, size):
+            slider = simulator.locator(f'[data-dsge-shock={name}]')
+            slider.evaluate('(el, v) => { el.value = v; el.dispatchEvent(new Event("input", {bubbles: true})); }', str(size))
+            return slider
+
+        slider = set_shock('monetary', 1)
+        expect(simulator.locator('[data-dsge-size=monetary]')).to_have_text('+1,00 d. t.')
+        # The slider survives the redraw and five charts gain a scenario line.
+        self.assertEqual(slider.evaluate('el => el.value'), '1')
+        expect(detail.locator('[data-dsge-scenario]')).to_have_count(5)
+
+        def quarter(date):
+            return f"T{(int(date[5:7]) + 2) // 3} {date[:4]}"
+
+        def read(chart, index, total):
+            hit = detail.locator(f'[data-dsge-chart="{chart}"] [data-dsge-hit]')
+            box = hit.bounding_box()
+            hit.hover(position={'x': min(box['width'] - 1, max(1, box['width'] * index / (total - 1))), 'y': box['height'] / 2})
+            return detail.locator(f'[data-dsge-chart="{chart}"] [data-dsge-readout]')
+
+        response = irf['shocks']['monetary']['responses']
+        # Quarterly annualised GDP growth: forecast + 4 x response, from the quarter after the release.
+        revision = published['revisions']['gdp']
+        start = next(i for i, value in enumerate(revision['current']) if value is not None)
+        first = max(0, start - 12)
+        dates = revision['dates'][first:]
+        shock = revision['dates'].index('2026-12-31')
+        for horizon in (0, 3):
+            index = shock + horizon
+            expected = revision['current'][index] + 4 * response['gdp_q'][horizon]
+            readout = read('rev-gdp', index - first, len(dates))
+            expect(readout).to_contain_text(quarter(revision['dates'][index]))
+            expect(readout).to_contain_text(f'escenario {number(expected)}')
+        # Four-quarter GDP growth: forecast + the sum of the last four quarterly responses.
+        fan = published['fans']['gdp']
+        start = next(i for i, value in enumerate(fan['forecast']) if value is not None)
+        first = max(0, start - 12)
+        index = fan['dates'].index('2027-09-30')
+        horizon = index - fan['dates'].index('2026-12-31')
+        expected = fan['forecast'][index] + sum(response['gdp_q'][horizon - lag] for lag in range(4))
+        expect(read('gdp', index - first, len(fan['dates']) - first)).to_contain_text(f'escenario {number(expected)}')
+        # No scenario value before the shock, and the natural rate does not react to monetary policy.
+        before = read('gdp', fan['dates'].index('2026-09-30') - first, len(fan['dates']) - first)
+        self.assertNotIn('escenario', before.inner_text())
+        natural = published['fans']['rstar']
+        index = natural['dates'].index('2027-03-31')
+        expect(read('rstar', index - first, len(natural['dates']) - first)).to_contain_text(
+            f"escenario {number(natural['forecast'][index])}")
+        # Shocks add up: the rate effect is the sum of both responses.
+        set_shock('credit_spread', -2)
+        both = 4 * (response['ffr_q'][0] - 2 * irf['shocks']['credit_spread']['responses']['ffr_q'][0])
+        effect_dates = fan['dates'][fan['dates'].index('2026-12-31') - 1:]
+        expect(read('effect', 1, len(effect_dates))).to_contain_text(f'tipo oficial {number(both)} pp')
+        # Reset clears every slider and removes the scenario.
+        simulator.get_by_role('button', name='Restablecer').click()
+        expect(detail.locator('[data-dsge-scenario]')).to_have_count(0)
+        self.assertEqual(simulator.locator('[data-dsge-shock=monetary]').evaluate('el => el.value'), '0')
+        expect(simulator.locator('[data-dsge-size=monetary]')).to_have_text('0,00 d. t.')
 
     def test_usa_dsge_reloads_a_newer_release(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
