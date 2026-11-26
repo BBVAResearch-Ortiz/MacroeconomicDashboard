@@ -97,6 +97,26 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#bbcatalog summary').first.tap()
         expect(page.locator('#bblist')).to_be_visible()
 
+    def test_overview_and_blackboard_share_numeric_typography(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/espana.html?lang=en')
+        card = page.locator('.gcard').first
+        reading = card.locator('.chart-reading-value')
+        expect(reading).to_be_visible()
+        expect(reading.locator('small')).to_have_text('% y/y')
+        expect(card.locator('.reading-context time')).to_have_attribute('datetime', re.compile(r'^\d{4}-\d{2}-\d{2}$'))
+        properties = ['font-family', 'font-size', 'font-weight', 'font-variant-numeric']
+        overview_style = reading.evaluate('(value, keys) => keys.map(key => getComputedStyle(value).getPropertyValue(key))', properties)
+        title_size = card.locator('h3').evaluate('title => parseFloat(getComputedStyle(title).fontSize)')
+
+        page.locator('#tab-explorador').click()
+        self.assert_blackboard(page, 'en')
+        board_reading = page.locator('#bbchart .chart-reading-value').first
+        board_style = board_reading.evaluate('(value, keys) => keys.map(key => getComputedStyle(value).getPropertyValue(key))', properties)
+        board_title_size = page.locator('.figure-csv-title h3').evaluate('title => parseFloat(getComputedStyle(title).fontSize)')
+        self.assertEqual(overview_style, board_style)
+        self.assertLess(title_size, board_title_size)
+
     def test_ipi_switch_and_csv_keep_the_source(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')

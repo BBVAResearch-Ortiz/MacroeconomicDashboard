@@ -89,10 +89,10 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-readings>p{margin:0 0 8px;font-size:12px;color:var(--muted)}
 .chart-readings ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px 14px}
 .chart-readings li{min-width:0;border-left:3px solid var(--reading-color);padding-left:8px;line-height:1.24;overflow-wrap:anywhere}
-.chart-reading-value{display:block;color:var(--chart-ink);color:color-mix(in srgb,var(--reading-color) 70%,var(--chart-ink));font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.chart-reading-value{display:block;color:var(--chart-ink);color:color-mix(in srgb,var(--reading-color) 70%,var(--chart-ink));font:600 20px/1.24 var(--sans);font-variant-numeric:tabular-nums}
 .chart-reading-value small{font-size:12px;font-weight:500}
 .chart-reading-label{display:block;color:var(--chart-ink);font-size:12.5px;margin:2px 0}
-.chart-readings time,.chart-reading-source{display:block;color:var(--muted);font-size:11.5px}
+.chart-readings time,.chart-reading-source,.gread .reading-context{display:block;color:var(--muted);font-size:11.5px}
 .chart-reading-source{margin-top:5px;line-height:1.38}
 .source-publisher{color:var(--accent);font-weight:600}
 a.source-publisher{text-decoration:underline;text-underline-offset:2px}
@@ -158,11 +158,10 @@ a{color:var(--accent)}
 .pchip button{border:0;background:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px}
 .pchip button:hover{background:var(--surface-2);color:var(--ink)}
 select#addSeries{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);max-width:420px;width:100%}
-.gcard h4{margin:0;font-family:var(--mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500;overflow-wrap:anywhere}
+.gcard h3{font-size:clamp(15px,1.4vw,18px)}
 .gread{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
-.gread .big{font-family:var(--mono);font-size:26px;font-weight:500;font-variant-numeric:tabular-nums}
-.gread .big small{font-size:13px;color:var(--faint);margin-left:10px}
-.gread .how{font-size:12.5px;color:var(--muted)}
+.gread .chart-reading-value{--reading-color:var(--s1)}
+.gread .reading-context{margin-top:2px;font-variant-numeric:tabular-nums}
 .explain{background:var(--flag-bg);border-left:4px solid var(--flag);border-radius:6px;padding:14px 18px;font-size:14px;max-width:72ch;margin-top:18px}
 .explain b{color:var(--flag)}
 .bigbars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 28px}@media(max-width:760px){.bigbars{grid-template-columns:minmax(0,1fr)}}
@@ -729,6 +728,9 @@ function chartReading(id,value,percentScale){
   if(percentScale) return {value:formatBigPercent(value),unit:''};
   return {value:fmtN(value,decimals(series)),unit:L10(unitLabel(series.unit||''))};
 }
+function chartReadingMarkup({value,unit}){
+  return `${esc(value)}${unit?` <small>${esc(unit)}</small>`:''}`;
+}
 function seriesSource(source){
   const gdpSuffix='; PIB INE';
   if(source?.endsWith(gdpSuffix)) return `${L10(source.slice(0,-gdpSuffix.length))} · INE (${isEN()?'GDP':'PIB'})`;
@@ -776,7 +778,7 @@ function chartReadings(host,series,percentScale){
       const [value,time]=cells[index];
       const point=date?points[index]:s.data.at(-1);
       const reading=point?chartReading(s.id,point[1],percentScale):{value:'–'};
-      value.innerHTML=`${esc(reading.value)}${reading.unit?` <small>${esc(reading.unit)}</small>`:''}`;
+      value.innerHTML=chartReadingMarkup(reading);
       time.hidden=!point;
       if(point){
         const [day,,flash]=point;
@@ -1162,14 +1164,17 @@ const POL={sal_etcl:0,sal_ord:0,clab_etcl:0,sal_conv:0,cred_saldo:0,cred_dudosid
   viv_visados:1,viv_visados_yoy:1,viv_iniciadas:1,viv_terminadas:1,viv_protegida:1,viv_compraventas:1,viv_compraventas_yoy:1,viv_compr_reg:1,viv_compr_reg_yoy:1,viv_tasado:0,viv_tasado_yoy:0,viv_coste:-1,viv_credito:0,
   deuda:-1,deficit_4q:1,deficit_m:1,cc_pib:1,bys_pib:1,tur_ing_12m:1,bono_es:-1,bono_de:0,prima:-1,bce_dfr:0,euribor12:0,tipo_viv:-1,credito_osr:0,depositos_osr:0};
 const useBars=(id,s)=>s.freq==='Q'&&!['paro_epa','deuda','ocup_epa'].includes(id);
-function ovCard(id,i,attr,extra){ const s=S()[id]; if(!s) return ''; const Lx=latest(id), d=decimals(s), u=unitLabel(s.unit), pol=POL[id]??0;
+function ovCard(id,i,attr,extra){ const s=S()[id]; if(!s) return ''; const Lx=latest(id), pol=POL[id]??0;
   const gdp=isGDP(id), Q=gdp?latest('pib_qoq'):null;
   const title=gdp?'PIB':s.label;
   const sub=gdp?'Variación trimestral (barras) e interanual (línea), % · CVEC':extra?autoSub(s)+' · '+(isEN()?'headline and core':'general y subyacente'):autoSub(s);
-  const big=gdp?`${fmtN(Lx[1],d)}<span style="font-size:15px"> % a/a</span><small>${fmtN(Q[1],1)} % t/t · ${fmtDate(Lx[0],s.freq)}</small>`:`${fmtN(Lx[1],d)}<span style="font-size:15px">${u?' '+esc(u):''}</span><small>${fmtDate(Lx[0],s.freq)}${Lx[2]?' · avance':''}</small>`;
+  const reading=chartReading(id,Lx[1],false);
+  if(gdp) reading.unit=isEN()?'% y/y':'% a/a';
+  const quarter=gdp?`${fmtN(Q[1],1)} ${isEN()?'% q/q':'% t/t'} · `:'';
+  const date=`<time datetime="${esc(Lx[0])}">${esc(fmtDate(Lx[0],s.freq))}</time>${Lx[2]?(isEN()?' · flash':' · avance'):''}`;
   const lg=gdp?legendHTML([{name:'PIB t/t',color:'--qbar'},{name:'PIB a/a',color:'--s1'}],[{name:'PIB t/t',color:'--qbar'}]):extra?legendHTML([{name:s.label,color:'--s1'},{name:S()[extra].label,color:'--s2'}]):'';
   return `<figure class="fig gcard" style="margin:0"><div><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div></div>
-    <div class="gread"><span class="big">${big}</span>${chg(id,pol)}</div>${lg}
+    <div class="gread"><div><strong class="chart-reading-value">${chartReadingMarkup(reading)}</strong><div class="reading-context">${quarter}${date}</div></div>${chg(id,pol)}</div>${lg}
     <div class="chart" ${attr}="${i}"></div>
     <figcaption class="src">Fuente: ${srcLine([id].concat(gdp?['pib_qoq']:extra?[extra]:[]))}</figcaption></figure>`; }
 function ovDraw(h,id,extra){ const s=S()[id]; let cfg;
