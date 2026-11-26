@@ -197,9 +197,6 @@ table.fc td.f{font-weight:600}
 @media(max-width:900px){.bbwrap{grid-template-columns:minmax(0,1fr)}}
 .bbside{display:flex;flex-direction:column;gap:18px;position:sticky;top:12px}
 .bbgrp{display:flex;flex-direction:column;gap:8px}
-.series-picker,.series-levels{display:grid;min-width:0;gap:6px}
-.series-levels:empty{display:none}
-.series-picker select{width:100%;min-width:0}
 .big-catalog-filters{padding:8px;border-bottom:1px solid var(--rule)}
 .big-compare-actions{display:flex;flex-wrap:wrap;gap:6px}
 .big-compare-actions .btn{font-size:12px;line-height:1.3;padding:6px 9px}
@@ -235,6 +232,7 @@ table.fc td.f{font-weight:600}
 .bbcatalog{border:1px solid var(--rule);border-radius:6px}
 .bbcatalog>summary{padding:8px 10px;font-size:14px;cursor:pointer}
 .bbcatalog[open]>summary{border-bottom:1px solid var(--rule)}
+.bbaxis .bbcatalog>summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bblist{max-height:340px;overflow:auto;padding:4px 8px}
 .bblist .bbh{font-weight:500;font-size:13px;color:var(--accent);padding:6px 4px;cursor:pointer}
 .bblist details details{margin-left:12px}
@@ -1694,75 +1692,6 @@ function bindExplorerSearch(){
     redraw:viewBoard
   });
 }
-const pickerGroups=new Map();
-function findSeriesPath(node,id,path=[]){
-  if(node.items.some(s=>s.id===id)) return path;
-  for(const group of node.groups){
-    const found=findSeriesPath(group,id,[...path,group.label]);
-    if(found) return found;
-  }
-}
-function pickerBranch(tree,path,disabled,label){
-  const levels=[];
-  const chosen=[];
-  let node=tree;
-  while(node.groups.length){
-    const i=chosen.length;
-    const automatic=!node.items.length&&node.groups.length===1;
-    const active=automatic?node.groups[0]:node.groups.find(g=>g.label===path[i]);
-    if(!automatic){
-      const groupLabel=i?'Subgrupo de series':'Grupo de series';
-      levels.push(`<select class="axsel" data-series-level="${i}" aria-label="${esc(L10(groupLabel)+' · '+L10(label))}"${disabled?' disabled':''}>
-        <option value="">${esc(L10(i?'Seleccionar subgrupo…':'Seleccionar grupo…'))}</option>
-        ${node.groups.map(g=>`<option value="${esc(g.label)}"${g===active?' selected':''}>${esc(L10(g.label))} (${g.count})</option>`).join('')}
-      </select>`);
-    }
-    if(!active) break;
-    chosen.push(active.label);
-    node=active;
-  }
-  return {levels:levels.join(''),items:node.items,path:chosen};
-}
-function pickerOptions(items,current,placeholder,allowClear){
-  const choices=current&&!items.some(s=>s.id===current.id)?[current,...items]:items;
-  return `<option value=""${allowClear?'':' disabled'}${current?'':' selected'}>${esc(placeholder)}</option>`+
-    choices.map(s=>`<option value="${esc(s.id)}"${s.id===current?.id?' selected':''}>${esc(s.label)}</option>`).join('');
-}
-function seriesPicker(id,tree,{selected='',placeholder='',allowClear=false,disabled=false,label='Añadir una serie',attrs=''}={}){
-  const path=(selected&&findSeriesPath(tree,selected))||pickerGroups.get(id)||[];
-  const branch=pickerBranch(tree,path,disabled,label);
-  const current=branch.items.find(s=>s.id===selected);
-  return `<div class="series-picker" data-series-picker data-picker-label="${esc(label)}">
-    <div class="series-levels">${branch.levels}</div>
-    <template>${esc(JSON.stringify(tree))}</template>
-    <select id="${id}" class="axsel" aria-label="${esc(label)}" ${attrs}${disabled||(!branch.items.length&&!allowClear)?' disabled':''}>${pickerOptions(branch.items,current,placeholder||'Añadir una serie…',allowClear)}</select>
-  </div>`;
-}
-function bindSeriesPickers(){
-  panel.querySelectorAll('[data-series-picker]').forEach(picker=>{
-    const levels=picker.firstElementChild;
-    const select=picker.lastElementChild;
-    if(!levels.children.length) return;
-    const tree=JSON.parse(picker.querySelector('template').content.textContent);
-    const prompt=select.options[0];
-    let path=pickerBranch(tree,findSeriesPath(tree,select.value)||pickerGroups.get(select.id)||[],false,picker.dataset.pickerLabel).path;
-    levels.addEventListener('change',e=>{
-      const level=Number(e.target.dataset.seriesLevel);
-      if(!Number.isInteger(level)) return;
-      path=path.slice(0,level);
-      if(e.target.value) path.push(e.target.value);
-      const branch=pickerBranch(tree,path,false,picker.dataset.pickerLabel);
-      path=branch.path;
-      pickerGroups.set(select.id,path);
-      levels.innerHTML=branch.levels;
-      levels.querySelector(`[data-series-level="${level}"]`)?.focus({preventScroll:true});
-      const current=select.value?{id:select.value,label:select.selectedOptions[0]._es||select.selectedOptions[0].textContent}:null;
-      select.innerHTML=pickerOptions(branch.items,current,prompt.textContent,!prompt.disabled);
-      select.disabled=!current&&!branch.items.length&&prompt.disabled;
-      tr(select);
-    });
-  });
-}
 /* Frequency alignment for bars, scatterplots and heat maps. Weeks start on Monday. */
 const FRANK={D:4,W:3,M:2,Q:1};
 function periodKey(d,f){
@@ -1981,19 +1910,24 @@ function bbCommon(plots){ const f=plots.map(({id})=>S()[id].freq).reduce((a,b)=>
   const mk=id=>{ const s=S()[id]; const k='__bb_'+id; DATA.series[k]={...s,block:'aux',freq:f,data:toFreq(s.data,s.freq,f).map(o=>[o[0],o[1],0])}; return k; };
   return {f, items:plots.map(({id,index})=>({id:mk(id),name:S()[id].label,color:COLORS[index%4]}))}; }
 const openCatalogGroups=new Set();
-function catalogDisclosure(id,listId,open,content,filters=''){
+const scatterCatalogs=[
+  {id:'bbx',label:'Eje horizontal (X)',open:false,groups:new Set()},
+  {id:'bby',label:'Eje vertical (Y)',open:false,groups:new Set()}
+];
+function catalogDisclosure(id,listId,open,content,filters='',summary=''){
   return `<details class="bbcatalog" id="${id}"${open?' open':''}>
-    <summary id="${id}-summary">${isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
+    <summary id="${id}-summary">${summary?esc(summary):isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
     ${filters}<div id="${listId}" class="bblist">${content}</div>
   </details>`;
 }
-function seriesChecklist(tree,series,picks,limit,openGroups){
+function seriesChecklist(tree,series,picks,limit,openGroups,{radio='',excluded}={}){
   const full=picks.length>=limit;
   function catalog(node,path=[]){
     let html='';
     for(const {id} of node.items){
       const s=series[id], on=picks.includes(id);
-      html+=`<label><input type="checkbox" data-catalog-pick="${esc(id)}"${on?' checked':''}${!on&&full?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit||'')}</span></span></label>`;
+      const disabled=radio?id===excluded&&!on:!on&&full;
+      html+=`<label><input ${radio?`type="radio" name="${esc(radio)}"`:'type="checkbox"'} data-catalog-pick="${esc(id)}"${on?' checked':''}${disabled?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit||'')}</span></span></label>`;
     }
     for(const group of node.groups){
       const childPath=[...path,group.label];
@@ -2016,6 +1950,15 @@ function bindSeriesChecklist(list,openGroups,onChange){
     if(e.target.open) openGroups.add(group);
     else openGroups.delete(group);
   },true);
+}
+function scatterAxisCatalog(axis,index,tree){
+  const id=bb.picks[index], series=S()[id], listId=axis.id+'-list';
+  const summary=series?`${L10(series.label)} (${L10(series.unit)})`:(isEN()?'Choose a series':'Elige una serie');
+  const content=seriesChecklist(tree,S(),[id],1,axis.groups,{radio:listId,excluded:bb.picks[1-index]});
+  return `<div class="bbgrp bbaxis" role="group" aria-labelledby="${axis.id}-label">
+    <span class="picklab" id="${axis.id}-label">${esc(L10(axis.label))}</span>
+    ${catalogDisclosure(axis.id,listId,axis.open,content,'',summary)}
+  </div>`;
 }
 function boardBaseBounds(series){
   const today=rangeCoverage?.today||todayInMadrid();
@@ -2163,7 +2106,8 @@ function viewBoard(){
   }
   const searchFocused=document.activeElement?.id==='explorer-search';
   const focusedSeries=document.activeElement?.dataset.catalogPick;
-  const catalogScroll=document.getElementById('bblist')?.scrollTop;
+  const focusedList=document.activeElement?.closest('.bblist')?.id;
+  const catalogScroll=new Map([...panel.querySelectorAll('.bblist')].map(list=>[list.id,list.scrollTop]));
   const hadPicks=bb.picks.length>0;
   if(IS_USA&&!bb.picks.length&&exIds().length){
     bb.picks=exIds().slice(0,3);
@@ -2194,14 +2138,14 @@ function viewBoard(){
   const ids=plots.map(p=>p.id);
   const H=bbFigHead(ids), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
   const transformFocused=document.activeElement?.id;
+  const tree=explorerGroups();
   panel.innerHTML=boardHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
      ${sectionSearch('explorer-search')}
-     ${bb.mode==='scatter'?`<div class="bbgrp"><label class="picklab" for="bbx">Eje horizontal (X)</label>${seriesPicker('bbx',explorerGroups(),{selected:bb.picks[0],label:'Eje horizontal (X)'})}</div>
-     <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}</div>
+     ${bb.mode==='scatter'?`${scatterCatalogs.map((axis,index)=>scatterAxisCatalog(axis,index,tree)).join('')}
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
-       ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(explorerGroups(),S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
+       ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
    </aside>
@@ -2211,7 +2155,7 @@ function viewBoard(){
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${bb.mode==='scatter'?scatterControls(plan):''}
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
-  bindRange(); bindSeriesPickers(); bindExplorerSearch();
+  bindRange(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
   bindBoardOrder(rerender);
   bindBoardBaseDates(plan,rerender);
@@ -2224,13 +2168,22 @@ function viewBoard(){
   });
   const list=document.getElementById('bblist');
   if(list){
-    if(catalogScroll!==undefined) list.scrollTop=catalogScroll;
     bindSeriesChecklist(list,openCatalogGroups,(id,checked)=>{
       if(checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax()) bb.picks.push(id);
       else if(!checked) bb.picks=bb.picks.filter(x=>x!==id);
       rerender();
     });
   }
+  if(bb.mode==='scatter') scatterCatalogs.forEach((axis,index)=>{
+    const catalogue=document.getElementById(axis.id);
+    catalogue.addEventListener('toggle',()=>{if(catalogue.isConnected) axis.open=catalogue.open;});
+    bindSeriesChecklist(document.getElementById(axis.id+'-list'),axis.groups,(id,checked)=>{
+      if(!checked) return;
+      axis.open=catalogue.open;
+      bb.picks[index]=id;
+      rerender();
+    });
+  });
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
   panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{
     const mode=b.dataset.bbm;
@@ -2251,13 +2204,18 @@ function viewBoard(){
   });
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
   panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
-  const sw=document.getElementById('bbswap'); if(sw) sw.addEventListener('click',()=>{ bb.picks.reverse(); rerender(); });
-  [['bbx',0],['bby',1]].forEach(([k,i])=>{ const el=document.getElementById(k); if(el) el.addEventListener('change',()=>{ const p=bb.picks.slice(); const j=p.indexOf(el.value); if(j>1) p.splice(j,1); p[i]=el.value; bb.picks=p; rerender(); }); });
+  document.getElementById('bbswap')?.addEventListener('click',()=>{bb.picks.reverse();rerender();});
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
   if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
-  if(['board-transform','board-transform-seasonal'].includes(transformFocused)) document.getElementById(transformFocused)?.focus({preventScroll:true});
-  if(focusedSeries) list?.querySelector(`[data-catalog-pick="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
+  if(['board-transform','board-transform-seasonal','bbcatalog-summary','bbx-summary','bby-summary','bbswap'].includes(transformFocused)){
+    document.getElementById(transformFocused)?.focus({preventScroll:true});
+  }
+  if(focusedSeries) document.getElementById(focusedList)?.querySelector(`[data-catalog-pick="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
+  for(const [id,scroll] of catalogScroll){
+    const list=document.getElementById(id);
+    if(list) list.scrollTop=scroll;
+  }
 }
 function drawBoard(plots,start){
   const h=document.getElementById('bbchart'), lg=document.getElementById('bblg');

@@ -125,6 +125,41 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertIn('Calculated here.', downloaded)
         self.assertIn('Source URL', downloaded)
 
+    def test_scatter_axes_use_the_grouped_series_catalogue(self):
+        page = self.start_page()
+        page.goto(f'{ORIGIN}/espana.html?lang=en#dispersion')
+        self.assert_blackboard(page, 'en')
+        x = page.get_by_role('group', name='Horizontal axis (X)')
+        y = page.get_by_role('group', name='Vertical axis (Y)')
+        x_summary = x.locator('#bbx-summary')
+        y_summary = y.locator('#bby-summary')
+        x_summary.click()
+        x_option = x.locator('input[type=radio][data-catalog-pick=paro_epa]')
+        for heading in x_option.locator('xpath=ancestor::details[@data-catalog-group]/summary').all():
+            heading.click()
+        x_option.focus()
+        x_option.press('Space')
+        expect(x_option).to_be_checked()
+        expect(x_option).to_be_focused()
+        expect(x_summary).to_contain_text('Unemployment')
+
+        y_summary.click()
+        y_option = y.locator('input[type=radio][data-catalog-pick=ipc_sub]')
+        for heading in y_option.locator('xpath=ancestor::details[@data-catalog-group]/summary').all():
+            heading.click()
+        y_option.check()
+        expect(y_option).to_be_checked()
+        expect(y.locator('[data-catalog-pick=paro_epa]')).to_be_disabled()
+        expect(page.locator('#bbchart svg')).to_be_visible()
+
+        page.get_by_role('button', name='Swap axes').click()
+        expect(x.locator('[data-catalog-pick=ipc_sub]')).to_be_checked()
+        expect(y.locator('[data-catalog-pick=paro_epa]')).to_be_checked()
+        expect(page.locator('#bbchart svg')).to_be_visible()
+
+        page.locator('[data-bbm=lines]').click()
+        expect(page.locator('#bblist input[type=checkbox]')).not_to_have_count(0)
+
     def test_overview_and_blackboard_share_numeric_typography(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en')
