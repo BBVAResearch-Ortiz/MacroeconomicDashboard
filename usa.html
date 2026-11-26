@@ -84,10 +84,10 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-date-range[open]{display:flex;align-items:center;gap:8px}
 .date-coverage{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.4;font-variant-numeric:tabular-nums}
 .date-coverage b{color:var(--chart-ink)}
-.custom-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;align-items:end}
-.custom-range label{display:grid;gap:4px;color:var(--chart-ink);font-weight:600}
+.custom-range{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.custom-range label{display:flex;align-items:center;gap:5px;min-width:0;color:var(--chart-ink);font-weight:600}
 .custom-range input{min-width:0;padding:5px 7px;border:1px solid var(--rule);border-radius:5px;background:var(--surface);color:var(--ink);font:inherit}
-.custom-range [role="alert"]{grid-column:1/-1;margin:4px 0 0;color:var(--ink)}
+.custom-range [role="alert"]{flex-basis:100%;margin:0;color:var(--ink)}
 .custom-range [role="alert"]:empty{display:none}
 @media(max-width:600px){.period-controls{flex-wrap:wrap}}
 @media(max-width:380px){.chart-date-range[open]{display:grid;gap:4px}}
@@ -212,9 +212,9 @@ table.fc td.f{font-weight:600}
 .board-layout .board-figure.fig{gap:6px;padding:clamp(8px,1vw,14px)}
 .board-layout .board-figure>.chart-range{margin:0}
 .board-figure .period-controls{flex-wrap:wrap}
-.board-copy-tools{display:flex;justify-content:flex-end}
-.board-copy.btn{background:#f0f2f4;border-color:var(--rule);color:#39455b;font-size:13px;padding:8px 10px;white-space:nowrap}
-.board-copy:disabled{opacity:.55;cursor:default}
+.board-image-tools{display:flex;justify-content:flex-end}
+.board-download-image.btn{background:#f0f2f4;border-color:var(--rule);color:#39455b;font-size:13px;padding:8px 10px;white-space:nowrap}
+.board-download-image:disabled{opacity:.55;cursor:default}
 .board-chart-note{order:2;margin:0}
 .bbgallery>.figure-csv-footer{margin-top:12px}
 .board-figure .legend i{flex:none}
@@ -1351,10 +1351,14 @@ const specIds=spec=>spec.filter(x=>!(typeof x==='string'&&x[0]==='#')).map(x=>Ar
 const csvOf=(rows,separator=';')=>rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(separator)).join('\n');
 const csvLabel=()=>isEN()?'Download CSV':'Descargar CSV';
 function downloadCsv(name,csv){
-  const url=URL.createObjectURL(new Blob(['\uFEFF',csv.replace(/\r?\n/g,'\r\n')],{type:'text/csv;charset=utf-8'}));
+  const blob=new Blob(['\uFEFF',csv.replace(/\r?\n/g,'\r\n')],{type:'text/csv;charset=utf-8'});
+  downloadBlob(name.replace(/[^a-zA-Z0-9_-]+/g,'-')+'.csv',blob);
+}
+function downloadBlob(name,blob){
+  const url=URL.createObjectURL(blob);
   const download=document.createElement('a');
   download.href=url;
-  download.download=name.replace(/[^a-zA-Z0-9_-]+/g,'-')+'.csv';
+  download.download=name;
   document.body.append(download);
   download.click();
   download.remove();
@@ -2242,7 +2246,7 @@ function viewBoard(){
   const usaIds=IS_USA&&!gallery?registerPlotSeries(plan.rows,'__plot_board_').map(({id})=>id):[];
   const transformFocused=document.activeElement?.id;
   const tree=explorerGroups();
-  const copyImage=`<button type="button" id="bb-copy-image" class="btn board-copy" aria-live="polite" disabled>${isEN()?'Copy image':'Copiar imagen'}</button>`;
+  const downloadImage=`<button type="button" id="bb-download-image" class="btn board-download-image" aria-live="polite" disabled>${isEN()?'Download PNG':'Descargar PNG'}</button>`;
   panel.innerHTML=boardHeader()+`
    <div class="bbwrap${IS_USA?'':' board-layout'}"><aside class="bbside" aria-label="${isEN()?'Blackboard options':'Opciones de la pizarra'}">
      ${bb.mode==='scatter'?`${scatterCatalogs.map((axis,index)=>scatterAxisCatalog(axis,index,tree)).join('')}
@@ -2255,7 +2259,7 @@ function viewBoard(){
    </aside>
    <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${IS_USA?' data-csv-slot="bb-csv"':''}>
      ${usaHeading?`<div class="figure-csv-title"><h3>${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:''}
-     ${bb.mode==='scatter'?`<div class="board-copy-tools">${copyImage}</div>`:chartRangeCtl(IS_USA,copyImage)}
+     ${bb.mode==='scatter'?`<div class="board-image-tools">${downloadImage}</div>`:chartRangeCtl(IS_USA,downloadImage)}
      <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
      ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
      ${!IS_USA&&mixedFrequencies?`<p class="note board-chart-note">${isEN()?'Higher-frequency series are averaged to match the lowest frequency.':'Las series de mayor frecuencia se promedian a la menor.'}</p>`:''}
@@ -2319,13 +2323,13 @@ function viewBoard(){
     panel.querySelector(`[data-bbax="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
   }));
   document.getElementById('bbswap')?.addEventListener('click',()=>{bb.picks.reverse();rerender();});
-  const copyButton=document.getElementById('bb-copy-image');
+  const downloadButton=document.getElementById('bb-download-image');
   const chart=document.getElementById('bbchart');
-  const canCopy=()=>Boolean(chart.querySelector('svg,.bbheat'));
-  copyButton?.addEventListener('click',()=>copyBoardImage(copyButton,chart,canCopy));
+  const hasImage=()=>Boolean(chart.querySelector('svg,.bbheat'));
+  downloadButton?.addEventListener('click',()=>downloadBoardImage(downloadButton,chart,hasImage));
   const draw=()=>{
     drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
-    if(copyButton&&!copyButton.dataset.copying) copyButton.disabled=!canCopy();
+    if(downloadButton&&!downloadButton.dataset.exporting) downloadButton.disabled=!hasImage();
   };
   draw(); observe(draw); tr(panel);
   panel.querySelectorAll('.bbfig h3').forEach(title=>{title.title=title.textContent;});
@@ -2439,21 +2443,18 @@ async function boardImageBlob(host){
     blob=>blob?resolve(blob):reject(new Error('PNG encoding failed')),'image/png'
   ));
 }
-async function copyBoardImage(button,host,canCopy){
+async function downloadBoardImage(button,host,hasImage){
   const en=isEN();
-  button.dataset.copying='';
+  button.dataset.exporting='true';
   button.disabled=true;
   try{
-    if(!navigator.clipboard?.write||typeof ClipboardItem!=='function') throw new Error('Image clipboard unavailable');
-    const png=boardImageBlob(host);
-    png.catch(()=>{});
-    await navigator.clipboard.write([new ClipboardItem({'image/png':png})]);
-    button.textContent=en?'Image copied':'Imagen copiada';
+    downloadBlob('blackboard.png',await boardImageBlob(host));
+    button.textContent=en?'Download PNG':'Descargar PNG';
   }catch{
-    button.textContent=en?'Could not copy':'No se pudo copiar';
+    button.textContent=en?'Could not download':'No se pudo descargar';
   }finally{
-    delete button.dataset.copying;
-    button.disabled=!canCopy();
+    delete button.dataset.exporting;
+    button.disabled=!hasImage();
   }
 }
 function drawBoard(plots,start){

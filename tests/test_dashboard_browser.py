@@ -240,6 +240,16 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLess(abs(fields['y'] - quick_ranges['y']), 16)
         start = dates.get_by_label('From')
         end = dates.get_by_label('To')
+        for field in (start, end):
+            geometry = field.evaluate("""input => {
+                const text=document.createRange();
+                text.selectNode(input.closest('label').firstChild);
+                const label=text.getBoundingClientRect(), field=input.getBoundingClientRect();
+                return {labelRight:label.right,inputLeft:field.left,
+                    centerDifference:Math.abs(label.top+label.height/2-field.top-field.height/2)};
+            }""")
+            self.assertLessEqual(geometry['labelRight'], geometry['inputLeft'])
+            self.assertLess(geometry['centerDifference'], 3)
         start.fill('2025-01-01')
         expect(dates).to_have_attribute('data-custom', '')
         expect(start).to_be_focused()
@@ -379,40 +389,26 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertGreater(bounds['height'], 380)
         self.assertGreaterEqual(footer.bounding_box()['y'], bounds['y'] + bounds['height'])
 
-    def test_blackboard_copies_a_png_from_chart_and_heat_map(self):
+    def test_blackboard_downloads_a_png_from_chart_and_heat_map(self):
         page = self.start_page(viewport={'width': 1440, 'height': 900})
-        page.add_init_script("""
-            window.ClipboardItem = class {
-                constructor(items) { this.items=items; }
-            };
-            Object.defineProperty(navigator,'clipboard',{value:{write:async ([item])=>{
-                const png=await item.items['image/png'];
-                const header=new DataView(await png.slice(0,24).arrayBuffer());
-                window.copiedChart={
-                    format:png.type, signature:header.getUint32(0),
-                    width:header.getUint32(16), height:header.getUint32(20)
-                };
-            }}});
-        """)
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         marker = page.locator('.chart-date-range summary')
-        copy_button = page.locator('#bb-copy-image')
-        self.assertGreaterEqual(copy_button.bounding_box()['x'], marker.bounding_box()['x'] + marker.bounding_box()['width'])
+        download_button = page.get_by_role('button', name='Download PNG')
+        self.assertGreaterEqual(download_button.bounding_box()['x'], marker.bounding_box()['x'] + marker.bounding_box()['width'])
+        expect(page.get_by_role('button', name='Copy image')).to_have_count(0)
         self.assertGreater(page.locator('#bbchart svg').bounding_box()['height'], 500)
 
         for mode in ('lines', 'heat'):
             with self.subTest(mode=mode):
                 page.locator(f'[data-bbm={mode}]').click()
-                page.evaluate('window.copiedChart=null')
-                expect(copy_button).to_have_text('Copy image')
-                copy_button.click()
-                expect(copy_button).to_have_text('Image copied')
-                result = page.evaluate('window.copiedChart')
-                self.assertEqual(result['format'], 'image/png')
-                self.assertEqual(result['signature'], 0x89504E47)
-                self.assertGreater(result['width'], 0)
-                self.assertGreater(result['height'], 0)
+                with page.expect_download() as pending:
+                    download_button.click()
+                self.assertEqual(pending.value.suggested_filename, 'blackboard.png')
+                png = pending.value.path().read_bytes()
+                self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
+                self.assertGreater(int.from_bytes(png[16:20], 'big'), 0)
+                self.assertGreater(int.from_bytes(png[20:24], 'big'), 0)
 
     def test_overview_card_headings_stay_on_one_line(self):
         page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
