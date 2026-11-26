@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>USA Chart Layout</title>
+  <link rel="stylesheet" href="usa-chart-layout.css" />
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <!-- Barra externa: Transformación y Descarga fuera del contenedor del gráfico -->
+    <div class="external-controls-bar" role="region" aria-label="Controles de serie y descarga">
+      <div class="control-field">
+        <label for="transformation-select">Transformación</label>
+        <select id="transformation-select">
+          <option value="raw">Original</option>
+          <option value="standardized">Estandarizado</option>
+          <option value="yoy">Variación interanual (%)</option>
+        </select>
+      </div>
+
+      <button type="button" id="download-csv-btn" class="btn-secondary">
+        Download CSV
+      </button>
+    </div>
+
+    <!-- Tarjeta limpia del gráfico -->
+    <section class="chart-card">
+      <header class="chart-header">
+        <h2 class="chart-title">
+          Real GDP (BEA) / CPI All Urban Consumers (BLS) / Unemployment Rate (BLS)
+        </h2>
+        <p class="chart-subtitle">
+          Líneas · Chained 2017 USD · Index 1982-84=100 · %
+        </p>
+      </header>
+
+      <div class="chart-body">
+        <div class="chart-main">
+          <div class="range-bar">
+            <button type="button" class="range-btn">1m</button>
+            <button type="button" class="range-btn">3m</button>
+            <button type="button" class="range-btn">6m</button>
+            <button type="button" class="range-btn">1a</button>
+            <button type="button" class="range-btn is-active">4a</button>
+            <button type="button" class="range-btn">10a</button>
+            <button type="button" class="range-btn">Todo</button>
+            <span class="range-dates">1 oct 2022 → 1 oct 2026</span>
+          </div>
+          <div id="chart-canvas" class="chart-canvas">
+            <!-- Renderizar aquí el gráfico -->
+          </div>
+        </div>
+
+        <aside class="chart-sidebar">
+          <h3 class="sidebar-title">Últimos datos visibles</h3>
+          <div id="latest-values-list">
+            <!-- Valores recientes -->
+          </div>
+        </aside>
+      </div>
+
+      <footer class="chart-footer">
+        <p class="footer-source">Fuente: BEA / FRED y BLS / FRED</p>
+        <p class="footer-note">
+          Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.
+        </p>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>
