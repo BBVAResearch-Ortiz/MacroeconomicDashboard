@@ -107,6 +107,8 @@ a.source-publisher{text-decoration:underline;text-underline-offset:2px}
 .series-source-name{display:block;color:var(--chart-ink)}
 .figure-csv-header{display:flex;gap:8px 12px;align-items:flex-start;justify-content:flex-end}
 .figure-csv-header>.figure-csv-title{flex:1;min-width:0}
+.figure-csv-footer{order:4;display:flex;justify-content:flex-end}
+.figure-csv-footer:empty{display:none}
 .csv-action.btn{flex:none;font-size:12px;line-height:1.2;padding:6px 9px;white-space:nowrap}
 .csv-action:disabled{opacity:.5;cursor:default}
 .chart-readings.is-hovering li time{display:none}
@@ -199,6 +201,13 @@ table.fc td.f{font-weight:600}
 .bbwrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:32px;align-items:start}
 @media(max-width:900px){.bbwrap{grid-template-columns:minmax(0,1fr)}}
 .bbside{display:flex;flex-direction:column;gap:18px;position:sticky;top:12px}
+.board-layout{column-gap:24px}
+@media(max-width:900px){.board-layout>.bbside{position:static}}
+.board-figure{margin:0;min-width:0}
+.board-layout .board-figure>.chart-range{margin-bottom:0}
+.board-chart-note{order:2;margin:0}
+.bbgallery>.figure-csv-footer{margin-top:12px}
+.board-figure .legend i{flex:none}
 .bbgrp{display:flex;flex-direction:column;gap:8px}
 .big-catalog-filters{padding:8px;border-bottom:1px solid var(--rule)}
 .big-compare-actions{display:flex;flex-wrap:wrap;gap:6px}
@@ -213,6 +222,10 @@ table.fc td.f{font-weight:600}
 .transform-field{display:grid;gap:4px;min-width:0}
 .transform-field>select.axsel{min-width:0;max-width:none;text-overflow:ellipsis}
 .transform-field>.picklab{font-size:10px;letter-spacing:.06em}
+.board-layout .transform-control{grid-template-columns:minmax(0,1fr)}
+.transform-details{font-size:12px;color:var(--muted)}
+.transform-details summary{cursor:pointer;color:var(--accent);font-weight:600}
+.transform-details .transform-sources{display:grid;margin-top:6px}
 #bblg:empty{display:none}
 /* Blackboard de USA (.bbfig): título en una línea, subtítulo y periodos; lecturas como leyenda inferior */
 .bbfig h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-wrap:nowrap;overflow-wrap:normal}
@@ -731,7 +744,7 @@ function bindChartSources(host,series){
   const details=existing||document.createElement('details');
   details.className='series-chart-sources';
   details.innerHTML=`<summary>${isEN()?'Sources by series':'Fuentes por serie'}</summary><ul>${rows}</ul>`;
-  if(!existing) figure.insertBefore(details,figure.querySelector(':scope > figcaption'));
+  if(!existing) figure.insertBefore(details,figure.querySelector(':scope > .figure-csv-footer, :scope > figcaption'));
 }
 function chartReadings(host,series,percentScale){
   const title=isEN()?'Latest visible readings':'Últimos datos visibles';
@@ -768,6 +781,7 @@ function chartReadings(host,series,percentScale){
 }
 function drawChart(host, cfg){
   const start=cfg.start??cutoff(), end=upperCutoff();
+  const interactive=cfg.featured||cfg.hoverOnly;
   const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s,data:(S()[s.id]?.data||[]).filter(([day,value])=>Number.isFinite(value)&&ts(day)>=start&&ts(day)<=end)}));
   if(cfg.seriesOrder) all.sort((a,b)=>cfg.seriesOrder.indexOf(a.id)-cfg.seriesOrder.indexOf(b.id));
   if(!cfg.featured) bindChartSources(host,all.map(({id})=>S()[id]));
@@ -807,7 +821,7 @@ function drawChart(host, cfg){
   const yR=v=>padT+(rhi-v)/((rhi-rlo)||1)*(H-padT-padB); const y=yL; const yOf=s=>s.right?yR:yL;
   const grid=css('--chart-grid'), rule=css('--chart-zero'), surf=css('--surface');
   const gridLine=(v,position)=>`<line x1="${padL}" x2="${W-padR}" y1="${position}" y2="${position}" stroke="${v===0?rule:grid}" stroke-width="${v===0?1.2:1}"/>`;
-  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}"${readings?' tabindex="0"':''}>`;
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}"${interactive?' tabindex="0"':''}>`;
   if(hasLeft){
     ticks.forEach((v,i)=>{ g+=`${gridLine(v,y(v))}<text data-axis-tick="left" x="${padL-8}" y="${y(v)+4}" text-anchor="end">${leftLabels[i]}</text>`; });
     if(cfg.axisLabels) g+=`<text data-axis-label="left" x="${padL-8}" y="12" text-anchor="end" style="fill:var(--chart-ink);font-weight:500">Izq.</text>`;
@@ -829,7 +843,7 @@ function drawChart(host, cfg){
   // lines
   [...lines,...rlines].forEach(s=>{ if(!s.data.length) return; let dpath=''; let prev=null; const y=yOf(s);
     s.data.forEach(o=>{ const X=x(ts(o[0])),Y=y(o[1]); const gap = prev && (ts(o[0])-ts(prev[0])) > ({M:40,Q:100,D:20}[S()[s.id].freq]||40)*864e5; dpath += (dpath&&!gap?'L':'M')+X.toFixed(1)+','+Y.toFixed(1); prev=o; });
-    g+=`<path data-axis="${s.right?'right':'left'}" d="${dpath}" fill="none" stroke="${css(s.color)}" stroke-width="${cfg.featured?2.2:1.9}" stroke-linejoin="round" stroke-linecap="round" ${s.right?'stroke-dasharray="6 3"':''}/>`;
+    g+=`<path data-axis="${s.right?'right':'left'}" d="${dpath}" fill="none" stroke="${css(s.color)}" stroke-width="${interactive?2.2:1.9}" stroke-linejoin="round" stroke-linecap="round" ${s.right?'stroke-dasharray="6 3"':''}/>`;
     const L=s.data.at(-1); g+=`<circle cx="${x(ts(L[0]))}" cy="${y(L[1])}" r="3.5" fill="${css(s.color)}" stroke="${surf}" stroke-width="1.5"/>`; });
   g+=`<line id="xh" x1="0" x2="0" y1="${padT}" y2="${H-padB}" stroke="${css('--faint')}" stroke-dasharray="3 3" visibility="hidden"/><g id="dots"></g>`;
   g+=`<rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}" fill="transparent" id="hit"/></svg>`;
@@ -847,16 +861,17 @@ function drawChart(host, cfg){
     const d=dates[index], X=x(dts[index]);
     xh.setAttribute('x1',X); xh.setAttribute('x2',X); xh.setAttribute('visibility','visible');
     let rows='', dh='';
-    const points=all.map((s,i)=>observations[i].get(d)||(!readings&&S()[s.id].freq!==S()[all[0].id].freq?lastBefore(s.data,d):null));
+    const points=all.map((s,i)=>observations[i].get(d)||(!interactive&&S()[s.id].freq!==S()[all[0].id].freq?lastBefore(s.data,d):null));
     all.forEach((s,i)=>{ const o=points[i]; if(!o) return;
       if(!readings){
         const reading=chartReading(s.id,o[1],cfg.percentScale);
-        rows+=`<div><span><i style="background:${css(s.color)}"></i>${esc(s.short||s.name)}</span><span>${esc(reading.value+(reading.unit?' '+reading.unit:''))}${o[2]?' (avance)':''}</span></div>`;
+        const flash=o[2]?(isEN()?' (flash)':' (avance)'):'';
+        rows+=`<div><span><i style="background:${css(s.color)}"></i>${esc(s.short||s.name)}</span><span>${esc(reading.value+(reading.unit?' '+reading.unit:''))}${flash}</span></div>`;
       }
       if(lines.includes(s)||rlines.includes(s)) dh+=`<circle cx="${x(ts(o[0]))}" cy="${yOf(s)(o[1])}" r="4" fill="${css(s.color)}" stroke="${surf}" stroke-width="2"/>`; });
     dots.innerHTML=dh;
     if(readings){readings.update(d,fr,points);return;}
-    tip.innerHTML=`<b>${fmtDate(d,S()[all[0].id].freq)}</b>${rows}`; tr(tip); tip.hidden=false;
+    tip.innerHTML=`<b><time datetime="${d}">${fmtDate(d,cfg.hoverOnly?fr:S()[all[0].id].freq)}</time></b>${rows}`; tr(tip); tip.hidden=false;
     const r=svg.getBoundingClientRect();
     const hw=plot.clientWidth, tw=tip.offsetWidth; let left=X*r.width/W+12; if(left+tw>hw) left=X*r.width/W-tw-12; tip.style.left=Math.max(0,left)+'px'; tip.style.top='8px'; };
   const hide=()=>{ tip.hidden=true; xh.setAttribute('visibility','hidden'); dots.innerHTML=''; readings?.update(); active=-1; };
@@ -871,10 +886,11 @@ function drawChart(host, cfg){
     }
     showDate(lo);
   };
-  svg.addEventListener('pointermove',show);
-  svg.addEventListener('pointerleave',event=>{if(event.pointerType!=='touch') hide();});
-  svg.addEventListener('pointerdown',show);
-  if(readings){
+  const pointerTarget=cfg.hoverOnly?svg.querySelector('#hit'):svg;
+  pointerTarget.addEventListener('pointermove',show);
+  pointerTarget.addEventListener('pointerleave',event=>{if(event.pointerType!=='touch') hide();});
+  pointerTarget.addEventListener('pointerdown',show);
+  if(interactive){
     svg.addEventListener('blur',hide);
     svg.addEventListener('keydown',event=>{
       if(event.key==='Escape'){hide();return;}
@@ -1061,7 +1077,7 @@ function bindRange(){
     render();
   });
 }
-function legendHTML(items,bars){ if(items.length<2) return ''; return `<div class="legend">${items.map(s=>`<span><i class="${bars&&bars.some(b=>b===s||b.name===s.name)?'bar':''}" style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join('')}</div>`; }
+function legendHTML(items,bars,showSingle=false){ if(items.length<(showSingle?1:2)) return ''; return `<div class="legend">${items.map(s=>`<span><i class="${bars&&bars.some(b=>b===s||b.name===s.name)?'bar':''}" style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join('')}</div>`; }
 function latest(id){ const d=S()[id]?.data||[]; return d[d.length-1]; }
 function prevObs(id,n=1){ const d=S()[id]?.data||[]; return d[d.length-1-n]; }
 function yearAgo(id){ const s=S()[id], L=latest(id); if(!L) return null; if(s.freq==='D'||s.freq==='W'){ const t=ts(L[0])-365*864e5; return lastBefore(s.data, new Date(t).toISOString().slice(0,10)); } const y=(+L[0].slice(0,4)-1)+L[0].slice(4); return s.data.find(o=>o[0]===y); }
@@ -1290,23 +1306,24 @@ function downloadCsvRows(name,rows){
 }
 function bindFigureCsv(figure,download,enabled=true){
   if(!figure) return;
-  let header=(figure.dataset.csvSlot&&document.getElementById(figure.dataset.csvSlot))||figure.querySelector(':scope > .figure-csv-header');
-  if(!header){
+  let controls=(figure.dataset.csvSlot&&document.getElementById(figure.dataset.csvSlot))
+    ||figure.querySelector(':scope > .figure-csv-footer, :scope > .figure-csv-header');
+  if(!controls){
     const title=figure.firstElementChild;
-    header=document.createElement('div');
-    header.className='figure-csv-header';
-    figure.prepend(header);
+    controls=document.createElement('div');
+    controls.className='figure-csv-header';
+    figure.prepend(controls);
     if(title?.querySelector('h3')){
       title.classList.add('figure-csv-title');
-      header.append(title);
+      controls.append(title);
     }
   }
-  let button=header.querySelector('.csv-action');
+  let button=controls.querySelector('.csv-action');
   if(!button){
     button=document.createElement('button');
     button.className='btn ghost csv-action';
     button.type='button';
-    header.append(button);
+    controls.append(button);
   }
   button.textContent=csvLabel();
   button.disabled=!enabled;
@@ -1721,7 +1738,6 @@ function boardHeader(){
   return `<div class="sechead board-head"><h2>Blackboard</h2><div class="board-modes" role="group" aria-label="${isEN()?'Chart type':'Modalidad de gráfico'}">${boardModes()}</div><div class="figure-csv-header board-csv" id="bb-csv"></div></div>`;
 }
 
-const UNIT_ES={'€/m²':'€/m²','% a/a':'% a/a','%':'%','% PIB':'% del PIB','pp':'pp','pb':'pb','M€':'millones de euros','mm€':'miles de millones de euros','miles':'miles','índice':'índice','saldo':'saldo'};
 function scatterData(xId,yId){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
   const today=todayInMadrid();
   const pairs=s=>toFreq(s.data.filter(([d,v])=>d<=today&&Number.isFinite(v)),s.freq,f);
@@ -1749,9 +1765,9 @@ function bindScatterCsv(host,name,{pts,f,X,Y}){
   }));
   bindSeriesCsv(host,name,series);
 }
-function drawScatter(host,pts,f,X,Y,fit,trail=false){
+function drawScatter(host,pts,f,X,Y,fit,trail=false,height){
   bindChartSources(host,[X,Y]);
-  const W=Math.max(280,host.clientWidth), H=Math.min(460,Math.max(300,W*0.62)), padL=50,padR=16,padT=16,padB=42;
+  const W=Math.max(280,host.clientWidth), H=height??Math.min(460,Math.max(300,W*0.62)), padL=50,padR=16,padT=16,padB=42;
   if(pts.length<2){ host.innerHTML='<p class="note">Sin datos en este periodo.</p>'; tr(host); return; }
   const xt=niceTicks(Math.min(...pts.map(p=>p.x)),Math.max(...pts.map(p=>p.x)),W<500?4:6), yt=niceTicks(Math.min(...pts.map(p=>p.y)),Math.max(...pts.map(p=>p.y)),5);
   const x0=xt[0],x1=xt[xt.length-1],y0=yt[0],y1=yt[yt.length-1];
@@ -1835,7 +1851,7 @@ function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjust
   const rows=options.get(selected).map(row=>row.publishedFallback?{...row,...row.publishedFallback}:row);
   return {selected,options,rows,usable,adjustment,availableAdjustments};
 }
-function transformationControls(id,plan){
+function transformationControls(id,plan,{collapseNotes=false,notesOpen=false}={}){
   if(!plan.rows.length) return '';
   const en=isEN();
   const options=[...plan.options].map(([kind,rows])=>{
@@ -1857,11 +1873,12 @@ function transformationControls(id,plan){
     const selected=key===plan.adjustment;
     return `<option value="${key}"${selected?' selected':''}${!selected&&!plan.availableAdjustments.includes(key)?' disabled':''}>${esc(names[Number(en)])}</option>`;
   });
+  const details=notes.length?`<div class="transform-sources" aria-live="polite">${notes.join('')}</div>`:'';
   return `<div class="transform-control"><div class="transform-field"><label class="picklab" for="${id}">${en?'Transformation':'Transformación'}</label>
     <select id="${id}" class="axsel">${options.join('')}</select></div>
     <div class="transform-field"><label class="picklab" for="${id}-seasonal">${en?'Seasonal adjustment':'Ajuste estacional'}</label>
     <select id="${id}-seasonal" class="axsel">${seasonal.join('')}</select></div></div>
-    ${notes.length?`<div class="transform-sources" aria-live="polite">${notes.join('')}</div>`:''}`;
+    ${details&&collapseNotes?`<details class="transform-details"${notesOpen?' open':''}><summary>${en?'Transformation details':'Detalles de la transformación'}</summary>${details}</details>`:details}`;
 }
 function bindTransformationControls(id,onTransformation,onAdjustment){
   document.getElementById(id)?.addEventListener('change',event=>onTransformation(event.target.value));
@@ -1893,8 +1910,7 @@ const SCATTER_FITS=[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal
 function scatterControls(plan){
   return `<section class="scatter-analysis" aria-label="${isEN()?'Scatterplot analysis':'Análisis de dispersión'}">
     <h4 style="margin:0">${isEN()?'Scatterplot analysis':'Análisis de dispersión'}</h4>
-    ${IS_USA?'':transformationControls('board-transform',plan)}
-    ${[...new Set(bb.picks)].map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join('')}
+    ${IS_USA?[...new Set(bb.picks)].map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join(''):''}
     <div class="fit-tools"><div class="seg" role="group" aria-label="${isEN()?'Fit':'Ajuste'}">
       ${SCATTER_FITS.map(([kind,label])=>`<button type="button" data-bbf="${kind}" aria-pressed="${bb.fit===kind}">${label}</button>`).join('')}
     </div><label class="chk"><input type="checkbox" id="bb-trail"${bb.trail?' checked':''}> Unir puntos en orden temporal</label></div>
@@ -2097,21 +2113,24 @@ function bindBoardBaseDates(plan,rerender){
     form.querySelector('[data-base-reset]')?.addEventListener('click',()=>{delete bb.baseDates[id];apply();});
   });
 }
-function bbFigHead(ids){ if(!ids.length) return bb.picks.length?
-  {t:isEN()?'No compatible series':'No hay series compatibles',sub:''}:{t:'Pizarra vacía',sub:'Elige series en el panel de la izquierda'};
-  const units=[...new Set(ids.map(id=>S()[id].unit))].map(u=>UNIT_ES[u]||u);
-  if(bb.mode==='scatter'){ if(ids.length<2) return {t:esc(S()[ids[0]].label),sub:'Dispersión: elige una segunda serie para el eje Y'};
-    return {t:`${esc(S()[ids[1]].label)} frente a ${esc(S()[ids[0]].label)}`,
-      sub:esc(`X: ${unitLabel(S()[ids[0]].unit)} · Y: ${unitLabel(S()[ids[1]].unit)} · ${isEN()?'Full history':'Historia completa'}`)}; }
-  if(bb.mode==='heat') return {t:'Mapa de calor',sub:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
-  if(bb.mode==='multiples') return {t:isEN()?'Chart gallery':'Galería Gráfica',sub:isEN()?'Compare the selected series over the same period. Each chart has its own vertical scale.':'Compara las series seleccionadas en el mismo periodo. Cada gráfico tiene su propia escala vertical.'};
-  const modeTxt={lines:'Líneas',dual:'Dos ejes',bars:'Barras',stack:'Barras apiladas'}[bb.mode];
-  const conv=(bb.mode==='bars'||bb.mode==='stack')&&new Set(ids.map(id=>S()[id].freq)).size>1?' · las series de mayor frecuencia se promedian a la menor':'';
-  return {t:ids.map(id=>esc(S()[id].label)).join(' / '), sub:esc(`${modeTxt} · ${units.join(' · ')}${conv}`)}; }
 function loadHeatExample(){
   bb.picks=IS_EXTERNAL_MONITOR?exIds().filter(id=>S()[id].freq==='M').slice(0,8)
     :['ipi_yoy','icm_yoy','afil_yoy','paro_reg_yoy','ipc','euribor12','matric','turistas'].filter(id=>S()[id]&&S()[id].block!=='aux');
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
+}
+function usaBoardFigureTitle(series,mixedFrequencies){
+  if(!series.length) return bb.picks.length
+    ? {title:isEN()?'No compatible series':'No hay series compatibles',subtitle:''}
+    : {title:'Pizarra vacía',subtitle:'Elige series en el panel de la izquierda'};
+  const [x,y]=series;
+  if(bb.mode==='scatter') return y
+    ? {title:`${y.label} frente a ${x.label}`,subtitle:`X: ${unitLabel(x.unit)} · Y: ${unitLabel(y.unit)} · ${isEN()?'Full history':'Historia completa'}`}
+    : {title:x.label,subtitle:'Dispersión: elige una segunda serie para el eje Y'};
+  if(bb.mode==='heat') return {title:'Mapa de calor',subtitle:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
+  const mode=BB_MODES.find(([key])=>key===bb.mode)?.[1];
+  const units=[...new Set(series.map(s=>s.unit==='% PIB'?'% del PIB':s.unit))];
+  const conversion=mixedFrequencies?' · las series de mayor frecuencia se promedian a la menor':'';
+  return {title:series.map(s=>s.label).join(' / '),subtitle:`${mode} · ${units.join(' · ')}${conversion}`};
 }
 let openScatterLink=false;
 function chooseScatterPair(catalog,kind,adjustment){
@@ -2160,27 +2179,36 @@ function viewBoard(){
   const start=cutoff();
   const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates,adjustment:bb.adjustment});
   if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
-  const plots=registerPlotSeries(plan.rows,'__plot_board_');
-  const ids=plots.map(p=>p.id);
-  const H=bbFigHead(ids), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
+  const series=plan.rows.flatMap(row=>row.series?[row.series]:[]);
+  const units=new Set(series.map(s=>unitLabel(s.unit)));
+  const mixedUnits=['lines','bars','stack'].includes(bb.mode)&&units.size>1;
+  const mixedFrequencies=['bars','stack'].includes(bb.mode)&&new Set(series.map(s=>s.freq)).size>1;
+  const gallery=bb.mode==='multiples';
+  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(series,mixedFrequencies):null;
+  const usaIds=IS_USA&&!gallery?registerPlotSeries(plan.rows,'__plot_board_').map(({id})=>id):[];
   const transformFocused=document.activeElement?.id;
+  const notesOpen=panel.querySelector('.transform-details')?.open;
   const tree=explorerGroups();
   panel.innerHTML=boardHeader()+`
-   <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
+   <div class="bbwrap${IS_USA?'':' board-layout'}"><aside class="bbside" aria-label="${isEN()?'Blackboard options':'Opciones de la pizarra'}">
      ${bb.mode==='scatter'?`${scatterCatalogs.map((axis,index)=>scatterAxisCatalog(axis,index,tree)).join('')}
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
+     ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:transformationControls('board-transform',plan,{collapseNotes:true,notesOpen})}
+     ${!IS_USA&&bb.mode==='scatter'?bb.picks.map(id=>boardBaseForm(plan,id,L10(S()[id].label))).join(''):''}
      ${IS_USA?'':`<div class="bbgrp"><span class="picklab">Modalidad de gráfico</span>${boardModes()}</div>`}
-     ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:''}
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
    </aside>
-   <figure class="${bb.mode==='multiples'?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${IS_USA?' data-csv-slot="bb-csv"':''} style="margin:0;min-width:0">${bb.mode==='multiples'?'':`<div${IS_USA?' class="figure-csv-title"':''}><h3>${H.t}</h3><div class="sub">${H.sub}</div></div>`}
-     ${IS_USA||bb.mode==='scatter'?'':transformationControls('board-transform',plan)}
+   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${IS_USA?' data-csv-slot="bb-csv"':''}>
+     ${usaHeading?`<div class="figure-csv-title"><h3>${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:''}
      ${bb.mode==='scatter'?'':chartRangeCtl()}
-     <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
+     <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
+     ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
+     ${!IS_USA&&mixedFrequencies?`<p class="note board-chart-note">${isEN()?'Higher-frequency series are averaged to match the lowest frequency.':'Las series de mayor frecuencia se promedian a la menor.'}</p>`:''}
      ${bb.mode==='scatter'?scatterControls(plan):''}
-     ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
+     ${IS_USA?(usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''):'<div class="figure-csv-footer"></div>'}
+   </figure></div>`;
   bindRange();
   if(bb.mode!=='scatter') bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
@@ -2259,23 +2287,29 @@ function drawBoard(plots,start){
   const h=document.getElementById('bbchart'), lg=document.getElementById('bblg');
   if(!h||!lg) return;
   if(!plots.length){
-    h.innerHTML='';
+    const message=bb.picks.length
+      ? (isEN()?'No compatible series.':'No hay series compatibles.')
+      : (isEN()?'Select series in the sidebar.':'Selecciona series en el menú lateral.');
+    h.innerHTML=IS_USA?'':`<p class="note">${message}</p>`;
     lg.innerHTML='';
     return;
   }
   const ids=plots.map(p=>p.id);
   const lines=plots.map(({id,index})=>({id,name:S()[id].label,color:COLORS[index%4]}));
   const title=lines.map(line=>L10(line.name)).join(' / ');
-  const W=Math.max(280,h.clientWidth), height=Math.round(Math.min(560,Math.max(340,W*0.5)));
+  const W=Math.max(280,h.clientWidth);
+  const height=Math.round(IS_USA?Math.min(560,Math.max(340,W*0.5)):Math.min(640,Math.max(380,W*0.57)));
   if(bb.mode==='heat'){drawHeatBoard(h,ids,start);lg.innerHTML='';return;}
   if(bb.mode==='multiples'){
     const frequency=isEN()?{D:'daily',W:'weekly',M:'monthly',Q:'quarterly'}:{D:'diaria',W:'semanal',M:'mensual',Q:'trimestral'};
     lg.innerHTML='';
     h.innerHTML='<div class="bbmultiples">'+lines.map((line,i)=>{
       const s=S()[line.id];
-      return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div><figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
+      const label=[L10(s.label),L10(unitLabel(s.unit))].filter(Boolean).join(' · ');
+      if(IS_USA) return `<figure class="fig bbmini" style="margin:0"><div><h3>${esc(s.label)}</h3><div class="sub">${esc(unitLabel(s.unit))} · ${esc(frequency[s.freq]||s.freq)}</div></div><div class="bbmini-chart" data-mini="${i}"></div><figcaption class="src">Fuente: ${srcLine([line.id])}</figcaption></figure>`;
+      return `<figure class="fig bbmini" style="margin:0"><div class="bbmini-chart chart" data-mini="${i}"></div><div class="lg">${legendHTML([{...line,name:label}],null,true)}</div><div class="figure-csv-footer"></div></figure>`;
     }).join('')+'</div>';
-    lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:line.name,height:210,zero:false,start}));
+    lines.forEach((line,i)=>drawChart(h.querySelector(`[data-mini="${i}"]`),{lines:[line],aria:L10(line.name),height:IS_USA?210:250,zero:false,start,hoverOnly:!IS_USA}));
     const end=upperCutoff();
     bindSeriesCsv(h,'blackboard',ids.map(id=>({...S()[id],data:S()[id].data.filter(([day])=>ts(day)>=start&&ts(day)<=end)})));
     return;
@@ -2292,24 +2326,31 @@ function drawBoard(plots,start){
     if(bb.fit==='quad') fit.q=quad(pts);
     if(bb.fit==='lowess') fit.lw=lowess(pts);
     bindScatterCsv(h,'blackboard',points);
-    drawScatter(h,pts,f,X,Y,fit,bb.trail);
+    drawScatter(h,pts,f,X,Y,fit,bb.trail,IS_USA?undefined:height);
     renderScatterStats(document.getElementById('bb-fit-stats'),points,fit);
     return;
   }
+  const chartOptions={aria:title,height,start,featured:IS_USA,hoverOnly:!IS_USA,csvName:'blackboard'};
+  const axisName=baseId=>bb.axis[baseId]==='L'?(isEN()?'left axis':'eje izq.'):(isEN()?'right axis':'eje dcho.');
   if(bb.mode==='dual'){
     const L=[],R=[];
     plots.forEach((p,i)=>{
-      (bb.axis[p.baseId]==='L'?L:R).push(lines[i]);
+      const line=lines[i];
+      (bb.axis[p.baseId]==='L'?L:R).push({...line,name:`${L10(line.name)} (${axisName(p.baseId)})`});
     });
-    const labelAxis=(list,suffix)=>list.map(line=>({...line,name:line.name+suffix}));
-    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),axisLabels:true,seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
+    drawChart(h,{...chartOptions,lines:L,rlines:R,axisLabels:true,seriesOrder:ids});
   }else if(bb.mode==='bars'||bb.mode==='stack'){
     const C=bbCommon(plots);
-    drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true,csvName:'blackboard'});
+    drawChart(h,{...chartOptions,bars:C.items,stack:bb.mode==='stack',zero:true});
   }else{
-    drawChart(h,{lines,aria:title,height,zero:bb.tr==='z',start,featured:true,csvName:'blackboard'});
+    drawChart(h,{...chartOptions,lines,zero:bb.tr==='z'});
   }
-  lg.innerHTML='';
+  const entries=IS_USA?[]:plots.map(({baseId,id},i)=>{
+    const label=L10(S()[baseId].label), unit=L10(unitLabel(S()[id].unit));
+    const axis=bb.mode==='dual'?axisName(baseId):'';
+    return {...lines[i],name:[label,unit,axis].filter(Boolean).join(' · ')};
+  });
+  lg.innerHTML=legendHTML(entries,['bars','stack'].includes(bb.mode)?entries:[],true);
 }
 function drawHeatBoard(host,ids,start){
   bindChartSources(host,ids.map(id=>S()[id]));

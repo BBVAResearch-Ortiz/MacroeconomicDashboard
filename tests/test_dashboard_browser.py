@@ -113,7 +113,7 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(employed).to_have_text('Right axis')
         expect(chart.locator('path[data-axis=right]')).to_have_count(2)
         expect(chart.locator('[data-axis-label=left]')).to_have_count(0)
-        expect(chart.locator('.chart-reading-label').first).to_contain_text('(right axis)')
+        expect(page.locator('#bblg')).to_contain_text('right axis')
         employed.press('Enter')
         expect(employed).to_have_text('Left axis')
 
@@ -220,10 +220,12 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(dates.locator('form')).to_be_visible()
         end.fill('2025-07-01')
         expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jul 2025')
-        self.assertTrue(all(day <= '2025-07-01' for day in page.locator(
-            '#bbchart .chart-readings time[datetime]'
-        ).evaluate_all("(readings) => readings.map(reading => reading.dateTime)")))
         expect(end).to_be_focused()
+        chart = page.locator('#bbchart')
+        chart.locator('svg').press('ArrowRight')
+        tooltip_date = chart.locator('.tip time')
+        expect(tooltip_date).to_be_visible()
+        self.assertLessEqual(tooltip_date.get_attribute('datetime'), '2025-07-01')
         end.fill('2024-12-01')
         expect(dates.get_by_role('alert')).to_contain_text('chronological order')
         expect(page.locator('.date-coverage')).to_contain_text('1 Jan 2025 – 1 Jul 2025')
@@ -250,15 +252,16 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bb-fit-stats')).to_contain_text('Quadratic R²')
         analysis.get_by_role('button', name='Non-linear (LOWESS)').click()
         expect(page.locator('#bb-fit-stats')).to_contain_text('LOWESS R²')
-        transform = analysis.get_by_label('Transformation')
+        transform = page.locator('.board-layout > aside').get_by_label('Transformation')
         expect(transform.locator('option[value=delta]')).to_have_text(
             'Change from previous observation (Calculated here)'
         )
         transform.select_option('delta')
-        expect(analysis.locator('[data-status=calculated]')).to_have_count(2)
+        page.locator('.transform-details summary').click()
+        expect(page.locator('.transform-details [data-status=calculated]')).to_have_count(2)
         expect(chart.locator('svg')).to_be_visible()
         with page.expect_download() as pending:
-            page.locator('.figure-csv-header .csv-action').click()
+            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         downloaded = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Calculated here.', downloaded)
         self.assertIn('Source URL', downloaded)
@@ -322,7 +325,7 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(y_summary).to_contain_text('Core CPI')
         expect(page.locator('#bbchart svg')).to_be_visible()
 
-    def test_overview_and_blackboard_share_numeric_typography(self):
+    def test_blackboard_shows_readings_on_hover_and_places_csv_below_chart(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en')
         card = page.locator('.gcard').first
@@ -330,17 +333,23 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(reading).to_be_visible()
         expect(reading.locator('small')).to_have_text('% y/y')
         expect(card.locator('.reading-context time')).to_have_attribute('datetime', re.compile(r'^\d{4}-\d{2}-\d{2}$'))
-        properties = ['font-family', 'font-size', 'font-weight', 'font-variant-numeric']
-        overview_style = reading.evaluate('(value, keys) => keys.map(key => getComputedStyle(value).getPropertyValue(key))', properties)
-        title_size = card.locator('h3').evaluate('title => parseFloat(getComputedStyle(title).fontSize)')
-
         page.locator('#tab-explorador').click()
         self.assert_blackboard(page, 'en')
-        board_reading = page.locator('#bbchart .chart-reading-value').first
-        board_style = board_reading.evaluate('(value, keys) => keys.map(key => getComputedStyle(value).getPropertyValue(key))', properties)
-        board_title_size = page.locator('.figure-csv-title h3').evaluate('title => parseFloat(getComputedStyle(title).fontSize)')
-        self.assertEqual(overview_style, board_style)
-        self.assertLess(title_size, board_title_size)
+        figure = page.locator('.board-figure')
+        chart = figure.locator('#bbchart')
+        tooltip = chart.locator('.tip')
+        expect(figure.locator('h3, .chart-readings, .chart-reading-value')).to_have_count(0)
+        expect(tooltip).to_be_hidden()
+        chart.locator('#hit').hover()
+        expect(tooltip).to_be_visible()
+        expect(tooltip.locator('time')).to_have_attribute('datetime', re.compile(r'^\d{4}-\d{2}-\d{2}$'))
+        page.locator('#board-transform').hover()
+        expect(tooltip).to_be_hidden()
+        footer = figure.locator('.figure-csv-footer')
+        expect(footer.get_by_role('button', name='Download CSV')).to_be_enabled()
+        bounds = chart.bounding_box()
+        self.assertGreater(bounds['height'], 380)
+        self.assertGreaterEqual(footer.bounding_box()['y'], bounds['y'] + bounds['height'])
 
     def test_overview_card_headings_stay_on_one_line(self):
         page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
@@ -367,9 +376,10 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(choice.locator('option')).to_have_count(2)
         expect(choice).to_have_value('raw')
         choice.select_option('adjusted')
-        expect(page.locator('.figure-csv-title h3')).to_contain_text('CVEC INE')
+        page.locator('.board-figure > .series-chart-sources summary').click()
+        expect(page.locator('.board-figure > .series-chart-sources .series-source-name')).to_contain_text('CVEC INE')
         with page.expect_download() as pending:
-            page.locator('.figure-csv-header .csv-action').click()
+            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         csv = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Source URL', csv)
         self.assertIn('CVEC INE', csv)
@@ -389,10 +399,11 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(select.locator('option[value=qoq]')).to_have_text('Quarter-on-quarter change (Calculated here)')
         expect(select.locator('option[value=mom]')).to_be_disabled()
         select.select_option('qoq')
+        page.locator('.transform-details summary').click()
         expect(page.locator('[data-status=calculated]')).to_contain_text('percentage points')
         expect(page.locator('#bbchart svg')).to_be_visible()
         with page.expect_download() as pending:
-            page.locator('.figure-csv-header .csv-action').click()
+            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
             rows = {row['Date']: row['Value'] for row in csv.DictReader(downloaded)}
         self.assertEqual(rows['2026-04-01'], '-0.46')
@@ -402,7 +413,7 @@ class DashboardBrowserTests(unittest.TestCase):
                     Object.is(csvSeriesValue({calculated:true}, -1e-14), -0)];
         }"""), [0.1, 1024.1 - 1024, False])
 
-    def test_transform_and_seasonality_share_a_row(self):
+    def test_transform_and_seasonality_are_stacked_in_the_sidebar(self):
         page = self.start_page()
         for width in (1180, 390, 320):
             with self.subTest(width=width):
@@ -411,10 +422,11 @@ class DashboardBrowserTests(unittest.TestCase):
                 self.assert_blackboard(page, 'en')
                 for mode in ('lines', 'scatter'):
                     page.locator(f'[data-bbm={mode}]').click()
-                    transform = page.locator('#board-transform').bounding_box()
-                    seasonal = page.locator('#board-transform-seasonal').bounding_box()
-                    self.assertAlmostEqual(transform['y'], seasonal['y'], delta=1)
-                    self.assertLess(transform['x'] + transform['width'], seasonal['x'])
+                    sidebar = page.locator('.board-layout > aside')
+                    transform = sidebar.get_by_label('Transformation').bounding_box()
+                    seasonal = sidebar.get_by_label('Seasonal adjustment').bounding_box()
+                    self.assertAlmostEqual(transform['x'], seasonal['x'], delta=1)
+                    self.assertLess(transform['y'] + transform['height'], seasonal['y'])
                     self.assertLessEqual(seasonal['x'] + seasonal['width'], width)
 
     def test_employment_yoy_is_kept_when_the_level_is_transformed_to_qoq(self):
@@ -428,10 +440,11 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assert_blackboard(page, 'en')
         select = page.locator('#board-transform')
         expect(select).to_have_value('qoq')
+        page.locator('.transform-details summary').click()
         expect(page.locator('[data-status=kept]')).to_contain_text('Year-on-year change')
         expect(page.locator('[data-status=calculated]')).to_have_count(1)
         with page.expect_download() as pending:
-            page.locator('.figure-csv-header .csv-action').click()
+            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
             units = {row['Transformation']: row['Unit'] for row in csv.DictReader(downloaded)}
         self.assertEqual(len(units), 2)
@@ -472,11 +485,13 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assert_blackboard(page, 'en')
         expect(page.locator('#stamp')).to_contain_text('61 series')
         expect(page.locator('#foot a')).to_have_count(3)
-        source = page.locator('#bbchart .source-publisher').first
+        sources = page.locator('.board-figure > .series-chart-sources')
+        sources.locator('summary').click()
+        source = sources.locator('.source-publisher').first
         expect(source).to_contain_text('Ministry of Treasury and Finance of Türkiye')
         expect(source).to_have_attribute('href', 'https://en.hmb.gov.tr/public-finance')
         with page.expect_download() as pending:
-            page.locator('.figure-csv-header .csv-action').click()
+            page.locator('.board-figure > .figure-csv-footer .csv-action').click()
         csv = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Treasury Cash Realizations', csv)
         self.assertIn('https://en.hmb.gov.tr/public-finance', csv)
