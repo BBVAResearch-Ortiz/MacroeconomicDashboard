@@ -224,7 +224,6 @@ table.fc td.f{font-weight:600}
 .bbtabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);box-shadow:none}
 .bbsearch{width:100%;font:400 13px/1.2 var(--sans);padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)}
 .series-search{display:grid;gap:6px}
-.series-search.wide{max-width:460px;margin:12px 0}
 .series-search-results{display:grid;gap:6px}
 .series-search-results ul{list-style:none;margin:0;padding:3px;max-height:235px;overflow:auto;border:1px solid var(--rule);border-radius:6px}
 .series-search-results button{display:block;width:100%;text-align:left;font:inherit;font-size:13px;padding:6px 8px;border:0;border-radius:4px;color:var(--ink);background:var(--surface);cursor:pointer}
@@ -235,6 +234,8 @@ table.fc td.f{font-weight:600}
 .bbcatalog>summary{padding:8px 10px;font-size:14px;cursor:pointer}
 .bbcatalog[open]>summary{border-bottom:1px solid var(--rule)}
 .bbaxis .bbcatalog>summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bb-axis-search{padding:8px;border-bottom:1px solid var(--rule)}
+.bb-axis-search:has(.series-search-results:not([hidden]))+.bblist{display:none}
 .bblist{max-height:340px;overflow:auto;padding:4px 8px}
 .bblist .bbh{font-weight:500;font-size:13px;color:var(--accent);padding:6px 4px;cursor:pointer}
 .bblist details details{margin-left:12px}
@@ -314,7 +315,7 @@ footer .wrap{padding-block:0 32px}
 <footer><div class="wrap" id="foot"></div></footer>
 
 <script id="embedded-data" type="application/json">__DATA__</script>
-<script src="series_transforms.js?v=8"></script>
+<script src="series_transforms.js?v=9"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1255,11 +1256,15 @@ function bindFigureCsv(figure,download,enabled=true){
 }
 const csvSourceHeaders=()=>isEN()?['Source','Source code','Source URL']:['Fuente','Código de origen','URL de la fuente'];
 const csvSourceFields=s=>[seriesSource(s.source),s.code||'',s.link||''];
+function csvSeriesValue(series,value){
+  if(!series.calculated||!Number.isFinite(value)) return value;
+  return Number(value.toFixed(10))||0;
+}
 function seriesCsvRows(series){
   const header=isEN()?['Date','Series','Value','Unit','Frequency','Transformation']:['Fecha','Serie','Valor','Unidad','Frecuencia','Transformación'];
   const rows=series.flatMap(s=>{
     const details=[L10(unitLabel(s.unit||'')),s.freq||'',L10(s.transform||''),...csvSourceFields(s)];
-    return s.data.filter(([,value])=>Number.isFinite(value)).map(([day,value])=>[day,L10(s.label),value,...details]);
+    return s.data.filter(([,value])=>Number.isFinite(value)).map(([day,value])=>[day,L10(s.label),csvSeriesValue(s,value),...details]);
   });
   return [[...header,...csvSourceHeaders()],...rows];
 }
@@ -1531,21 +1536,20 @@ function explorerGroups(exclude=[]){
 const searchQueries=new Map();
 const normalizeSearch=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
   .replace(/ı/g,'i').replace(/[^a-z0-9]+/g,' ').trim();
-function sectionSearch(id,wide=false){
-  const label=isEN()?'Search all series':'Buscar en todas las series';
-  return `<div class="series-search${wide?' wide':''}">
-    <label class="picklab" for="${id}">${label}</label>
+function sectionSearch(id,label=isEN()?'Search all series':'Buscar en todas las series'){
+  return `<div class="series-search">
+    <label class="picklab" for="${id}">${esc(label)}</label>
     <input id="${id}" class="bbsearch" type="search" value="${esc(searchQueries.get(id)||'')}"
       placeholder="${isEN()?'Name, category or code…':'Nombre, categoría o código…'}" aria-controls="${id}-results">
     <div id="${id}-results" class="series-search-results" hidden></div>
   </div>`;
 }
-function bindSectionSearch(id,{entries,picks,limit,axes=false,destination='',onQuery,loading,choose,redraw}){
+function bindSectionSearch(id,{entries,picks,limit,fixedSlot=null,destination='',onQuery,loading,choose,redraw}){
   const input=document.getElementById(id), results=document.getElementById(id+'-results');
   if(!input||!results) return;
   const selected=new Set(picks);
-  const replaceRequired=!axes&&picks.length>=limit;
-  let slot=axes?0:null, busy=false, error=false, matches=[];
+  const replaceRequired=fixedSlot===null&&picks.length>=limit;
+  let slot=fixedSlot, busy=false, error=false, matches=[];
   const message=(es,en)=>isEN()?en:es;
   function update(){
     const words=normalizeSearch(input.value).split(' ').filter(Boolean);
@@ -1557,10 +1561,10 @@ function bindSectionSearch(id,{entries,picks,limit,axes=false,destination='',onQ
       const haystack=normalizeSearch([item.label,L10(item.label),item.detail,...(item.terms||[])].join(' '));
       return words.every(word=>haystack.includes(word));
     }).sort((a,b)=>L10(a.label).localeCompare(L10(b.label),isEN()?'en':'es'));
-    const selector=axes||replaceRequired?`<label class="picklab" for="${id}-slot">${axes?message('Eje','Axis'):message('Sustituir serie','Replace series')}</label>
+    const selector=replaceRequired?`<label class="picklab" for="${id}-slot">${message('Sustituir serie','Replace series')}</label>
       <select id="${id}-slot" class="axsel"${busy?' disabled':''}>
-      ${axes?'':`<option value="">${message('Elige la serie que quieres sustituir…','Choose the series to replace…')}</option>`}
-      ${picks.map((key,i)=>`<option value="${i}"${slot===i?' selected':''}>${axes?(i?'Y':'X'):esc(L10(catalogue.find(s=>s.id===key)?.label||key))}</option>`).join('')}
+      <option value="">${message('Elige la serie que quieres sustituir…','Choose the series to replace…')}</option>
+      ${picks.map((key,i)=>`<option value="${i}"${slot===i?' selected':''}>${esc(L10(catalogue.find(s=>s.id===key)?.label||key))}</option>`).join('')}
       </select>`:'';
     const status=busy?message('Cargando serie…','Loading series…'):
       error?message('No se pudo añadir la serie. Inténtalo de nuevo.','Could not add this series. Try again.'):
@@ -1629,9 +1633,9 @@ function setSearchPick(picks,id,slot){
   if(slot===null) picks.push(id);
   else picks[slot]=id;
 }
-function bindExplorerSearch(){
-  bindSectionSearch('explorer-search',{
-    entries:explorerSearchEntries,picks:bb.picks,limit:bbMax(),axes:bb.mode==='scatter',
+function bindExplorerSearch(id='explorer-search',fixedSlot=null){
+  bindSectionSearch(id,{
+    entries:explorerSearchEntries,picks:bb.picks,limit:bbMax(),fixedSlot,
     choose:(item,slot)=>{setSearchPick(bb.picks,item.id,slot);saveBB();return true;},
     redraw:viewBoard
   });
@@ -1678,7 +1682,9 @@ function lowessAt(p,x0,frac){ const n=p.length, k=Math.max(4,Math.ceil(frac*n));
 function lowess(p,frac=0.5){ if(p.length<6) return null; const fx=x=>lowessAt(p,x,frac); return {fx,r2:r2(p,fx),frac}; }
 function r2(p,fx){ const my=p.reduce((a,o)=>a+o.y,0)/p.length; let ss=0,se=0; p.forEach(o=>{ ss+=(o.y-my)**2; se+=(o.y-fx(o.x))**2; }); return ss?1-se/ss:NaN; }
 function bindScatterCsv(host,name,{pts,f,X,Y}){
-  const series=[{...X,freq:f,data:pts.map(p=>[p.d,p.x])},{...Y,freq:f,data:pts.map(p=>[p.d,p.y])}];
+  const series=[[X,'x'],[Y,'y']].map(([s,key])=>({
+    ...s,freq:f,calculated:s.calculated||s.freq!==f,data:pts.map(p=>[p.d,p[key]])
+  }));
   bindSeriesCsv(host,name,series);
 }
 function drawScatter(host,pts,f,X,Y,fit,trail=false){
@@ -1899,9 +1905,11 @@ function scatterAxisCatalog(axis,index,tree){
   const id=bb.picks[index], series=S()[id], listId=axis.id+'-list';
   const summary=series?`${L10(series.label)} (${L10(series.unit)})`:(isEN()?'Choose a series':'Elige una serie');
   const content=seriesChecklist(tree,S(),[id],1,axis.groups,{radio:listId,excluded:bb.picks[1-index]});
+  const axisName=index?'Y':'X';
+  const search=sectionSearch(axis.id+'-search',isEN()?`Search for axis ${axisName}`:`Buscar para el eje ${axisName}`);
   return `<div class="bbgrp bbaxis" role="group" aria-labelledby="${axis.id}-label">
     <span class="picklab" id="${axis.id}-label">${esc(L10(axis.label))}</span>
-    ${catalogDisclosure(axis.id,listId,axis.open,content,'',summary)}
+    ${catalogDisclosure(axis.id,listId,axis.open,content,`<div class="bb-axis-search">${search}</div>`,summary)}
   </div>`;
 }
 function boardBaseBounds(series){
@@ -2048,7 +2056,7 @@ function viewBoard(){
     panel.innerHTML=boardHeader()+`<p class="note" role="status">${isEN()?'Loading selected series…':'Cargando las series seleccionadas…'}</p>`;
     return;
   }
-  const searchFocused=document.activeElement?.id==='explorer-search';
+  const searchInput=document.activeElement?.matches('.series-search .bbsearch')?document.activeElement:null;
   const focusedSeries=document.activeElement?.dataset.catalogPick;
   const focusedList=document.activeElement?.closest('.bblist')?.id;
   const catalogScroll=new Map([...panel.querySelectorAll('.bblist')].map(list=>[list.id,list.scrollTop]));
@@ -2085,10 +2093,9 @@ function viewBoard(){
   const tree=explorerGroups();
   panel.innerHTML=boardHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
-     ${sectionSearch('explorer-search')}
      ${bb.mode==='scatter'?`${scatterCatalogs.map((axis,index)=>scatterAxisCatalog(axis,index,tree)).join('')}
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
-     :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
+     :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
@@ -2099,7 +2106,8 @@ function viewBoard(){
      <div class="lg" id="bblg"></div><div class="chart" id="bbchart"></div>
      ${bb.mode==='scatter'?scatterControls(plan):''}
      ${ids.length&&bb.mode!=='multiples'?`<figcaption class="src">Fuente: ${srcLine(ids)}${['lines','bars','stack'].includes(bb.mode)&&units.size>1?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}</figure></div>`;
-  bindRange(); bindExplorerSearch();
+  bindRange();
+  if(bb.mode!=='scatter') bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
   bindBoardOrder(rerender);
   bindBoardBaseDates(plan,rerender);
@@ -2120,6 +2128,7 @@ function viewBoard(){
   }
   if(bb.mode==='scatter') scatterCatalogs.forEach((axis,index)=>{
     const catalogue=document.getElementById(axis.id);
+    bindExplorerSearch(axis.id+'-search',index);
     catalogue.addEventListener('toggle',()=>{if(catalogue.isConnected) axis.open=catalogue.open;});
     bindSeriesChecklist(document.getElementById(axis.id+'-list'),axis.groups,(id,checked)=>{
       if(!checked) return;
@@ -2151,7 +2160,11 @@ function viewBoard(){
   document.getElementById('bbswap')?.addEventListener('click',()=>{bb.picks.reverse();rerender();});
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
-  if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
+  if(searchInput){
+    const next=document.getElementById(searchInput.id);
+    next?.focus({preventScroll:true});
+    next?.setSelectionRange(searchInput.selectionStart,searchInput.selectionEnd);
+  }
   if(['board-transform','board-transform-seasonal','bbcatalog-summary','bbx-summary','bby-summary','bbswap'].includes(transformFocused)){
     document.getElementById(transformFocused)?.focus({preventScroll:true});
   }
@@ -2223,7 +2236,7 @@ function drawHeatBoard(host,ids,start){
   const end=upperCutoff(), freq=ids.some(id=>S()[id].freq==='Q')?'Q':'M';
   const rows=ids.map(id=>{const src=S()[id],d=toFreq(src.data,src.freq,freq).filter(([day,value])=>ts(day)>=start&&ts(day)<=end&&Number.isFinite(value)),v=d.map(o=>o[1]),mean=v.reduce((a,b)=>a+b,0)/(v.length||1),sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(1,v.length-1));return {src,d,map:new Map(d),mean,sd};});
   const standardize=(r,value)=>r.sd?(value-r.mean)/r.sd:0;
-  bindSeriesCsv(host,'blackboard',rows.map(r=>({...r.src,freq,unit:'σ',transform:isEN()?'Standardized for heat map':'Estandarizado para mapa de calor',data:r.d.map(([day,value])=>[day,standardize(r,value)])})));
+  bindSeriesCsv(host,'blackboard',rows.map(r=>({...r.src,freq,unit:'σ',calculated:true,transform:isEN()?'Standardized for heat map':'Estandarizado para mapa de calor',data:r.d.map(([day,value])=>[day,standardize(r,value)])})));
   const dates=[...new Set(rows.flatMap(r=>r.d.map(o=>o[0])))].sort();
   if(!dates.length){host.innerHTML='<p class="note">Sin datos en este periodo.</p>';return;}
   const cell=(r,date)=>{if(!r.map.has(date))return '<td class="bbmissing" title="Sin datos"></td>';const v=r.map.get(date),z=standardize(r,v),a=Math.min(1,Math.abs(z)/2),color=z>=0?`rgba(31,63,209,${0.12+0.78*a})`:`rgba(216,115,42,${0.12+0.78*a})`,txt=`${r.src.label} · ${date} · ${v.toLocaleString('es-ES',{maximumFractionDigits:2})} ${r.src.unit} · z=${z.toFixed(2)}`;return `<td style="background:${color}" title="${esc(txt)}" aria-label="${esc(txt)}"></td>`;};
@@ -2592,10 +2605,10 @@ function bigCsvRows(view,chosen,start){
   if(view==='scatter'){
     const points=bigScatterPoints(chosen,start);
     return points.length<2?[]:[[date,'X · '+title(chosen[0]),'Y · '+title(chosen[1]),source+' · X',source+' · Y'],
-      ...points.map(p=>[p.d,p.x,p.y,...credits])];
+      ...points.map(p=>[p.d,csvSeriesValue(chosen[0],p.x),csvSeriesValue(chosen[1],p.y),...credits])];
   }
   const end=upperCutoff();
-  const values=chosen.map(s=>new Map(bigVisiblePoints(s,start,end).map(([day,value])=>[day,bigPlotValue(s,value)])));
+  const values=chosen.map(s=>new Map(bigVisiblePoints(s,start,end).map(([day,value])=>[day,csvSeriesValue(s,bigPlotValue(s,value))])));
   const dates=[...new Set(values.flatMap(series=>[...series.keys()]))].sort();
   return dates.length?[[date,...chosen.map(title),...chosen.map(s=>source+' · '+title(s))],
     ...dates.map(day=>[day,...values.map(series=>series.get(day)),...credits])]:[];

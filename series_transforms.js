@@ -192,7 +192,7 @@ const SERIES_TRANSFORMS = (() => {
     if(kind==='original') return stored(row,p.hasMethod?'documented':'original');
     const calc=(from,data,unit,freq,note)=>data.length?{
       status:'calculated',percentScale:false,origin:from.id,reason:note,
-      series:{...from.series,unit,freq,data,label:from.series.label+' · '+names(kind,false),
+      series:{...from.series,unit,freq,data,calculated:true,label:from.series.label+' · '+names(kind,false),
         transform:t('Calculada aquí. ','Calculated here. ')+note}
     }:unavailable(t('Faltan observaciones comparables para calcularla.','Comparable observations are missing.'));
     if(kind==='delta'){

@@ -1,5 +1,6 @@
 """Browser regression tests against the checked-in pages and data."""
 
+import csv
 import json
 import re
 import unittest
@@ -160,6 +161,30 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('[data-bbm=lines]').click()
         expect(page.locator('#bblist input[type=checkbox]')).not_to_have_count(0)
 
+    def test_scatter_search_targets_the_axis_that_contains_it(self):
+        page = self.start_page()
+        page.goto(f'{ORIGIN}/espana.html?lang=en#dispersion')
+        self.assert_blackboard(page, 'en')
+        x_summary = page.locator('#bbx-summary')
+        y_summary = page.locator('#bby-summary')
+        initial_x = x_summary.inner_text()
+        y_summary.click()
+        search_y = page.get_by_role('searchbox', name='Search for axis Y')
+        search_y.fill('core cpi')
+        page.locator('#bby-search-results [data-search-pick=ipc_sub]').click()
+        expect(y_summary).to_contain_text('Core CPI')
+        expect(x_summary).to_have_text(initial_x)
+        expect(search_y).to_be_focused()
+
+        x_summary.click()
+        search_x = page.get_by_role('searchbox', name='Search for axis X')
+        search_x.fill('paro epa')
+        expect(page.locator('#bbx-search-results [data-search-pick=paro_epa]')).to_be_visible()
+        search_x.press('Enter')
+        expect(x_summary).to_contain_text('Unemployment rate')
+        expect(y_summary).to_contain_text('Core CPI')
+        expect(page.locator('#bbchart svg')).to_be_visible()
+
     def test_overview_and_blackboard_share_numeric_typography(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en')
@@ -229,6 +254,16 @@ class DashboardBrowserTests(unittest.TestCase):
         select.select_option('qoq')
         expect(page.locator('[data-status=calculated]')).to_contain_text('percentage points')
         expect(page.locator('#bbchart svg')).to_be_visible()
+        with page.expect_download() as pending:
+            page.locator('.figure-csv-header .csv-action').click()
+        with pending.value.path().open(encoding='utf-8-sig', newline='') as downloaded:
+            rows = {row['Date']: row['Value'] for row in csv.DictReader(downloaded)}
+        self.assertEqual(rows['2026-04-01'], '-0.46')
+        self.assertEqual(page.evaluate("""() => {
+            const tail = 1024.1 - 1024;
+            return [csvSeriesValue({calculated:true}, tail), csvSeriesValue({}, tail),
+                    Object.is(csvSeriesValue({calculated:true}, -1e-14), -0)];
+        }"""), [0.1, 1024.1 - 1024, False])
 
     def test_transform_and_seasonality_share_a_row(self):
         page = self.start_page()
