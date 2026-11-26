@@ -102,7 +102,10 @@ a.source-publisher{text-decoration:underline;text-underline-offset:2px}
 .series-chart-sources ul{list-style:none;padding:0;margin:7px 0 0;display:grid;gap:6px}
 .series-chart-sources li{padding-inline-start:8px;border-inline-start:2px solid var(--chart-grid);overflow-wrap:anywhere}
 .series-source-name{display:block;color:var(--chart-ink)}
-.csv-action{align-self:flex-start;justify-self:start}
+.figure-csv-header{display:flex;gap:8px 12px;align-items:flex-start;justify-content:flex-end}
+.figure-csv-header>.figure-csv-title{flex:1;min-width:0}
+.csv-action.btn{flex:none;font-size:12px;line-height:1.2;padding:6px 9px;white-space:nowrap}
+.csv-action:disabled{opacity:.5;cursor:default}
 .chart-readings.is-hovering li time{display:none}
 .chart-readings p[data-cursor-date]{color:var(--chart-ink);font-weight:600}
 .transform-control option:disabled{color:var(--faint)}
@@ -209,9 +212,6 @@ table.fc td.f{font-weight:600}
 .pchip .big-reference{color:inherit;font:inherit;text-align:left;padding:0}
 .pchip .big-reference[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px}
 .big-title h3{text-transform:none;letter-spacing:normal}
-.big-chart-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px 12px}
-.big-chart-header .big-title{flex:1 1 220px}
-.big-chart-header .btn:disabled{opacity:.5;cursor:default}
 .transform-control{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:2px 0}
 .transform-field{display:flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:100%}
 .transform-control select{max-width:100%}
@@ -1273,12 +1273,23 @@ function downloadCsvRows(name,rows){
 }
 function bindFigureCsv(figure,download,enabled=true){
   if(!figure) return;
-  let button=figure.querySelector(':scope > .csv-action');
+  let header=figure.querySelector(':scope > .figure-csv-header');
+  if(!header){
+    const title=figure.firstElementChild;
+    header=document.createElement('div');
+    header.className='figure-csv-header';
+    figure.prepend(header);
+    if(title?.querySelector('h3')){
+      title.classList.add('figure-csv-title');
+      header.append(title);
+    }
+  }
+  let button=header.querySelector('.csv-action');
   if(!button){
     button=document.createElement('button');
     button.className='btn ghost csv-action';
     button.type='button';
-    figure.insertBefore(button,figure.querySelector(':scope > figcaption'));
+    header.append(button);
   }
   button.textContent=csvLabel();
   button.disabled=!enabled;
@@ -2857,7 +2868,7 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span>${controls}<div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div></aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span>${controls}<div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div></aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="figure-csv-header"><div class="big-title figure-csv-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost csv-action" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  const catalogDisclosure=document.getElementById('big-catalog');
  const list=document.getElementById('big-series-field');
