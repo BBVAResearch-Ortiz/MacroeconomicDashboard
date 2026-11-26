@@ -137,3 +137,42 @@ test('the central government budget converts thousands of TRY and excludes total
   rows[1][1] = '(Milyon TL)';
   assert.throws(() => read([['Detay2',rows]],report,2026,'2026-01-29'), /unidad distinta/);
 });
+
+test('cleaning the Türkiye master removes exact example IDs and keeps adjacent official observations', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const { prune, remove } = vm.runInNewContext(script + '\n({prune:turkeyWithoutExamples_,remove:turkeyDeleteRuns_})');
+  const rows = [['date', 'series_id', 'value'], ['2026-01-01', 'example', 1], ['2026-02-01', 'example', 2],
+    ['2026-01-01', 'official', 42], ['2026-03-01', 'example', 3], ['2026-02-01', 'official', 43]];
+  const result = prune(rows, new Set(['example']));
+  assert.equal(JSON.stringify(result.rows), JSON.stringify([rows[0], rows[3], rows[5]]));
+  const actual = rows.slice(), calls = [];
+  const sheet = {deleteRows(start, count) { calls.push([start, count]); actual.splice(start - 1, count); }};
+  remove(sheet, result.removed, 'deleteRows');
+  assert.deepEqual(calls, [[5, 1], [2, 2]]);
+  assert.equal(JSON.stringify(actual), JSON.stringify(result.rows));
+});
+
+test('auxiliary sheets lose example rows and columns while preserving official data', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const clean = vm.runInNewContext(script + '\ncleanTurkeyAuxiliary_');
+  const sheet = (id, name, rows) => ({
+    getSheetId: () => id, getName: () => name, rows,
+    getDataRange: () => ({getValues: () => rows.map(row => row.slice())}),
+    deleteRows(start, count) { rows.splice(start - 1, count); },
+    deleteColumns(start, count) { rows.forEach(row => row.splice(start - 1, count)); }
+  });
+  const dictionary = sheet(1, 'DICTIONARY', [['series_id'], ['example'], ['official']]);
+  const data = sheet(2, 'LONG_DATA', [['series_id'], ['example'], ['official']]);
+  const activity = sheet(3, 'GDP_EXPENDITURE', [['series_id'], ['example']]);
+  const coverage = sheet(4, 'COVERAGE', [['series_id', 'n'], ['example', 3], ['official', 2]]);
+  const panel = sheet(5, 'KEY_PANEL', [['date', 'example', 'official'], ['2026-01-01', 8, 22]]);
+  const readme = sheet(6, 'README', [['Master'], ['Source: Turkey_example_data.xlsx'], ['Editor note']]);
+  const tabs = [dictionary, data, activity, coverage, panel, readme];
+  clean({getSheets: () => tabs.slice(), deleteSheet(tab) { tabs.splice(tabs.indexOf(tab), 1); }},
+    dictionary, data, new Set(['example']));
+  assert.deepEqual(tabs.map(tab => tab.getName()), ['DICTIONARY', 'LONG_DATA', 'COVERAGE', 'KEY_PANEL', 'README']);
+  assert.deepEqual(dictionary.rows, [['series_id'], ['example'], ['official']]);
+  assert.deepEqual(coverage.rows, [['series_id', 'n'], ['official', 2]]);
+  assert.deepEqual(panel.rows, [['date', 'official'], ['2026-01-01', 22]]);
+  assert.deepEqual(readme.rows, [['Master'], ['Editor note']]);
+});

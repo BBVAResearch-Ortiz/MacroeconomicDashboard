@@ -86,6 +86,10 @@ function syncTurkeyWorkbook() {
   runTurkeyWorkbook_(true);
 }
 
+function cleanTurkeyWorkbook() {
+  runTurkeyWorkbook_(true, true);
+}
+
 function installTurkeyWorkbookTrigger() {
   const oldTriggers = ScriptApp.getProjectTriggers().filter(trigger => trigger.getHandlerFunction() === 'syncTurkeyWorkbook');
   ScriptApp.newTrigger('syncTurkeyWorkbook').timeBased().everyDays(1).atHour(19)
@@ -93,7 +97,7 @@ function installTurkeyWorkbookTrigger() {
   oldTriggers.forEach(trigger => ScriptApp.deleteTrigger(trigger));
 }
 
-function runTurkeyWorkbook_(publish) {
+function runTurkeyWorkbook_(publish, cleanupOnly = false) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('Turquía: otra sincronización está en curso.');
   try {
@@ -115,7 +119,11 @@ function runTurkeyWorkbook_(publish) {
       const observationRows = observations.getDataRange().getValues();
       const timezone = workbook.getSpreadsheetTimeZone();
       const previous = parseDashboardSheets_(dictionaryRows, observationRows, timezone);
-      const sources = [
+      const examples = new Set(Object.entries(previous.series)
+        .filter(([, entry]) => /\bTurkey_example_data\.xlsx\b/i.test(entry.fuente || '')).map(([id]) => id));
+      const cleanDictionary = turkeyWithoutExamples_(dictionaryRows, examples);
+      const cleanObservations = turkeyWithoutExamples_(observationRows, examples);
+      const sources = cleanupOnly ? [] : [
         ['Tesoro', () => fetchTurkeyTreasury_(today)],
         ['Presupuesto central · Detay2', () => {
           try {
@@ -143,15 +151,22 @@ function runTurkeyWorkbook_(publish) {
         }
       });
 
-      if (updates.length) {
-        const pending = mergeTurkeyWorkbookRows_(dictionaryRows, observationRows, updates, timezone);
-        const next = parseDashboardSheets_(dictionaryRows, observationRows, timezone);
+      if (updates.length || examples.size) {
+        const pending = updates.length
+          ? mergeTurkeyWorkbookRows_(cleanDictionary.rows, cleanObservations.rows, updates, timezone)
+          : { dictionary: new Set(), observations: new Set() };
+        const next = parseDashboardSheets_(cleanDictionary.rows, cleanObservations.rows, timezone);
+        if (examples.size) console.log('Turquía · ejemplos retirados del maestro: ' + examples.size + ' series, ' +
+          cleanObservations.removed.length + ' observaciones.');
         const changed = Object.keys(next.hashes).some(key => next.hashes[key] !== previous.hashes[key]);
         console.log('Turquía · Excel: ' + Object.keys(next.series).length + ' series, ' + next.count + ' observaciones. ' +
           (changed ? (publish ? 'Cambios para guardar.' : 'Vista previa con cambios.') : 'Sin cambios.'));
         if (publish && changed) {
-          writeTurkeyRows_(dictionary, dictionaryRows, pending.dictionary);
-          writeTurkeyRows_(observations, observationRows, pending.observations);
+          turkeyDeleteRuns_(dictionary, cleanDictionary.removed, 'deleteRows');
+          turkeyDeleteRuns_(observations, cleanObservations.removed, 'deleteRows');
+          if (examples.size) cleanTurkeyAuxiliary_(workbook, dictionary, observations, examples);
+          writeTurkeyRows_(dictionary, cleanDictionary.rows, pending.dictionary);
+          writeTurkeyRows_(observations, cleanObservations.rows, pending.observations);
           SpreadsheetApp.flush();
           const exported = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + workbook.getId() +
             '/export?mimeType=' + encodeURIComponent(config.xlsx), {
@@ -165,11 +180,56 @@ function runTurkeyWorkbook_(publish) {
           const saved = Drive.Files.update({}, book.id, output, { fields: 'id,version', supportsAllDrives: true });
           console.log('Turquía · Excel guardado en Drive. ID: ' + saved.id + ' · versión: ' + saved.version);
         }
-      }
+      } else if (cleanupOnly) console.log('Turquía · el maestro ya está limpio.');
       if (errors.length) throw new Error('Turquía · fuentes con errores:\n' + errors.join('\n'));
     });
   } finally {
     lock.releaseLock();
+  }
+}
+
+function turkeyWithoutExamples_(rows, examples) {
+  const column = rows[0]?.findIndex(value => value === 'series_id' || value === 'id_serie');
+  const removed = [];
+  const kept = rows.filter((row, i) => {
+    if (!i || !examples.has(row[column])) return true;
+    removed.push(i + 1);
+    return false;
+  });
+  return { rows: kept, removed };
+}
+
+function turkeyDeleteRuns_(sheet, positions, method) {
+  for (let i = positions.length - 1; i >= 0;) {
+    const end = positions[i];
+    let start = end;
+    while (positions[--i] === start - 1) start--;
+    sheet[method](start, end - start + 1);
+  }
+}
+
+function cleanTurkeyAuxiliary_(workbook, dictionary, observations, examples) {
+  for (const sheet of workbook.getSheets()) {
+    if ([dictionary.getSheetId(), observations.getSheetId()].includes(sheet.getSheetId())) continue;
+    const rows = sheet.getDataRange().getValues();
+    const { rows: kept, removed } = turkeyWithoutExamples_(rows, examples);
+    if (removed.length && kept.slice(1).every(row => row.every(value => value === ''))) {
+      workbook.deleteSheet(sheet);
+      continue;
+    }
+    turkeyDeleteRuns_(sheet, removed, 'deleteRows');
+    if (/^(date|fecha)$/i.test(rows[0]?.[0])) {
+      const columns = rows[0].flatMap((id, i) => examples.has(id) ? [i + 1] : []);
+      if (columns.length && rows[0].slice(1).every(value => value === '' || examples.has(value))) {
+        workbook.deleteSheet(sheet);
+        continue;
+      }
+      turkeyDeleteRuns_(sheet, columns, 'deleteColumns');
+    }
+    if (/^(README|LEEME)$/i.test(sheet.getName())) {
+      const notes = kept.flatMap((row, i) => i && row.some(value => /\bTurkey_example_data\.xlsx\b/i.test(String(value))) ? [i + 1] : []);
+      turkeyDeleteRuns_(sheet, notes, 'deleteRows');
+    }
   }
 }
 
