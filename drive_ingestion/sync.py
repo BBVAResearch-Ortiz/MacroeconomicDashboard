@@ -18,6 +18,7 @@ from spain_dashboard import build_site
 
 ROOT_FOLDER = '1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr'
 FOLDERS = {'global': 'Global Scenarios', 'turkey': 'Turkiye', 'spain': 'Spain', 'usa': 'USA'}
+MASTER_FILES = {'spain': 'excel_madre.xlsx', 'turkey': 'turkey_macro_master.xlsx'}
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 FOLDER = 'application/vnd.google-apps.folder'
 DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly'
@@ -159,9 +160,11 @@ def sync_area(drive, folder_id, output):
     if not files:
         logging.info('%s: no Excel workbook in Drive', output.stem)
         return
-    if len(files) != 1:
-        raise ValueError(f'Expected one Excel workbook, found {len(files)}')
-    source = files[0]
+    master = MASTER_FILES.get(output.stem)
+    matches = [file for file in files if file['name'].strip().lower() == master] if master else files
+    if len(matches) != 1:
+        raise ValueError(f'Expected one {master or "Excel workbook"}, found {len(matches)}')
+    source = matches[0]
     if output.is_file():
         with output.open(encoding='utf-8') as stream:
             if json.load(stream)['origen'] == source:

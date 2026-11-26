@@ -1,6 +1,7 @@
 const DASHBOARD_UPLOAD = {
   root: '1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr',
   areas: { spain: 'Spain', global: 'Global Scenarios', turkey: 'Turkiye', usa: 'USA' },
+  masters: { spain: { name: 'excel_madre.xlsx', language: 'es' }, turkey: { name: 'turkey_macro_master.xlsx', language: 'en' } },
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   folder: 'application/vnd.google-apps.folder',
   spreadsheet: 'application/vnd.google-apps.spreadsheet',
@@ -105,16 +106,18 @@ function listDashboardFiles_(parent, mediaType) {
 
 function syncDashboardArea_(area, folder, properties, token) {
   const books = listDashboardFiles_(folder, DASHBOARD_UPLOAD.xlsx);
-  if (!books.length) {
+  const master = DASHBOARD_UPLOAD.masters[area];
+  const book = selectDashboardMaster_(area, books);
+  if (!book) {
     console.log(area + ': carpeta sin Excel.');
     return;
   }
-  if (books.length !== 1) throw new Error('Se esperaba un Excel. Encontrados: ' + books.length);
-  const book = books[0];
   const key = 'FOW_UPLOAD_V1_' + DASHBOARD_UPLOAD.branch + '_' + area;
   const previous = JSON.parse(properties.getProperty(key) || '{}');
   const revision = book.id + ':' + (book.md5Checksum || book.version);
-  if (token && revision === previous.revision) {
+  const localizationVersion = master ? 1 : null;
+  if (token && revision === previous.revision &&
+      (!master || previous.name === book.name && previous.localizationVersion === localizationVersion)) {
     console.log(area + ': Excel sin cambios.');
     return;
   }
@@ -129,16 +132,98 @@ function syncDashboardArea_(area, folder, properties, token) {
     }
   }
   const changed = Object.keys(parsed.hashes).filter(name => parsed.hashes[name] !== (previous.hashes || {})[name]);
-  if (changed.length && token) {
+  const localized = master ? localizeDashboardSeries_(parsed.series, master.language) : null;
+  const translationsChanged = localized?.hash && localized.hash !== previous.translationHash;
+  const masterChanged = master && previous.name !== book.name;
+  if (token && (changed.length || translationsChanged || masterChanged)) {
     const origen = { name: book.name };
     if (area === 'turkey') origen.updated_at = new Date().toISOString();
     const payload = { origen, series: parsed.series };
     const commit = commitDashboardSnapshot_(area, JSON.stringify(payload) + '\n', token);
     if (commit) console.log(area + ': commit en GitHub ' + commit);
   }
-  if (token) properties.setProperty(key, JSON.stringify({ revision, hashes: parsed.hashes }));
-  console.log(area + ': ' + Object.keys(parsed.series).length + ' series y ' + parsed.count +
-    ' observaciones. Hojas con cambios: ' + (changed.join(', ') || 'ninguna'));
+  if (token) properties.setProperty(key, JSON.stringify({ revision, name: book.name, hashes: parsed.hashes,
+    localizationVersion: localized?.complete ? localizationVersion : null, translationHash: localized?.hash }));
+  console.log(area + ' · ' + book.name + ': ' + Object.keys(parsed.series).length + ' series y ' + parsed.count +
+    ' observaciones. Hojas con cambios: ' + (changed.join(', ') || 'ninguna') +
+    (localized ? ' · Traducción del catálogo: ' + (localized.complete ? 'completa' : 'pendiente') : ''));
+}
+
+function selectDashboardMaster_(area, books) {
+  const master = DASHBOARD_UPLOAD.masters[area];
+  const matches = master ? books.filter(book => book.name.trim().toLowerCase() === master.name) : books;
+  if (!books.length) return null;
+  if (matches.length !== 1) throw new Error(master
+    ? 'Se esperaba un único ' + master.name + ' (encontrados: ' + matches.length + ').'
+    : 'Se esperaba un Excel. Encontrados: ' + books.length);
+  return matches[0];
+}
+
+function localizeDashboardSeries_(series, source) {
+  const target = source === 'es' ? 'en' : 'es';
+  const texts = new Map();
+  const fields = ['titulo_serie', 'subtitulo_descripcion'];
+  Object.values(series).forEach(entry => fields.forEach(field => {
+    const text = typeof entry[field] === 'string' ? entry[field].trim() : '';
+    if (text && !texts.has(text)) texts.set(text, 'fow-locale-' + dashboardHash_([source, target, text]));
+  }));
+  const deadline = Date.now() + 45000;
+  const translated = {};
+  try {
+    const cache = CacheService.getScriptCache();
+    Object.assign(translated, cache.getAll([...texts.values()]));
+    const pending = [...texts].filter(([, key]) => !translated[key]);
+    while (pending.length && Date.now() < deadline) {
+      const batch = [];
+      let length = 0;
+      while (pending.length && batch.length < 16 && (!batch.length || length + pending[0][0].length <= 3500)) {
+        const item = pending.shift();
+        length += item[0].length;
+        batch.push(item);
+      }
+      const input = batch.map(([text], i) => '<p id="fow' + i + '">' + text.replace(/[&<>]/g,
+        ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]) + '</p>').join('');
+      const output = LanguageApp.translate(input, source, target, { contentType: 'html' });
+      const values = {};
+      for (const match of output.matchAll(/<p\b[^>]*\bid=["']?fow(\d+)["']?[^>]*>([\s\S]*?)<\/p>/gi)) {
+        const item = batch[Number(match[1])];
+        const text = match[2].replace(/<[^>]+>/g, '').replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,
+          (entity, name) => {
+            if (name[0] !== '#') return ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' })[name.toLowerCase()];
+            const value = /^#x/i.test(name) ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+            return value > 0 && value <= 0x10ffff ? String.fromCodePoint(value) : entity;
+          }).trim();
+        if (item && text) values[item[1]] = text;
+      }
+      for (const [text, key] of batch) {
+        if (!values[key] && Date.now() < deadline) {
+          const value = LanguageApp.translate(text, source, target).trim();
+          if (value) values[key] = value;
+        }
+      }
+      Object.assign(translated, values);
+      if (Object.keys(values).length) cache.putAll(values, 21600);
+      if (!Object.keys(values).length) break;
+    }
+  } catch (error) {
+    console.log('Traducción del catálogo ' + source + ' → ' + target + ' pendiente.');
+  }
+
+  const localized = [];
+  Object.entries(series).forEach(([id, entry]) => {
+    const text = {};
+    fields.forEach(field => {
+      const original = typeof entry[field] === 'string' ? entry[field].trim() : '';
+      const value = translated[texts.get(original)];
+      if (value) text[field] = value;
+    });
+    if (Object.keys(text).length) {
+      entry.translations = { [target]: text };
+      localized.push([id, text]);
+    }
+  });
+  return { complete: [...texts.values()].every(key => translated[key]),
+    hash: localized.length ? dashboardHash_(localized) : null };
 }
 
 function dashboardWorkbookRows_(workbook, name) {

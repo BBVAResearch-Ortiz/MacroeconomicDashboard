@@ -1,17 +1,17 @@
 # Upload to Dashboard
 
-El [proyecto de Apps Script](https://script.google.com/d/1STAYKSxjDHDALjRbL_t4yHb8VoGI_U35x0xtmPaYJM9F1lNCGmc4CImM/edit) consulta `Spain`, `Global Scenarios` y `Turkiye` cada 15 minutos cuando se instala el disparador. Cada carpeta admite un Excel en el formato acordado.
+El [proyecto de Apps Script](https://script.google.com/d/1STAYKSxjDHDALjRbL_t4yHb8VoGI_U35x0xtmPaYJM9F1lNCGmc4CImM/edit) consulta `Spain`, `Global Scenarios`, `Turkiye` y, cuando existe, `USA` cada 15 minutos con el disparador instalado. En `Spain` importa `excel_madre.xlsx`. En `Turkiye` importa `turkey_macro_master.xlsx`, que el productor actualiza por ID y que debe ser el único XLSX de esa carpeta. En `Spain` pueden coexistir otras versiones.
 
 Primero compara la revisión de cada Excel en Drive. Si cambió, convierte una copia temporal a Google Sheets y compara por separado los datos de `LONG_DATA` y los metadatos de `DICTIONARY`. También admite los libros anteriores con encabezados y pestañas en español. Cambios de formato, orden o pestañas auxiliares que no cambien la salida no producen un commit. Un Excel inválido deja disponible la última instantánea válida. Las carpetas vacías se comprobarán en la siguiente ejecución.
 
 ## Prueba en Google
 
 1. Abre **Upload to Dashboard** y añade [UploadToDashboard.gs](UploadToDashboard.gs) como archivo de secuencia de comandos. Conserva los archivos existentes. Activa el servicio avanzado **Drive API v3** y, si el manifiesto declara permisos explícitos, incorpora los de [appsscript.json](appsscript.json).
-2. Ejecuta `previewDashboardUpload`. La prueba no escribe en GitHub. Comprueba que se registran 145 series y 58.916 observaciones para la versión inicial de España. Revisa la duración de la primera ejecución con el Excel real.
+2. Ejecuta `previewDashboardUpload`. La prueba registra el recuento de series, las observaciones y el estado de traducción de cada libro seleccionado. Comprueba esos recuentos con los Excel de Drive. La prueba solo usa copias temporales y omite la publicación en GitHub.
 
 Si mantienes una lista explícita de permisos, usa `https://www.googleapis.com/auth/spreadsheets` para `SpreadsheetApp.openById`. El permiso `spreadsheets.readonly` es insuficiente para ese método. Guarda el manifiesto y vuelve a ejecutar la prueba para autorizar el cambio.
 
-Antes de sustituir los Excel de Drive por sus ediciones en inglés, actualiza `Código.gs` con la versión de `UploadToDashboard.gs` que admite `DICTIONARY` y `LONG_DATA`. Los activadores existentes usan ese código al guardar y mantienen su horario.
+Actualiza `Código.gs` con esta versión de `UploadToDashboard.gs`. Los activadores existentes usan el código al guardar y mantienen su horario. La ingesta conserva el texto original de los dos libros y usa `LanguageApp` para añadir traducciones de títulos y descripciones al JSON. El selector **ES / EN** elige el texto en el dashboard. Si la traducción queda pendiente, se conserva el texto original disponible y la ingesta vuelve a intentarlo. Los valores, las fechas y las fuentes se mantienen en su formato de origen.
 
 ## Activación
 

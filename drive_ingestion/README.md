@@ -1,10 +1,11 @@
 # Ingesta automática desde Google Drive
 
-La ingesta lee las subcarpetas `Global Scenarios`, `Turkiye` y `Spain` de [FoW: Monitoring external information](https://drive.google.com/drive/folders/1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr). Cada una admite un fichero `.xlsx` con el formato de `excel_madre.xlsx`.
+La ingesta lee las subcarpetas `Global Scenarios`, `Turkiye` y `Spain`, además de `USA` si existe, de [FoW: Monitoring external information](https://drive.google.com/drive/folders/1Ejg2KKXKKT1QOjTb0OZFcZ0y2vUry2cr). En `Spain` selecciona `excel_madre.xlsx`, aunque haya otras versiones. En `Turkiye` lee `turkey_macro_master.xlsx`, que Apps Script actualiza por ID. En las demás subcarpetas admite un único `.xlsx`.
 
 - `LONG_DATA` contiene una fila por observación con `series_id`, `date` y `value`.
 - `DICTIONARY` contiene los metadatos por `series_id`, incluidos título, descripción, transformación, fuente, frecuencia, cobertura, gráfico, bloque, área y unidad.
 - Los libros anteriores con las hojas `DATOS_LARGO` y `DICCIONARIO` siguen siendo compatibles.
+- La ingesta de Apps Script incorpora al JSON las traducciones de títulos y descripciones para el selector ES / EN. El proceso local en Python conserva los metadatos de origen.
 - Una carpeta vacía conserva su última salida, si existe. Una exportación incompleta o inválida deja disponible la última salida válida de esa carpeta.
 
 ## Ejecutar

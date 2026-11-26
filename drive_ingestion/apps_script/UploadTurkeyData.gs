@@ -8,14 +8,14 @@ const TURKEY_PRODUCER = {
 };
 
 const TURKEY_CASH_ITEMS = [
-  ['CASH_REVENUE', 'Ingresos de caja del Tesoro', 'Revenues'],
-  ['CASH_EXPENDITURE', 'Gastos de caja del Tesoro', 'Expenditures'],
-  ['CASH_BALANCE', 'Saldo de caja del Tesoro', 'Cash balance']
+  ['CASH_REVENUE', 'Treasury cash revenue', 'Revenues'],
+  ['CASH_EXPENDITURE', 'Treasury cash expenditure', 'Expenditures'],
+  ['CASH_BALANCE', 'Treasury cash balance', 'Cash balance']
 ];
 const TURKEY_MONTH_NAMES = 'January February March April May June July August September October November December'.toLowerCase().split(' ');
 const TURKEY_MONTHLY_REPORTS = [
-  ['TR_BDDK_M_LOANS', 'Crédito bancario total', 3, 'Toplam Krediler'],
-  ['TR_BDDK_M_DEPOSITS', 'Depósitos bancarios totales', 9, 'Toplam Mevduat']
+  ['TR_BDDK_M_LOANS', 'Total bank loans', 3, 'Toplam Krediler'],
+  ['TR_BDDK_M_DEPOSITS', 'Total bank deposits', 9, 'Toplam Mevduat']
 ];
 
 function previewTurkeyWorkbook() {
@@ -42,8 +42,8 @@ function runTurkeyWorkbook_(publish) {
     if (folders.length !== 1) throw new Error('Turquía: no se encontró una única carpeta Turkiye.');
     const folder = folders[0];
     const books = listDashboardFiles_(folder.id, config.xlsx);
-    if (books.length !== 1) throw new Error('Turquía: se esperaba un único Excel madre existente en Turkiye.');
-    const book = books[0];
+    const book = selectDashboardMaster_('turkey', books);
+    if (!book || books.length !== 1) throw new Error('Turquía: la carpeta debe contener solo ' + config.masters.turkey.name + '.');
     const master = DriveApp.getFileById(book.id).getBlob();
     const today = Utilities.formatDate(new Date(), TURKEY_PRODUCER.timezone, 'yyyy-MM-dd');
 
@@ -181,7 +181,7 @@ function fetchTurkeyWeekly_(today) {
     { dil: 'tr', tarih: release, id: '1.0.1', parabirimi: 'TRY', sutun: 3, tarafKodu: '10001', gun: 90 });
   const response = turkeyResponse_(UrlFetchApp.fetch(url, options), 'BDDK histórico semanal');
   const data = readTurkeyWeeklyBank_(JSON.parse(response.getContentText()), today);
-  return [turkeySeries_('TR_BDDK_W_LOANS', 'Crédito bancario total', 'Sector bancario · Toplam Krediler (1.0.1)',
+  return [turkeySeries_('TR_BDDK_W_LOANS', 'Total bank loans', 'Banking sector · Toplam Krediler (1.0.1)',
     'Weekly', 'BANKING', 'banking', 'BDDK / BRSA · boletín semanal', source, data)];
 }
 
@@ -218,7 +218,7 @@ function fetchTurkeyMonthly_(today, previous) {
     });
   }
   return TURKEY_MONTHLY_REPORTS.map(([id, title, table, label], i) => turkeySeries_(id, title,
-    'Sector bancario · tabla ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
+    'Banking sector · table ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
     'BDDK / BRSA · boletín mensual', TURKEY_PRODUCER.monthly, data[i]));
 }
 

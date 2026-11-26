@@ -2913,7 +2913,17 @@ function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTa
   t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; all[j].focus(); go(all[j].dataset.k); }); });
   const sel=t.querySelector('[aria-selected="true"]'); if(sel) sel.scrollIntoView({block:'nearest',inline:'nearest'}); }
 function go(k){ state.tab=k; try{ history.replaceState(null,'','#'+k); }catch(e){ location.hash=k; } render(); window.scrollTo({top:0}); }
-function render(){ renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
+function applyDriveLocale(){
+  const language=isEN()?'en':'es';
+  for(const [id,series] of Object.entries(S())){
+    if(id.startsWith('__')||!series.translations) continue;
+    const original=series.originalText||{label:series.label,original_name:series.original_name};
+    const text=series.translations[language];
+    DATA.series[id]={...series,originalText:original,label:text?.titulo_serie||original.label,
+      original_name:text?.subtitulo_descripcion||original.original_name};
+  }
+}
+function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
   if(IS_TURKEY){
     if(DATA.meta.n_series){
       if(state.tab==='resumen') viewTurkeyOverview();
@@ -3021,6 +3031,7 @@ async function fetchDriveSnapshot(previousVersion){
       link: /^https:\/\//i.test(entry.source_url||'')?entry.source_url:null,
       code: id,
       original_name: entry.subtitulo_descripcion,
+      translations: entry.translations,
       transform: entry.transformacion_y_calculo,
       data: entry.observaciones.map(([day, value])=>[day, value, 0])
     };

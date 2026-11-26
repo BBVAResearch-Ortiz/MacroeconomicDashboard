@@ -47,6 +47,8 @@ def merge_series(base, imported):
             'source': re.split(r' \| (?:Archivo interno|Internal file):',
                                entry['fuente'] or 'Google Drive', maxsplit=1)[0],
             'code': source_id,
+            'link': entry.get('source_url'),
+            'translations': entry.get('translations'),
             'original_name': entry['subtitulo_descripcion'],
             'transform': entry['transformacion_y_calculo'],
             'data': [[day, value, 0] for day, value in entry['observaciones']],
