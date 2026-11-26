@@ -100,7 +100,52 @@ test('differences of published growth rates use percentage points and keep the s
   assert.equal(change.series.data[1][1], 12);
   assert.equal(change.series.source, 'Statistics office');
   assert.match(change.series.transform, /previous available observation/);
-  assert.equal(resolve('growth', 'mom', catalogue).status, 'unavailable');
+  assert.equal(resolve('growth', 'mom', catalogue).series.unit, 'pp');
+});
+
+test('the current account ratio compares quarter ends in percentage points', () => {
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'data.json'), 'utf8')).series.cc_pib;
+  const catalogue = transforms.catalogue([['cc_pib', source]], 'board');
+  const result = resolve('cc_pib', 'qoq', catalogue);
+  assert.equal(result.status, 'calculated');
+  assert.equal(result.series.freq, 'Q');
+  assert.equal(result.series.unit, 'pp');
+  assert.equal(result.series.source, source.source);
+  assert.equal(resolve('cc_pib', 'mom', catalogue).status, 'unavailable');
+  assert.match(result.series.transform, /last month of each quarter.*percentage points/);
+  const byQuarter = new Map(result.series.data.map(([day, value]) => [day, value]));
+  assert.ok(Math.abs(byQuarter.get('2026-04-01') - (2.70 - 3.16)) < 1e-9);
+  assert.equal(byQuarter.has('2026-07-01'), false);
+});
+
+test('a published quarterly rate wins and a quarterly-only series has no monthly result', () => {
+  const data = [['2025-01-01', 100], ['2025-04-01', 110]];
+  const catalogue = transforms.catalogue([
+    ['pib_yoy', sourceSeries('GDP annual growth', {data, unit:'% a/a', freq:'Q'})],
+    ['pib_qoq', sourceSeries('GDP quarterly growth', {data, unit:'%', freq:'Q'})],
+    ['quarterly_ratio', sourceSeries('Unemployment rate', {data, unit:'%', freq:'Q'})]
+  ], 'board');
+  const published = resolve('pib_yoy', 'qoq', catalogue);
+  assert.equal(published.origin, 'pib_qoq');
+  assert.equal(published.status, 'documented');
+  assert.equal(resolve('quarterly_ratio', 'mom', catalogue).status, 'unavailable');
+  assert.equal(resolve('quarterly_ratio', 'qoq', catalogue).series.data[0][1], 10);
+});
+
+test('weekly banking stocks can be compared month to month using the last reported value', () => {
+  const date = (month, day) => `2025-${month}-${day}`;
+  const days = ['03', '10', '17', '24', '31'].map(day => date('01', day))
+    .concat(['07', '14', '21', '28'].map(day => date('02', day)), ['07', '14', '21'].map(day => date('03', day)));
+  const data = days.map((day, i) => [day, 100 + i]);
+  const id = 'drive_tr_TR_BDDK_W_LOANS';
+  const catalogue = transforms.catalogue([[id, sourceSeries('Bank loans', {
+    code:'TR_BDDK_W_LOANS', unit:'Millones de TRY', freq:'W', data
+  })]], 'board');
+  const result = resolve(id, 'mom', catalogue);
+  assert.equal(result.status, 'calculated');
+  assert.equal(result.series.data.length, 1);
+  assert.equal(result.series.data[0][0], '2025-02-01');
+  assert.ok(Math.abs(result.series.data[0][1] - 100 * (108 / 104 - 1)) < 1e-9);
 });
 
 test('growth falls back to the underlying level if the published rate misses the chosen period', () => {

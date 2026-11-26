@@ -22,10 +22,20 @@ const SERIES_TRANSFORMS = (() => {
   pair('depósitos OSR',{dep_saldo:'level',depositos_osr:'yoy'});
   pair('cuenta corriente',{cc_m:'level',cc_pib:'gdp'});
   pair('bienes y servicios',{bys_m:'level',bys_pib:'gdp'});
+  // These monthly estimates use a denominator that is only observed quarterly.
+  for(const id of ['cc_pib','bys_pib']) base[id].quarterlyDenominator=true;
   pair('ingresos turismo',{tur_ing_m:'level',tur_ing_12m:'sum12'});
   const monthlyFlows=new Set(['cc_m','bys_m','tur_ing_m']);
   const INE_GENERAL_YOY={family:'IPI:GEN',method:'ine',adjustment:'adjusted',kind:'yoy',aggregate:'mean'};
   const normalize=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const fractionUnit=s=>s.unit==='Rate (fraction of 1)';
+  const rateUnit=s=>fractionUnit(s)||Boolean(s.unit?.includes('%'));
+  function publishedChange(unit){
+    const text=normalize(unit);
+    if(/\b(?:y y|a a|year on year|interanual)\b/.test(text)) return 'yoy';
+    if(/\b(?:q q|t t|quarter on quarter|variacion trimestral)\b/.test(text)) return 'qoq';
+    if(/\b(?:m m|month on month|variacion mensual)\b/.test(text)) return 'mom';
+  }
   function documentedAdjustment(code,series){
     const original=series.originalText||series;
     const text=[series.adjustment,original.label,original.original_name,series.transform].filter(Boolean).join(' ');
@@ -64,7 +74,7 @@ const SERIES_TRANSFORMS = (() => {
         aggregate:flow?'sum':'mean',canGrow:!code.startsWith('BC_SALDO'),hasMethod:true});
     }
     if(id.startsWith('drive_us_')){
-      const kind=/% y\/y|% a\/a|year-on-year/i.test(unit)?'yoy':/% q\/q|% t\/t|quarter-on-quarter/i.test(unit)?'qoq':/% m\/m|month-on-month/i.test(unit)?'mom':'level';
+      const kind=publishedChange(unit)||'level';
       const canGrow=kind==='level'&&(/index|usd|dollar|billion|million|thousand|people|person|level|índice|miles|millones/i.test(unit))&&!/balance|saldo|rate|spread|%/i.test(unit);
       return shape({kind,aggregate:/index|índice/i.test(unit)?'mean':'',canGrow,hasMethod:Boolean(adjustment||s.transform)});
     }
@@ -75,19 +85,21 @@ const SERIES_TRANSFORMS = (() => {
       const stock=/^TR_BDDK_/.test(code);
       const amount=/^Millones de (?:TRY|USD)$/.test(unit);
       const signed=/(?:BALANCE|LENDING)$/.test(code);
+      const kind=publishedChange(unit)||'level';
       return shape({family:isGDP?code.replace(/_(RAW|SCA|SA)_/,'_'):id,
+        kind,
         aggregate:indexed?'mean':fiscalOrTrade&&amount?'sum':stock&&amount?'last':'',
         canGrow:isGDP&&!/_(S|TAXES_SUBSIDIES)$/.test(code)||indexed||/People/.test(unit)||(fiscalOrTrade||stock)&&amount&&!signed,
         hasMethod:Boolean(adjustment||s.transform)});
     }
     const documented=base[id]||{};
-    const kind=documented.kind||(/% a\/a|y\/y|year-on-year/i.test(unit)||/^(yoy|sum12yoy|qavg_yoy)$/.test(s.transform)?'yoy':
-      /sum12|suma móvil de 12 meses/.test(s.transform)?'sum12':unit==='% PIB'?'gdp':
-      /^Month-on-month/.test(unit)?'mom':'level');
+    const kind=documented.kind||publishedChange(unit)||(/^(yoy|sum12yoy|qavg_yoy)$/.test(s.transform)?'yoy':
+      /sum12|suma móvil de 12 meses/.test(s.transform)?'sum12':unit==='% PIB'?'gdp':'level');
     const monthlyFlow=monthlyFlows.has(id);
     const measure=['miles','€/m²','M€','mm€','miles €','índice'].includes(unit);
     return shape({...documented,kind,canGrow:kind==='level'&&(measure&&!monthlyFlow||id==='tur_ing_m'),
-      aggregate:monthlyFlow?'sum':unit==='índice'?'mean':'',hasMethod:Boolean(s.transform||kind!=='level'||adjustment||['ESI','PMI'].includes(block))});
+      aggregate:monthlyFlow?'sum':s.annual_how==='end'||kind==='sum12'||kind==='gdp'?'last':s.annual_how==='mean'||unit==='índice'?'mean':'',
+      hasMethod:Boolean(s.transform||kind!=='level'||adjustment||['ESI','PMI'].includes(block))});
   }
   const numeric=p=>Number.isFinite(p[1]);
   const timestamp=d=>Date.parse(d+'T00:00:00Z');
@@ -101,15 +113,20 @@ const SERIES_TRANSFORMS = (() => {
     const time=timestamp(prior);
     return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===prior?time/864e5:NaN;
   }
-  function growth(data,freq,kind){
+  function comparePeriods(data,freq,kind,compare){
     const obs=new Map(data.filter(numeric).map(p=>[seriesPeriod(p[0],freq),p]));
     const lag=kind==='yoy'?({M:12,Q:4,W:364})[freq]:freq==='W'?7:1;
     return data.filter(numeric).flatMap(([day,v,flag])=>{
       const previous=obs.get(kind==='yoy'&&freq==='D'?priorYear(day):seriesPeriod(day,freq)-lag);
-      if(!previous||previous[1]<=0||v<0) return [];
-      const value=100*(v/previous[1]-1);
+      if(!previous) return [];
+      const value=compare(v,previous[1]);
       return Number.isFinite(value)?[[day,value,flag||previous[2]||0]]:[];
     });
+  }
+  const growth=(value,previous)=>previous>0&&value>=0?100*(value/previous-1):NaN;
+  function difference(s,big){
+    const fraction=big||fractionUnit(s);
+    return {unit:fraction||rateUnit(s)?'pp':s.unit, compare:(value,previous)=>(value-previous)*(fraction?100:1)};
   }
   function quarterly(data,how){
     const byMonth=new Map(data.filter(numeric).map(p=>[months(p[0]),p]));
@@ -118,6 +135,22 @@ const SERIES_TRANSFORMS = (() => {
     return [...byMonth.keys()].filter(k=>k%3===0&&byMonth.has(k+1)&&byMonth.has(k+2)).map(k=>{
       const a=[byMonth.get(k),byMonth.get(k+1),byMonth.get(k+2)];
       return [monthDate(k),a.reduce((sum,p)=>sum+p[1],0)/(how==='mean'?3:1),a.some(p=>p[2])?1:0];
+    });
+  }
+  function monthly(data,from,how){
+    const grouped=new Map();
+    for(const point of data.filter(numeric)){
+      const month=months(point[0]);
+      if(!grouped.has(month)) grouped.set(month,[]);
+      grouped.get(month).push(point);
+    }
+    return [...grouped].flatMap(([month,points])=>{
+      const last=points.at(-1);
+      const minCount=from==='W'?3:15;
+      const daysToNextMonth=(timestamp(monthDate(month+1))-timestamp(last[0]))/864e5;
+      if(points.length<minCount||daysToNextMonth>(from==='W'?7:5)) return [];
+      const value=how==='last'?last[1]:points.reduce((sum,p)=>sum+p[1],0)/(how==='mean'?points.length:1);
+      return [[monthDate(month),value,how==='last'?last[2]:Number(points.some(p=>p[2]))]];
     });
   }
   const names=(kind,en)=>kinds[kind]?.[Number(en)]||kind;
@@ -163,11 +196,9 @@ const SERIES_TRANSFORMS = (() => {
         transform:t('Calculada aquí. ','Calculated here. ')+note}
     }:unavailable(t('Faltan observaciones comparables para calcularla.','Comparable observations are missing.'));
     if(kind==='delta'){
-      const fraction=big||s.unit==='Rate (fraction of 1)';
-      const scale=fraction?100:1;
-      const unit=fraction||s.unit?.includes('%')?'pp':s.unit;
+      const {unit,compare}=difference(s,big);
       const values=s.data.filter(numeric);
-      const data=values.slice(1).map(([day,value,flag],i)=>[day,(value-values[i][1])*scale,flag||values[i][2]||0]).filter(numeric);
+      const data=values.slice(1).map(([day,value,flag],i)=>[day,compare(value,values[i][1]),flag||values[i][2]||0]).filter(numeric);
       return calc(row,data,unit,s.freq,t('Diferencia entre cada dato y la observación anterior disponible.','Difference between each value and the previous available observation.'));
     }
     if(kind==='z'||kind==='b100'){
@@ -195,25 +226,56 @@ const SERIES_TRANSFORMS = (() => {
     const published=matches(row)?[row,...variants.filter(v=>v!==row&&matches(v))]:variants.filter(matches);
     const candidate=published.find(v=>v.series.data.some(p=>numeric(p)&&visible(p)));
     if(candidate) return stored(candidate);
+    if(kind==='mom'&&p.quarterlyDenominator){
+      return unavailable(t('El PIB del denominador solo está disponible por trimestre.','The GDP denominator is only available quarterly.'));
+    }
 
-    const comparable=v=>v.p.kind==='level'&&v.p.canGrow;
-    const native=variants.find(v=>comparable(v)&&v.series.freq===desiredFreq);
-    const monthly=kind==='qoq'&&!native&&variants.find(v=>comparable(v)&&v.series.freq==='M'&&v.p.aggregate);
-    const level=native||monthly;
-    if(!level) return published.length?stored(published[0]):
-      unavailable(t('No está disponible el nivel de origen compatible con esta operación.','A compatible underlying level is not available for this operation.'));
-    const data=monthly?quarterly(level.series.data,level.p.aggregate):level.series.data;
-    const unit='% '+({mom:'m/m',qoq:'t/t',yoy:'a/a'})[kind];
-    const note=monthly
-      ? ({
+    const aggregate=(v,how)=>{
+      const {freq,data}=v.series;
+      if(freq===desiredFreq) return {data,note:''};
+      if(!how||!['M','Q'].includes(desiredFreq)||!['D','W','M'].includes(freq)) return null;
+      const finer=freq==='D'||freq==='W';
+      const monthlyData=finer?monthly(data,freq,how):data;
+      const monthNotes={
+        sum:t('Suma de las observaciones de cada mes.','Sum of the observations in each month.'),
+        mean:t('Media de las observaciones de cada mes.','Average of the observations in each month.'),
+        last:t('Última observación de cada mes.','Last observation in each month.')
+      };
+      if(desiredFreq==='M') return {data:monthlyData,note:monthNotes[how]};
+      const notes={
         sum:t('Suma de los tres meses de cada trimestre.','Sum of the three months in each quarter.'),
         mean:t('Media de los tres meses de cada trimestre.','Average of the three months in each quarter.'),
         last:t('Nivel del último mes de cada trimestre.','Level in the last month of each quarter.')
-      })[level.p.aggregate]
-      : t('Comparación con el periodo correspondiente, sin rellenar huecos.','Comparison with the corresponding period, with no gap filling.');
-    const calculated=growth(data,desiredFreq,kind);
-    if(published.length&&!calculated.some(visible)) return stored(published[0]);
-    return calc(level,calculated,unit,desiredFreq,note);
+      };
+      return {data:quarterly(monthlyData,how),note:[finer?monthNotes[how]:'',notes[how]].filter(Boolean).join(' ')};
+    };
+    const levels=variants.filter(v=>v.p.kind==='level'&&v.p.canGrow&&p.kind!=='gdp')
+      .sort((a,b)=>Number(b.series.freq===desiredFreq)-Number(a.series.freq===desiredFreq));
+    for(const level of levels){
+      const input=aggregate(level,level.p.aggregate);
+      if(!input) continue;
+      const data=comparePeriods(input.data,desiredFreq,kind,growth);
+      if(data.some(visible)){
+        const unit='% '+({mom:'m/m',qoq:'t/t',yoy:'a/a'})[kind];
+        const note=input.note||t('Comparación con el periodo correspondiente, sin rellenar huecos.','Comparison with the corresponding period, with no gap filling.');
+        return calc(level,data,unit,desiredFreq,note);
+      }
+    }
+    if(!p.canGrow||p.kind!=='level'){
+      const input=aggregate(row,p.aggregate||(rateUnit(s)||big?'mean':''));
+      if(input){
+        const {unit,compare}=difference(s,big);
+        const data=comparePeriods(input.data,desiredFreq,kind,compare);
+        if(data.some(visible)){
+          const note=unit==='pp'
+            ?t('Diferencia en puntos porcentuales entre periodos de la serie de origen.','Difference in percentage points between periods of the source series.')
+            :t('Diferencia entre periodos en las unidades de la serie de origen.','Difference between periods in the units of the source series.');
+          return calc(row,data,unit,desiredFreq,[input.note,note].filter(Boolean).join(' '));
+        }
+      }
+    }
+    return published.length?stored(published[0]):
+      unavailable(t('Faltan observaciones comparables a esta frecuencia.','Comparable observations at this frequency are missing.'));
   }
   return {names,kinds,adjustments,catalogue,resolve,adjustedRow};
 })();

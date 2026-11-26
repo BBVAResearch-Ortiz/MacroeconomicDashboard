@@ -212,6 +212,24 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertIn('Source URL', csv)
         self.assertIn('CVEC INE', csv)
 
+    def test_transform_menu_labels_only_calculated_options(self):
+        page = self.start_page()
+        page.add_init_script("""
+            localStorage.setItem('mme-bb', JSON.stringify({picks:['pib_yoy']}))
+        """)
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        select = page.locator('#board-transform')
+        expect(select.locator('option[value=qoq]')).to_have_text('Quarter-on-quarter change')
+        expect(select.locator('option[value=mom]')).to_have_text('Month-on-month change')
+        expect(select.locator('option[value=mom]')).to_be_disabled()
+        page.evaluate("bb.picks=['cc_pib']; saveBB(); render()")
+        expect(select.locator('option[value=qoq]')).to_have_text('Quarter-on-quarter change (Calculated here)')
+        expect(select.locator('option[value=mom]')).to_be_disabled()
+        select.select_option('qoq')
+        expect(page.locator('[data-status=calculated]')).to_contain_text('percentage points')
+        expect(page.locator('#bbchart svg')).to_be_visible()
+
     def test_big_data_catalogue_and_csv_header(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#bigdata')

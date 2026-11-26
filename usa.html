@@ -370,7 +370,7 @@ footer .wrap{padding-block:0 32px}
 <footer><div class="wrap" id="foot"></div></footer>
 
 <script id="embedded-data" type="application/json">{"series":{},"meta":{"refreshed":"","n_series":0}}</script>
-<script src="series_transforms.js?v=7"></script>
+<script src="series_transforms.js?v=8"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1828,7 +1828,7 @@ function transformationControls(id,plan){
     const unavailable=kind!==plan.selected&&!plan.usable(kind,rows);
     const visible=rows.filter(row=>row.series);
     const calculations=visible.filter(row=>row.status==='calculated').length;
-    const origin=unavailable?transformStatus('unavailable'):!calculations?'':calculations===visible.length
+    const origin=unavailable||!calculations?'':calculations===visible.length
       ?transformStatus('calculated'):en?'Includes calculations':'Incluye cálculos';
     return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(origin?`${name} (${origin})`:name)}</option>`;
   });
