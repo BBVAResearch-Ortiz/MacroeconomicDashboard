@@ -221,7 +221,21 @@ table.fc td.f{font-weight:600}
 .bbfig>.chart-range>.date-coverage{order:2}
 .bbfig #bbchart .chart-body{grid-template-columns:minmax(0,1fr)}
 .bbfig #bbchart .chart-readings{border-left:0;border-top:1px solid var(--chart-grid);padding:10px 0 0}
-.bbfig #bbchart .chart-readings ul{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px 18px}
+.bbfig #bbchart .chart-readings{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px}
+.bbfig #bbchart .chart-readings ul{display:flex;flex-wrap:wrap;gap:6px 20px;flex:1;min-width:0}
+.bbfig #bbchart .chart-readings li{display:flex;align-items:baseline;gap:7px;border-left:0;padding-left:0;font-size:13px}
+.bbfig #bbchart .chart-readings li::before{content:"";flex:none;inline-size:16px;block-size:3px;border-radius:2px;background:var(--reading-color);align-self:center}
+.bbfig #bbchart .chart-reading-label{order:1;margin:0;font-size:13px}
+.bbfig #bbchart .chart-reading-value{order:2;display:none;font-size:13px;line-height:inherit;white-space:nowrap}
+.bbfig #bbchart .chart-readings.is-hovering .chart-reading-value{display:inline}
+.bbfig #bbchart .chart-readings li time,.bbfig #bbchart .chart-reading-source{display:none}
+.bbfig #bbchart .chart-readings>p{order:2;margin:0;visibility:hidden;white-space:nowrap}
+.bbfig #bbchart .chart-readings.is-hovering>p{visibility:visible}
+.board-head{align-items:center}
+.board-modes{flex:1;min-width:0}
+.board-modes .bbmodes{display:flex;flex-wrap:wrap}
+.board-modes .bbmodes button{padding:7px 10px;white-space:nowrap}
+@media(max-width:900px){.board-modes{flex-basis:100%;order:3}}
 .board-csv{flex:none;margin-inline-start:auto}
 .board-csv:empty{display:none}
 .board-transform-group .transform-sources{flex-direction:column;gap:3px}
@@ -1701,7 +1715,11 @@ function toFreq(data,from,to){ if(from===to&&to!=='W') return data.map(o=>[o[0],
   data.forEach(([d,v])=>{ const k=periodKey(d,to); const a=g.get(k)||[0,0]; a[0]+=v; a[1]++; g.set(k,a); });
   return [...g.entries()].filter(([,a])=>a[1]>=need).map(([k,a])=>[k,a[0]/a[1]]).sort((a,b)=>a[0]<b[0]?-1:1); }
 
-function boardHeader(){ return '<div class="sechead"><h2>Blackboard</h2>'+(IS_USA?'<div class="figure-csv-header board-csv" id="bb-csv"></div>':'')+'</div>'; }
+const boardModes=()=>`<div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div>`;
+function boardHeader(){
+  if(!IS_USA) return '<div class="sechead"><h2>Blackboard</h2></div>';
+  return `<div class="sechead board-head"><h2>Blackboard</h2><div class="board-modes" role="group" aria-label="${isEN()?'Chart type':'Modalidad de gráfico'}">${boardModes()}</div><div class="figure-csv-header board-csv" id="bb-csv"></div></div>`;
+}
 
 const UNIT_ES={'€/m²':'€/m²','% a/a':'% a/a','%':'%','% PIB':'% del PIB','pp':'pp','pb':'pb','M€':'millones de euros','mm€':'miles de millones de euros','miles':'miles','índice':'índice','saldo':'saldo'};
 function scatterData(xId,yId){ const X=S()[xId], Y=S()[yId]; const f = FRANK[X.freq]<=FRANK[Y.freq]? X.freq : Y.freq;
@@ -2153,7 +2171,7 @@ function viewBoard(){
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`${sectionSearch('explorer-search')}<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
        ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(tree,S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
-     <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
+     ${IS_USA?'':`<div class="bbgrp"><span class="picklab">Modalidad de gráfico</span>${boardModes()}</div>`}
      ${IS_USA?`<div class="bbgrp board-transform-group">${transformationControls('board-transform',plan)}</div>`:''}
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
    </aside>

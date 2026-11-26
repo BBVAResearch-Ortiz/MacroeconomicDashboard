@@ -427,13 +427,27 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLessEqual(csv_button['y'] + csv_button['height'], box['y'])
         with page.expect_download():
             page.locator('#bb-csv .csv-action').click()
-        # Rule 3: the latest readings are a legend below the plot, at full width.
+        # Chart types sit on the Blackboard heading row, not in the left panel.
+        heading = page.locator('.board-head h2').bounding_box()
+        modes = page.locator('.board-head [data-bbm]')
+        expect(modes).to_have_count(7)
+        expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
+        first_mode = modes.first.bounding_box()
+        self.assertLess(first_mode['y'], heading['y'] + heading['height'])
+        self.assertGreater(first_mode['y'] + first_mode['height'], heading['y'])
+        # Rule 3: a plain legend (swatch and name) below the plot, at full width.
         plot = page.locator('#bbchart .chart-plot').bounding_box()
         readings = page.locator('#bbchart .chart-readings').bounding_box()
         self.assertGreaterEqual(readings['y'], plot['y'] + plot['height'])
         self.assertAlmostEqual(readings['width'], plot['width'], delta=2)
         coverage = figure.locator('.date-coverage').bounding_box()
         self.assertGreaterEqual(coverage['y'], readings['y'] + readings['height'])
+        self.assertLess(readings['height'], 60)
+        expect(page.locator('#bbchart .chart-reading-label')).to_have_count(3)
+        for hidden in ('.chart-reading-value', '.chart-readings time', '.chart-reading-source'):
+            expect(page.locator(f'#bbchart {hidden}').first).to_be_hidden()
+        page.locator('#bbchart svg').first.hover()
+        expect(page.locator('#bbchart .chart-reading-value').first).to_be_visible()
         # The scatterplot keeps the menus in the left panel too.
         page.locator('[data-bbm=scatter]').click()
         expect(page.locator('.bbside #board-transform')).to_be_visible()
@@ -448,6 +462,8 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.locator('[data-bbm=lines]').click()
                 expect(page.locator('figure.bbfig')).to_have_count(0)
                 expect(page.locator('#bb-csv')).to_have_count(0)
+                expect(page.locator('.bbside [data-bbm]')).to_have_count(7)
+                expect(page.locator('#bbchart .chart-reading-value').first).to_be_visible()
                 expect(page.locator('figure.fig #board-transform')).to_be_visible()
                 expect(page.locator('figure.fig > .figure-csv-header .csv-action')).to_be_visible()
 
