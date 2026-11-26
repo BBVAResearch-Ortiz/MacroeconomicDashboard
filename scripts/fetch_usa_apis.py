@@ -186,9 +186,12 @@ def check_bea_api():
         "ResultFormat": "JSON",
     })
     url = f"https://apps.bea.gov/api/data?{params}"
-    data = http_get_json(url)
-    tables = data.get("BEAAPI", {}).get("Results", {}).get("ParamValue", [])
-    print(f"[BEA API] Conexión OK ({len(tables)} tablas NIPA disponibles)", flush=True)
+    try:
+        data = http_get_json(url)
+        tables = data.get("BEAAPI", {}).get("Results", {}).get("ParamValue", [])
+        print(f"[BEA API] Conexión OK ({len(tables)} tablas NIPA disponibles)", flush=True)
+    except Exception as exc:
+        print(f"[WARN] BEA API no disponible temporalmente: {exc}", flush=True)
 
 
 def main():
