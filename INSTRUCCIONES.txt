@@ -1,0 +1,25 @@
+CAMBIOS PARA BBVAResearch-Ortiz/MacroeconomicDashboard
+======================================================
+
+1) AÑADIR (1 archivo)
+   .github/workflows/update-data.yml
+   Va en esa misma ruta dentro del repositorio.
+   Nota: la carpeta .github es oculta en macOS (Cmd+Shift+. en Finder para verla).
+
+2) BORRAR (6 archivos de la raíz del repositorio)
+   0001-Actualizar-fuentes-oficiales-del-dashboard.patch
+   0002-Actualizar-datos-y-pesta-as-de-USA.patch
+   sync.py
+   UploadToDashboard.gs
+   fetch_usa_apis.py
+   update_usa_data.py
+   OJO: solo los de la raíz. NO borrar drive_ingestion/sync.py,
+   drive_ingestion/apps_script/UploadToDashboard.gs ni scripts/fetch_usa_apis.py.
+
+3) NO subir nada más. Los JSON de datos del repositorio se actualizan solos
+   cada pocos minutos y una copia antigua los sobrescribiría.
+
+4) DESPUÉS
+   - Settings > Actions > General > Workflow permissions: "Read and write".
+   - Actions > Update data > Run workflow.
+   - Revisar update_log.md: la última línea no debe mostrar el error de pandas.
