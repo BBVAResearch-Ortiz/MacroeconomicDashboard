@@ -518,8 +518,8 @@ function fetchTurkeyBudget_(today, previous = {}) {
       const data = withDashboardSpreadsheet_(file, 'Central government budget', workbook => readTurkeyBudget_(
         workbook.getSheets().map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]), report, reportYear, today));
       fields.forEach(([key, title], i) => {
-        const target = series[key] ||= { title, data: [] };
-        target.data.push(...data[i]);
+        if (!series[key]) series[key] = { title, data: [] };
+        series[key].data.push(...data[i]);
       });
     });
   }
