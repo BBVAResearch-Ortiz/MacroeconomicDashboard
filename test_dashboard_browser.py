@@ -564,11 +564,21 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(detail.locator('#dsge-stamp')).to_contain_text('18 de septiembre de 2026')
         expect(detail).to_contain_text('aquí no se ejecuta el modelo')
         expect(detail.locator('#dsge-source')).to_have_attribute('href', published['source_url'])
-        # Three fan charts, the rate effect, two revision charts and the table, in two columns.
+        # A 2 x 3 gallery that opens with the two forecast-comparison charts.
         cards = detail.locator('#dsge-gallery > .card')
-        expect(cards).to_have_count(7)
-        boxes = [cards.nth(i).bounding_box() for i in range(7)]
-        self.assertEqual(len({round(box['y']) for box in boxes}), 4)
+        expect(cards).to_have_count(6)
+        self.assertEqual([cards.nth(i).get_attribute('data-dsge-chart') for i in range(6)],
+                         ['rev-gdp', 'rev-core_pce', 'gdp', 'core_pce', 'rstar', 'effect'])
+        boxes = [cards.nth(i).bounding_box() for i in range(6)]
+        self.assertEqual(len({round(box['y']) for box in boxes}), 3)
+        self.assertEqual(len({round(box['x']) for box in boxes}), 2)
+        # The shock simulator sits to the right of the first box, on the same row.
+        summary = detail.locator('.dsge-top > .gdp-detail').bounding_box()
+        simulator_box = detail.locator('#dsge-sim').bounding_box()
+        self.assertAlmostEqual(summary['y'], simulator_box['y'], delta=1)
+        self.assertLessEqual(summary['x'] + summary['width'], simulator_box['x'])
+        self.assertLess(simulator_box['y'] + simulator_box['height'], boxes[0]['y'])
+        expect(detail.locator('#dsge-table-host [data-dsge-chart=table]')).to_be_visible()
         self.assertLess(boxes[0]['x'] + boxes[0]['width'], boxes[1]['x'])
         # Bands are switchable; the default shows 50, 68 and 90 percent.
         gdp = detail.locator('[data-dsge-chart=gdp]')
