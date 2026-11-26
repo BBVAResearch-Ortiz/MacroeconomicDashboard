@@ -482,6 +482,11 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bbchart [data-axis-label]')).to_have_count(0)
         self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Billions of USD · Index 2017=100')
         expect(page.locator('#bbchart .chart-reading-label').first).to_contain_text('(eje izq.)')
+        # No "Calculated here · …" sentences under the transformation menus.
+        page.locator('#board-transform').select_option('yoy')
+        expect(page.locator('.board-transform-group .transform-sources')).to_be_hidden()
+        self.assertNotIn('Calculada aquí ·', page.locator('.bbwrap').inner_text())
+        page.locator('#board-transform').select_option('original')
         # Axes are assigned by unit, not by hand: the first unit goes left, the others right.
         expect(page.locator('[data-bbax]')).to_have_count(0)
         expect(page.locator('#bbchart path[data-axis=left]')).to_have_count(1)

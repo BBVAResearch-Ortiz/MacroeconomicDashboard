@@ -253,7 +253,8 @@ table.fc td.f{font-weight:600}
 .board-csv{justify-content:flex-end}
 .board-csv:empty{display:none}
 .board-transform-group .transform-sources{flex-direction:column;gap:3px}
-.board-transform-group .transform-sources [data-status="documented"],.board-transform-group .transform-sources [data-status="original"]{display:none}
+/* USA: sin las frases «Calculada aquí · …» bajo los menús de transformación. */
+.board-transform-group .transform-sources{display:none}
 @media(min-width:901px){.board-transform-group .transform-control{grid-template-columns:minmax(0,1fr)}}
 .transform-sources{display:flex;flex-wrap:wrap;gap:4px 8px}
 .transform-sources span{font-size:12px;color:var(--muted)}
