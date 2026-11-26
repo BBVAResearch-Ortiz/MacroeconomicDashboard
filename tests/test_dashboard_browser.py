@@ -91,6 +91,105 @@ class DashboardBrowserTests(unittest.TestCase):
                 expect(page.locator(chart).first).to_be_visible()
                 self.assert_language(page, 'es')
 
+    def test_blackboard_axis_assignments_survive_toggle_reorder_and_removal(self):
+        page = self.start_page()
+        page.add_init_script("""
+            if (!localStorage.getItem('mme-bb')) {
+                localStorage.setItem('mme-bb', JSON.stringify({
+                    mode:'dual', picks:['ocup_epa','paro_epa'], adjustment:'raw'
+                }));
+            }
+        """)
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        chart = page.locator('#bbchart')
+        employed = page.locator('[data-bbax=ocup_epa]')
+        unemployed = page.locator('[data-bbax=paro_epa]')
+        expect(employed).to_have_text('Left axis')
+        expect(unemployed).to_have_text('Right axis')
+
+        employed.press('Enter')
+        expect(employed).to_be_focused()
+        expect(employed).to_have_text('Right axis')
+        expect(chart.locator('path[data-axis=right]')).to_have_count(2)
+        expect(chart.locator('[data-axis-label=left]')).to_have_count(0)
+        expect(chart.locator('.chart-reading-label').first).to_contain_text('(right axis)')
+        employed.press('Enter')
+        expect(employed).to_have_text('Left axis')
+
+        page.locator('[data-bbm=lines]').click()
+        page.locator('[data-bb-row=ocup_epa] [data-bb-move="1"]').click()
+        page.locator('[data-bbm=dual]').click()
+        expect(employed).to_have_text('Left axis')
+        expect(unemployed).to_have_text('Right axis')
+        expect(chart.locator('path[data-axis=left]')).to_have_count(1)
+        expect(chart.locator('path[data-axis=right]')).to_have_count(1)
+
+        page.locator('[data-bbrm=ocup_epa]').click()
+        expect(unemployed).to_have_text('Right axis')
+        expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
+        page.reload()
+        self.assert_blackboard(page, 'en')
+        expect(chart.locator('path[data-axis=right]')).to_have_count(1)
+        page.locator('#explorer-search').fill('EPA387796')
+        page.locator('#explorer-search-results [data-search-pick=ocup_epa]').click()
+        expect(employed).to_have_text('Left axis')
+        unemployed.click()
+        expect(chart.locator('path[data-axis=left]')).to_have_count(2)
+        expect(chart.locator('[data-axis-label=right]')).to_have_count(0)
+
+    def test_blackboard_axes_use_independent_scales_and_visible_dates(self):
+        page = self.start_page(viewport={'width': 390, 'height': 900})
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        page.wait_for_function('!spainDriveLoading')
+        page.evaluate("""() => {
+            const series = (label, data) => ({label, data, unit:'%', block:'actividad', freq:'M'});
+            S().test_left=series('Large scale', [['2025-01-01',1000000],['2025-02-01',2000000]]);
+            S().test_right=series('Narrow scale', [['2025-01-01',0.037],['2025-02-01',0.041],['2025-09-01',0.043]]);
+            Object.assign(bb,{picks:['test_left','test_right'], mode:'dual', tr:'original', adjustment:'raw'});
+            state.range='todo';
+            render();
+        }""")
+        chart = page.locator('#bbchart')
+        svg = chart.locator('svg')
+        left_ticks = chart.locator('[data-axis-tick=left]').all_text_contents()
+        right_ticks = chart.locator('[data-axis-tick=right]').all_text_contents()
+        self.assertGreater(float(left_ticks[-1].replace(',', '')), 1000000)
+        self.assertLess(float(right_ticks[-1]), 0.05)
+        self.assertGreater(len(right_ticks), 2)
+        self.assertEqual(len(right_ticks), len(set(right_ticks)))
+        svg.press('ArrowLeft')
+        expect(svg.locator('#dots circle')).to_have_count(2)
+        page.locator('.chart-range [data-r="1m"]').click()
+        expect(chart.locator('[data-axis-label=left]')).to_have_count(0)
+        expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
+        expect(chart.locator('path[data-axis=right]')).to_have_count(1)
+        expect(page.locator('[data-bbax=test_left]')).to_have_text('Left axis')
+
+    def test_blackboard_discards_a_pending_redraw_after_switching_axes(self):
+        page = self.start_page()
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        page.wait_for_function('!spainDriveLoading')
+        page.locator('[data-bbm=dual]').click()
+        result = page.evaluate("""async () => {
+            let ran = false;
+            observe(() => {ran = true;});
+            const previousTimer = roT;
+            document.querySelector('#bbchart svg').setAttribute('viewBox','0 0 100 100');
+            for(let i=0; i<10 && roT===previousTimer; i++){
+                await new Promise(requestAnimationFrame);
+            }
+            const scheduled = roT!==previousTimer;
+            document.querySelector('[data-bbax]').click();
+            await new Promise(resolve=>setTimeout(resolve,130));
+            return {scheduled,ran};
+        }""")
+        self.assertEqual(result, {'scheduled': True, 'ran': False})
+        expect(page.locator('#bbchart [data-axis-label=left]')).to_have_count(0)
+        expect(page.locator('#bbchart [data-axis-label=right]')).to_have_count(1)
+
     def test_mobile_navigation_preserves_language(self):
         page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
         page.goto(f'{ORIGIN}/espana.html?lang=es')

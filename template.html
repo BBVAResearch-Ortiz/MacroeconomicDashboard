@@ -659,6 +659,10 @@ function lastDateAll(){ let m=0; for(const k in S()){ const d=S()[k].data; if(d.
 /* -------------------------------------------------------------- chart engine (SVG, one y-axis) */
 function niceTicks(lo,hi,n=5){ if(lo===hi){lo-=1;hi+=1;} const span=hi-lo, step0=span/n, p=Math.pow(10,Math.floor(Math.log10(step0))); const f=step0/p; const step=(f<1.5?1:f<3?2:f<7?5:10)*p;
   const a=Math.floor(lo/step)*step, b=Math.ceil(hi/step)*step; const t=[]; for(let v=a; v<=b+step/2; v+=step) t.push(+v.toFixed(10)); return t; }
+function axisTickDecimals(ticks){
+  const step=Math.abs(ticks[1]-ticks[0]);
+  return step.toFixed(10).replace(/0+$/,'').split('.')[1]?.length||0;
+}
 function timeTicks(t0,t1,w){ const yrs=(t1-t0)/3.156e10; const out=[]; const maxT=Math.max(2,Math.floor(w/80));
   if(yrs>2.2){ const y0=new Date(t0).getUTCFullYear()+1, y1=new Date(t1).getUTCFullYear(); let st=1; while((y1-y0+1)/st>maxT) st++; for(let y=y0;y<=y1;y+=st) out.push([Date.UTC(y,0,1),String(y)]); }
   else { const d=new Date(t0); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+1); const months=[]; while(d.getTime()<=t1){ months.push(d.getTime()); d.setUTCMonth(d.getUTCMonth()+1);} let st=1; while(months.length/st>maxT) st++;
@@ -735,7 +739,7 @@ function chartReadings(host,series,percentScale){
 }
 function drawChart(host, cfg){
   const start=cfg.start??cutoff(), end=upperCutoff();
-  const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s,data:(S()[s.id]?.data||[]).filter(o=>ts(o[0])>=start&&ts(o[0])<=end)}));
+  const all = [...(cfg.bars||[]), ...(cfg.lines||[]), ...(cfg.rlines||[]).map(s=>({...s,right:true}))].map(s=>({...s,data:(S()[s.id]?.data||[]).filter(([day,value])=>Number.isFinite(value)&&ts(day)>=start&&ts(day)<=end)}));
   if(cfg.seriesOrder) all.sort((a,b)=>cfg.seriesOrder.indexOf(a.id)-cfg.seriesOrder.indexOf(b.id));
   if(!cfg.featured) bindChartSources(host,all.map(({id})=>S()[id]));
   if(cfg.csv!==false&&all.length) bindSeriesCsv(host,cfg.csvName||all[0].id,all.map(({id,data})=>({...S()[id],data})));
@@ -746,8 +750,8 @@ function drawChart(host, cfg){
   const readings=cfg.featured?chartReadings(host,all,cfg.percentScale):null;
   const plot=readings?.plot||host;
   const W=Math.max(280,plot.clientWidth), H=cfg.height||(W<500?220:260);
-  const dual=Boolean(cfg.rlines?.length);
-  const padL=cfg.percentScale?64:50, padR=dual?52:16, padT=dual?26:14, padB=30;
+  const hasLeft=all.some(s=>!s.right&&s.data.length), hasRight=all.some(s=>s.right&&s.data.length);
+  const padT=cfg.axisLabels?26:14, padB=30;
   const bars = all.filter(s=>(cfg.bars||[]).some(b=>b.id===s.id));
   const lines = all.filter(s=>!s.right&&(cfg.lines||[]).some(b=>b.id===s.id)); const rlines = all.filter(s=>s.right);
   // bar slots: unique dates of bar series
@@ -759,16 +763,30 @@ function drawChart(host, cfg){
   if(bars.length){ if(cfg.stack){ barDates.forEach(d=>{let p=0,n=0; bars.forEach(s=>{const o=s.data.find(x=>x[0]===d); if(o){ if(o[1]>=0)p+=o[1]; else n+=o[1]; }}); ys.push(p,n);}); } else bars.forEach(s=>s.data.forEach(o=>ys.push(o[1]))); }
   let lo=Math.min(...ys), hi=Math.max(...ys); if(cfg.zero!==false && bars.length){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
   if(cfg.zero===true){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
-  const ticks=ys.length?niceTicks(lo,hi,H<240?4:5):[0,1]; lo=ticks[0]; hi=ticks[ticks.length-1];
+  const tickCount=H<240?4:5;
+  const ticks=hasLeft?niceTicks(lo,hi,tickCount):[0,1]; lo=ticks[0]; hi=ticks.at(-1);
+  const rightValues=rlines.flatMap(s=>s.data.map(o=>o[1]));
+  const rightTicks=hasRight?niceTicks(Math.min(...rightValues),Math.max(...rightValues),tickCount):[0,1];
+  const rlo=rightTicks[0], rhi=rightTicks.at(-1);
+  const leftDecimals=axisTickDecimals(ticks), rightDecimals=axisTickDecimals(rightTicks);
+  const leftLabels=ticks.map(v=>cfg.percentScale?formatBigPercent(v):fmtN(v||0,leftDecimals));
+  const rightLabels=rightTicks.map(v=>fmtN(v||0,rightDecimals));
+  const axisPadding=(labels,minimum)=>Math.min(W/3,Math.max(minimum,16+7*Math.max(...labels.map(label=>label.length))));
+  const padL=hasLeft?axisPadding(leftLabels,cfg.percentScale?64:50):16;
+  const padR=hasRight?axisPadding(rightLabels,52):16;
   const x=t=>padL+(t-t0)/(t1-t0)*(W-padL-padR), yL=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
-  let rt=null, rlo=0, rhi=1; if(dual){ const rv=rlines.flatMap(s=>s.data.map(o=>o[1])); if(rv.length){ rt=niceTicks(Math.min(...rv),Math.max(...rv),ys.length?ticks.length-1:5); rlo=rt[0]; rhi=rt[rt.length-1]; } }
   const yR=v=>padT+(rhi-v)/((rhi-rlo)||1)*(H-padT-padB); const y=yL; const yOf=s=>s.right?yR:yL;
   const grid=css('--chart-grid'), rule=css('--chart-zero'), surf=css('--surface');
   const gridLine=(v,position)=>`<line x1="${padL}" x2="${W-padR}" y1="${position}" y2="${position}" stroke="${v===0?rule:grid}" stroke-width="${v===0?1.2:1}"/>`;
   let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria||'')}"${readings?' tabindex="0"':''}>`;
-  if(ys.length) ticks.forEach(v=>{ g+=`${gridLine(v,y(v))}<text x="${padL-8}" y="${y(v)+4}" text-anchor="end">${cfg.percentScale?formatBigPercent(v):fmtN(v, Math.abs(ticks[1]-ticks[0])<1?1:0)}</text>`; });
-  if(dual&&rt){ rt.forEach(v=>{ g+=`${ys.length?'':gridLine(v,yR(v))}<text x="${W-padR+8}" y="${yR(v)+4}" text-anchor="start">${fmtN(v, Math.abs(rt[1]-rt[0])<1?1:0)}</text>`; });
-    g+=`${ys.length?`<text x="${padL-8}" y="12" text-anchor="end" style="fill:var(--chart-ink);font-weight:500">Izq.</text>`:''}<text x="${W-padR+8}" y="12" text-anchor="start" style="fill:var(--chart-ink);font-weight:500">Dcha.</text>`; }
+  if(hasLeft){
+    ticks.forEach((v,i)=>{ g+=`${gridLine(v,y(v))}<text data-axis-tick="left" x="${padL-8}" y="${y(v)+4}" text-anchor="end">${leftLabels[i]}</text>`; });
+    if(cfg.axisLabels) g+=`<text data-axis-label="left" x="${padL-8}" y="12" text-anchor="end" style="fill:var(--chart-ink);font-weight:500">Izq.</text>`;
+  }
+  if(hasRight){
+    rightTicks.forEach((v,i)=>{ g+=`${hasLeft?'':gridLine(v,yR(v))}<text data-axis-tick="right" x="${W-padR+8}" y="${yR(v)+4}" text-anchor="start">${rightLabels[i]}</text>`; });
+    if(cfg.axisLabels) g+=`<text data-axis-label="right" x="${W-padR+8}" y="12" text-anchor="start" style="fill:var(--chart-ink);font-weight:500">Dcha.</text>`;
+  }
   timeTicks(t0,t1,W-padL-padR).forEach(([t,l])=>{ if(t<t0||t>t1) return; g+=`<line x1="${x(t)}" x2="${x(t)}" y1="${H-padB}" y2="${H-padB+4}" stroke="${rule}"/><text x="${x(t)}" y="${H-6}" text-anchor="middle">${l}</text>`; });
   // bars
   if(bars.length){ const bw=Math.max(2, (x(t0+slot)-x(t0))*(cfg.stack?0.72:0.8)/(cfg.stack?1:bars.length));
@@ -782,7 +800,7 @@ function drawChart(host, cfg){
   // lines
   [...lines,...rlines].forEach(s=>{ if(!s.data.length) return; let dpath=''; let prev=null; const y=yOf(s);
     s.data.forEach(o=>{ const X=x(ts(o[0])),Y=y(o[1]); const gap = prev && (ts(o[0])-ts(prev[0])) > ({M:40,Q:100,D:20}[S()[s.id].freq]||40)*864e5; dpath += (dpath&&!gap?'L':'M')+X.toFixed(1)+','+Y.toFixed(1); prev=o; });
-    g+=`<path d="${dpath}" fill="none" stroke="${css(s.color)}" stroke-width="${cfg.featured?2.2:1.9}" stroke-linejoin="round" stroke-linecap="round" ${s.right?'stroke-dasharray="6 3"':''}/>`;
+    g+=`<path data-axis="${s.right?'right':'left'}" d="${dpath}" fill="none" stroke="${css(s.color)}" stroke-width="${cfg.featured?2.2:1.9}" stroke-linejoin="round" stroke-linecap="round" ${s.right?'stroke-dasharray="6 3"':''}/>`;
     const L=s.data.at(-1); g+=`<circle cx="${x(ts(L[0]))}" cy="${y(L[1])}" r="3.5" fill="${css(s.color)}" stroke="${surf}" stroke-width="1.5"/>`; });
   g+=`<line id="xh" x1="0" x2="0" y1="${padT}" y2="${H-padB}" stroke="${css('--faint')}" stroke-dasharray="3 3" visibility="hidden"/><g id="dots"></g>`;
   g+=`<rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}" fill="transparent" id="hit"/></svg>`;
@@ -1200,13 +1218,17 @@ function viewBlock(key){
 let ro=null, roT=null;
 function observe(fn){
   if(ro) ro.disconnect();
-  ro=new ResizeObserver(()=>{
+  clearTimeout(roT);
+  const observer=new ResizeObserver(()=>{
+    if(ro!==observer) return;
     const stale=[...panel.querySelectorAll('.chart svg[viewBox]')].some(svg=>
       Math.abs(svg.viewBox.baseVal.width-Math.max(280,svg.parentElement.clientWidth))>4);
     if(!stale) return;
-    clearTimeout(roT); roT=setTimeout(fn,100);
+    clearTimeout(roT);
+    roT=setTimeout(()=>{if(ro===observer) fn();},100);
   });
-  panel.querySelectorAll('.chart').forEach(h=>ro.observe(h));
+  ro=observer;
+  panel.querySelectorAll('.chart').forEach(h=>observer.observe(h));
 }
 
 /* table specs: 'id' | ['id',level] | '#Group label' */
@@ -1822,6 +1844,7 @@ try{
   if(!saved.transformMenu&&saved.tr==='level') saved.tr='original';
   Object.assign(bb,saved);
 }catch(e){}
+bb.axis=Object.fromEntries(Object.entries(bb.axis||{}).filter(([,axis])=>axis==='L'||axis==='R'));
 bb.baseDates=Object.fromEntries(Object.entries(bb.baseDates||{}).filter(([,day])=>validDay(day)));
 function saveBB(){ try{ localStorage.setItem(boardKey,JSON.stringify({...bb,q:'',transformMenu:true})); }catch(e){} }
 if(typeof EN!=='undefined') Object.assign(EN,{'Galería Gráfica':'Chart gallery','Mapa de calor':'Heat map'});
@@ -1858,7 +1881,15 @@ function renderScatterStats(host,points,fit){
 Object.assign(EN,{'Ordenada en el origen':'Intercept',semanal:'weekly',
   'Diferencia respecto al dato anterior':'Change from previous observation'});
 const bbMax=()=>bb.mode==='scatter'?2:((bb.mode==='heat'||bb.mode==='multiples')?8:4);
-const bbAxis=(id,i)=>bb.axis[id]||(i===0?'L':'R');
+function assignBoardAxes(){
+  let assigned=false;
+  bb.picks.forEach((id,index)=>{
+    if(bb.axis[id]==='L'||bb.axis[id]==='R') return;
+    bb.axis[id]=index===0?'L':'R';
+    assigned=true;
+  });
+  if(assigned) saveBB();
+}
 function bbCommon(plots){ const f=plots.map(({id})=>S()[id].freq).reduce((a,b)=>FRANK[a]<=FRANK[b]?a:b);
   const mk=id=>{ const s=S()[id]; const k='__bb_'+id; DATA.series[k]={...s,block:'aux',freq:f,data:toFreq(s.data,s.freq,f).map(o=>[o[0],o[1],0])}; return k; };
   return {f, items:plots.map(({id,index})=>({id:mk(id),name:S()[id].label,color:COLORS[index%4]}))}; }
@@ -1943,7 +1974,7 @@ function bbSel(plan){
     return `<div class="row" data-bb-row="${key}">
       <span class="series-grip" style="--series-color:var(${COLORS[i%4]})" ${movable?'draggable="true" data-bb-grip':''} aria-hidden="true">⠿</span>
       <span>${esc(s.label)} <span class="u">${esc(s.unit)}</span></span>
-      ${bb.mode==='dual'?`<button type="button" data-bbax="${key}" title="${en?'Change axis':'Cambiar de eje'}">${bbAxis(id,i)==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
+      ${bb.mode==='dual'?`<button type="button" data-bbax="${key}" title="${en?'Change axis':'Cambiar de eje'}">${bb.axis[id]==='L'?'Eje izq.':'Eje dcho.'}</button>`:'<span></span>'}
       <button type="button" data-bbrm="${key}" aria-label="${en?'Remove':'Quitar'} ${name}">✕</button>
       ${movable?`<div class="bb-order"><button type="button" data-bb-move="-1" aria-label="${up}" title="${up}"${i===0?' disabled':''}>↑</button>
       <button type="button" data-bb-move="1" aria-label="${down}" title="${down}"${i===bb.picks.length-1?' disabled':''}>↓</button></div>`:'<span></span>'}
@@ -1953,7 +1984,6 @@ function bbSel(plan){
 function moveBoardSeries(id,destination){
   const index=bb.picks.indexOf(id);
   if(index<0||index===destination||destination<0||destination>=bb.picks.length) return false;
-  if(bb.mode==='dual') bb.picks.forEach((key,i)=>{bb.axis[key]=bbAxis(key,i);});
   bb.picks.splice(index,1);
   bb.picks.splice(destination,0,id);
   return true;
@@ -2085,6 +2115,7 @@ function viewBoard(){
     bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
+  if(bb.mode==='dual') assignBoardAxes();
   useRangeCoverage(adjustmentInputs(bb.picks,bb.tr,catalog,bb.adjustment));
   const start=cutoff();
   const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates,adjustment:bb.adjustment});
@@ -2159,7 +2190,12 @@ function viewBoard(){
     draw();
   });
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
-  panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
+  panel.querySelectorAll('[data-bbax]').forEach(button=>button.addEventListener('click',()=>{
+    const id=button.dataset.bbax;
+    bb.axis[id]=bb.axis[id]==='L'?'R':'L';
+    rerender();
+    panel.querySelector(`[data-bbax="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
+  }));
   document.getElementById('bbswap')?.addEventListener('click',()=>{bb.picks.reverse();rerender();});
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
@@ -2221,11 +2257,10 @@ function drawBoard(plots,start){
   if(bb.mode==='dual'){
     const L=[],R=[];
     plots.forEach((p,i)=>{
-      (bbAxis(p.baseId,p.index)==='L'?L:R).push(lines[i]);
+      (bb.axis[p.baseId]==='L'?L:R).push(lines[i]);
     });
-    if(!L.length&&R.length) L.push(R.shift());
     const labelAxis=(list,suffix)=>list.map(line=>({...line,name:line.name+suffix}));
-    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
+    drawChart(h,{lines:labelAxis(L,' (eje izq.)'),rlines:labelAxis(R,' (eje dcho.)'),axisLabels:true,seriesOrder:ids,aria:title,height,start,featured:true,csvName:'blackboard'});
   }else if(bb.mode==='bars'||bb.mode==='stack'){
     const C=bbCommon(plots);
     drawChart(h,{bars:C.items,stack:bb.mode==='stack',zero:true,aria:title,height,start,featured:true,csvName:'blackboard'});
