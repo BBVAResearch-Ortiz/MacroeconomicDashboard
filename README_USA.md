@@ -42,18 +42,18 @@ La ficha «CPI Nowcasting» muestra el nowcast de inflación que publica la Fed 
 
 ## Catálogo de series (FRED)
 
-`scripts/fetch_usa_apis.py` descarga 55 series de FRED. El campo `bloque` de cada serie decide su categoría en el desplegable del Blackboard, que solo muestra estas ocho, sin subcategorías:
+`scripts/fetch_usa_apis.py` descarga 109 series de FRED. El campo `bloque` de cada serie decide su categoría en el desplegable del Blackboard, que solo muestra estas ocho, sin subcategorías:
 
 | Categoría | `bloque` | Series |
 |---|---|---|
-| Actividad | `actividad` | GDPC1, PCE, PCEC96, INDPRO, TCU, RSAFS, DGORDER, UMCSENT, CFNAI |
-| Empleo | `empleo` | UNRATE, U6RATE, PAYEMS, CIVPART, JTSJOL, CES0500000003, ICSA, CCSA |
-| Precios | `precios` | CPIAUCSL, CPILFESL, PCEPI, PCEPILFE, PPIFIS, MICH, T5YIE, DCOILWTICO |
-| Monetario | `monetario` | FEDFUNDS, DFEDTARU, DGS2, DGS10, T10Y2Y, M2SL, WALCL |
-| Financiero | `financiero` | SP500, VIXCLS, BAA10Y, NFCI, MORTGAGE30US, DTWEXBGS |
-| Fiscal | `fiscal` | MTSDS133FMS, GFDEBTN, GFDEGDQ188S, W006RC1Q027SBEA, FGEXPND, A091RC1Q027SBEA |
-| Exterior | `exterior` | BOPGSTB, BOPTEXP, BOPTIMP, IEABC, DEXUSEU |
-| Vivienda | `vivienda` | HOUST, PERMIT, HSN1F, EXHOSLUSM495S, CSUSHPISA, MSPUS |
+| Actividad | `actividad` | GDPC1, PCE, INDPRO, PCEC96, RSAFS, TCU, DGORDER, UMCSENT, CFNAI, GDP, PCECC96, GPDIC1, GCEC1, GDPPOT, DSPIC96, PSAVERT, RRSFS, IPMAN, TOTALSA, OPHNFB |
+| Empleo | `empleo` | UNRATE, PAYEMS, ICSA, CIVPART, U6RATE, JTSJOL, CES0500000003, CCSA, EMRATIO, LNS12300060, JTSQUR, AWHAETP, ECIALLCIV, ULCNFB |
+| Precios | `precios` | CPIAUCSL, CPILFESL, PCEPI, PCEPILFE, PPIFIS, MICH, T5YIE, DCOILWTICO, GDPDEF, CPIENGSL, CPIUFDSL, CUSR0000SAH1, PCETRIM12M159SFRBDAL, CORESTICKM159SFRBATL, IR, T10YIE, DCOILBRENTEU |
+| Monetario | `monetario` | FEDFUNDS, DGS2, DGS10, DFEDTARU, T10Y2Y, M2SL, WALCL, SOFR, DGS3MO, DGS5, DGS30, T10Y3M, DFII10 |
+| Financiero | `financiero` | SP500, VIXCLS, BAA10Y, NFCI, MORTGAGE30US, DTWEXBGS, BAMLH0A0HYM2, BAMLC0A0CM, NASDAQCOM, STLFSI4, TOTALSL, BUSLOANS, DRCCLACBS |
+| Fiscal | `fiscal` | MTSDS133FMS, GFDEBTN, GFDEGDQ188S, W006RC1Q027SBEA, FGEXPND, A091RC1Q027SBEA, MTSR133FMS, MTSO133FMS, FYGFGDQ188S, FDHBFIN |
+| Exterior | `exterior` | BOPGSTB, BOPTEXP, BOPTIMP, IEABC, DEXUSEU, EXPGSC1, IMPGSC1, DEXJPUS, DEXCHUS, DEXMXUS, DEXUSUK |
+| Vivienda | `vivienda` | HOUST, PERMIT, HSN1F, EXHOSLUSM495S, CSUSHPISA, MSPUS, MSACSR, TTLCONS, USSTHPI, CUSR0000SEHA, RHORUSQ156N |
 
 Para añadir una serie basta una entrada nueva en `SERIES_CONFIG` con su `fred_id`, frecuencia (`D`, `W`, `M` o `Q`; nunca anual) y `bloque`. El título debe acabar con la fuente entre paréntesis («Real GDP (BEA)»): los títulos de los gráficos la omiten. Las tres primeras entradas del catálogo son las series que se muestran por defecto.
 

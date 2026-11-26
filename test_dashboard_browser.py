@@ -554,8 +554,8 @@ class DashboardBrowserTests(unittest.TestCase):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
         page.goto(f'{ORIGIN}/usa.html?lang=es#modelos')
         tiles = page.locator('#model-tiles .model-tile')
-        expect(tiles.locator('h2')).to_have_text(['GDPNow', 'FRB/US', 'DSGE FRB-NY'])
-        tiles.nth(2).click()
+        expect(tiles.locator('h2')).to_have_text(['FRB/US', 'DSGE FRB-NY', 'GDPNow', 'CPI Nowcasting'])
+        page.locator('[data-open-model=dsge]').click()
         detail = page.locator('#model-dsge')
         expect(detail).to_be_visible()
         expect(page.locator('#model-gdpnow')).to_be_hidden()
@@ -630,7 +630,7 @@ class DashboardBrowserTests(unittest.TestCase):
         heading = page.locator('#usa-models-host .sechead h2')
         expect(heading).to_have_text('Tracking and simulation models')
         expect(heading).to_be_visible()
-        for model in ('gdpnow', 'frbus', 'dsge'):
+        for model in ('gdpnow', 'frbus', 'dsge', 'cpinow'):
             with self.subTest(model=model):
                 page.locator(f'[data-open-model={model}]').click()
                 expect(page.locator(f'#model-{model}')).to_be_visible()
@@ -717,6 +717,67 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(detail.locator('[data-dsge-scenario]')).to_have_count(0)
         self.assertEqual(simulator.locator('[data-dsge-shock=monetary]').evaluate('el => el.value'), '0')
         expect(simulator.locator('[data-dsge-size=monetary]')).to_have_text('0,00 d. t.')
+
+    def test_usa_cpi_nowcasting_shows_cleveland_fed_figures(self):
+        published = json.loads((ROOT / 'inflation_nowcast.json').read_text(encoding='utf-8'))
+        number = lambda value, digits=1: f'{round(value, digits) + 0:.{digits}f}'.replace('.', ',')
+        last = lambda values: [v for v in values if v is not None][-1]
+        measures = ['cpi', 'core_cpi', 'pce', 'core_pce']
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        page.goto(f'{ORIGIN}/usa.html?lang=es#modelos')
+        tiles = page.locator('#model-tiles .model-tile')
+        expect(tiles).to_have_count(4)
+        # Two tiles per row: FRB/US and DSGE first, GDPNow and CPI Nowcasting below.
+        boxes = [tiles.nth(i).bounding_box() for i in range(4)]
+        self.assertAlmostEqual(boxes[0]['y'], boxes[1]['y'], delta=1)
+        self.assertAlmostEqual(boxes[2]['y'], boxes[3]['y'], delta=1)
+        self.assertGreater(boxes[2]['y'], boxes[0]['y'] + boxes[0]['height'] - 1)
+        self.assertAlmostEqual(boxes[0]['x'], boxes[2]['x'], delta=1)
+        tiles.nth(3).click()
+        detail = page.locator('#model-cpinow')
+        expect(detail).to_be_visible()
+        month = published['months'][-1]
+        def headline(entry):
+            return [number(entry['yy']['actual'][k]['value'] if entry['yy']['actual'].get(k) else last(entry['yy']['nowcast'][k])) + ' %' for k in measures]
+        expect(detail.locator('#cpinow-headline strong')).to_have_text(headline(month))
+        expect(detail.locator('#cpinow-source')).to_have_attribute('href', published['source_url'])
+        cards = detail.locator('#cpinow-gallery > article')
+        expect(cards).to_have_count(4)
+        # Two-column gallery, never a full-width chart.
+        first, second, third = (cards.nth(i).bounding_box() for i in range(3))
+        self.assertAlmostEqual(first['y'], second['y'], delta=1)
+        self.assertGreater(third['y'], first['y'])
+        self.assertLess(first['width'], 620)
+        expect(cards.nth(0).locator('[data-cpinow-line]')).to_have_count(4)
+        # Hovering the last day shows the published nowcast for that day.
+        hit = cards.nth(0).locator('[data-cpinow-hit]')
+        box = hit.bounding_box()
+        hit.hover(position={'x': box['width'] - 1, 'y': box['height'] / 2})
+        expect(cards.nth(0).locator('[data-cpinow-readout]')).to_contain_text('CPI ' + number(month['yy']['nowcast']['cpi'][-1], 2) if month['yy']['nowcast']['cpi'][-1] is not None else 'CPI')
+        # Track record: mean absolute error recomputed from the file.
+        pairs = [(r['yy']['core_pce']['nowcast'], r['yy']['core_pce']['actual']) for r in published['track']]
+        errors = [abs(a - b) for a, b in pairs if a is not None and b is not None]
+        detail.locator('[data-cpinow-measure=core_pce]').click()
+        expect(cards.nth(3).locator('h2')).to_contain_text('PCE subyacente')
+        expect(cards.nth(3).locator('.note')).to_contain_text(f'{number(sum(errors) / len(errors), 2)} pp en {len(errors)} meses')
+        # Switching the reference month changes the headline.
+        earlier = published['months'][0]
+        detail.locator(f'[data-cpinow-period="{earlier["period"]}"]').click()
+        expect(detail.locator('#cpinow-headline strong')).to_have_text(headline(earlier))
+        expect(detail.locator(f'[data-cpinow-period="{earlier["period"]}"]')).to_have_attribute('aria-pressed', 'true')
+
+    def test_usa_cpi_nowcasting_reloads_a_newer_update(self):
+        page = self.start_page(viewport={'width': 1180, 'height': 900})
+        newer = json.loads((ROOT / 'inflation_nowcast.json').read_text(encoding='utf-8'))
+        newer['updated'] = '2026-12-30'
+        month = newer['months'][-1]
+        month['yy']['actual']['cpi'] = None
+        month['yy']['nowcast']['cpi'][-1] = 9.87
+        page.route('**/inflation_nowcast.json', lambda route: route.fulfill(json=newer))
+        page.goto(f'{ORIGIN}/usa.html?lang=en#cpinow')
+        detail = page.locator('#model-cpinow')
+        expect(detail.locator('#cpinow-headline strong').first).to_have_text('9.9 %')
+        expect(detail.locator('#cpinow-stamp')).to_contain_text('30 December 2026')
 
     def test_usa_dsge_reloads_a_newer_release(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
