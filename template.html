@@ -200,9 +200,9 @@ table.fc td.f{font-weight:600}
 .series-picker,.series-levels{display:grid;min-width:0;gap:6px}
 .series-levels:empty{display:none}
 .series-picker select{width:100%;min-width:0}
-.big-catalog{border:1px solid var(--rule);border-radius:6px;padding:10px}
+.big-catalog-filters{padding:8px;border-bottom:1px solid var(--rule)}
 .big-compare-actions{display:flex;flex-wrap:wrap;gap:6px}
-.big-compare-actions .btn,.big-catalog .btn{font-size:12px;line-height:1.3;padding:6px 9px}
+.big-compare-actions .btn{font-size:12px;line-height:1.3;padding:6px 9px}
 .big-totals{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
 .big-totals .seg button{padding:6px 10px;font-size:13px}
 .big-totals .seg button:disabled:not([aria-pressed="true"]){opacity:.5;cursor:default}
@@ -213,6 +213,7 @@ table.fc td.f{font-weight:600}
 .big-chart-header .big-title{flex:1 1 220px}
 .big-chart-header .btn:disabled{opacity:.5;cursor:default}
 .transform-control{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:2px 0}
+.transform-field{display:flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:100%}
 .transform-control select{max-width:100%}
 .transform-sources{display:flex;flex-wrap:wrap;gap:4px 8px}
 .transform-sources span{font-size:12px;color:var(--muted)}
@@ -317,7 +318,7 @@ footer .wrap{padding-block:0 32px}
 
 <script id="embedded-data" type="application/json">__DATA__</script>
 <script src="turkey_public.js"></script>
-<script src="series_transforms.js?v=3"></script>
+<script src="series_transforms.js?v=4"></script>
 <script>
 "use strict";
 /* English translations for the Spanish UI. Edit freely: keys are the Spanish text exactly as shown.
@@ -1381,6 +1382,7 @@ const explorerKey=IS_TURKEY?'mme-ex-turkey':IS_USA?'mme-ex-usa':'mme-ex';
 const ex={...explorerDefaults, view:'pizarra', axis2:{}, trail:false, range:'4a'};
 try{ const saved=JSON.parse(localStorage.getItem(explorerKey)||'null'); if(saved&&typeof saved==='object') Object.assign(ex,saved); }catch(e){}
 if(!Array.isArray(ex.multiTransforms)) ex.multiTransforms=[ex.mode==='z'?'z':'original','original'];
+if(!Array.isArray(ex.multiAdjustments)) ex.multiAdjustments=['published','published'];
 delete ex.mode;
 if(!RANGES.includes(ex.range)) ex.range='4a';
 for(const key of ['picks','mpicks','mpicks2','spicks','spicks2']){
@@ -1747,6 +1749,7 @@ function applyTurkeyTopic(){
   ex.view='pizarra';
   bb.mode='lines';
   bb.tr='original';
+  bb.adjustment='published';
   bb.picks=ids;
   return true;
 }
@@ -1799,10 +1802,12 @@ function viewExplorer(){
   if(!ids.includes(ex.sy)) ex.sy=ids.includes(explorerDefaults.sy)?explorerDefaults.sy:ids.find(id=>id!==ex.sx);
   const visibleIds={galeria:ex.picks.flatMap(id=>isGDP(id)?[id,'pib_qoq']:[id]),multi:[...ex.mpicks,...ex.mpicks2],
     stack:[...ex.spicks,ex.sline,...ex.spicks2,ex.sline2],scatter:[ex.sx,ex.sy]};
-  useRangeCoverage((visibleIds[ex.view]||ex.picks).map(id=>S()[id]));
+  const catalog=ex.view==='multi'?SERIES_TRANSFORMS.catalogue(ids.map(id=>[id,S()[id]]),'board'):null;
+  const multiKeys=['mpicks','mpicks2'];
+  useRangeCoverage(catalog?multiKeys.flatMap((key,i)=>adjustmentInputs(ex[key],ex.multiTransforms[i],catalog,ex.multiAdjustments[i])):
+    (visibleIds[ex.view]||ex.picks).map(id=>S()[id]));
   const plans=ex.view==='multi'?withRange(()=>{
-    const entries=ids.map(id=>[id,S()[id]]);
-    return ['mpicks','mpicks2'].map((key,i)=>transformationPlan(ex[key],entries,'board',ex.multiTransforms[i]));
+    return multiKeys.map((key,i)=>transformationPlan(ex[key],catalog,ex.multiTransforms[i],{adjustment:ex.multiAdjustments[i]}));
   }):[];
   const body = ex.view==='multi'? exMulti(plans) : ex.view==='scatter'? exScatter() : ex.view==='stack'? exStack() : exGallery();
   panel.innerHTML = exHeader() + body;
@@ -1813,9 +1818,10 @@ function viewExplorer(){
   panel.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.key; ex[k]=ex[k].filter(x=>x!==b.dataset.rm); saveEx(); viewExplorer();}));
   panel.querySelectorAll('[data-add-series]').forEach(sel=>sel.addEventListener('change',()=>{ const k=sel.dataset.key, mx=k==='picks'?6:4; if(sel.value&&ex[k].length<mx){ ex[k].push(sel.value); saveEx(); viewExplorer(); } }));
   plans.forEach((_,i)=>{
-    const select=document.getElementById('multi-transform-'+(i+1));
-    select?.addEventListener('change',()=>{ex.multiTransforms[i]=select.value;saveEx();viewExplorer();});
-    if(select&&select.id===focusedTransform) select.focus({preventScroll:true});
+    const id='multi-transform-'+(i+1);
+    bindTransformationControls(id,value=>{ex.multiTransforms[i]=value;saveEx();viewExplorer();},
+      value=>{ex.multiAdjustments[i]=value;saveEx();viewExplorer();});
+    if(focusedTransform===id||focusedTransform===id+'-seasonal') document.getElementById(focusedTransform)?.focus({preventScroll:true});
   });
   ['sx','sy'].forEach(k=>{ const el=document.getElementById('sel-'+k); if(el) el.addEventListener('change',()=>{ ex[k]=el.value; saveEx(); viewExplorer(); }); });
   panel.querySelectorAll('[data-ax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.ax, i=ex.mpicks2.indexOf(id); ex.axis2[id]=axisOf(id,i)==='L'?'R':'L'; saveEx(); viewExplorer(); }));
@@ -1990,32 +1996,38 @@ const transformStatuses={
   calculated:['Calculada aquí','Calculated here'], unavailable:['No disponible','Unavailable']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
-function transformationPlan(ids,entries,scope,kind,fullHistory=false,anchor,baseDates){
-  const catalog=SERIES_TRANSFORMS.catalogue(entries,scope);
-  const start=fullHistory?0:cutoff(anchor), end=fullHistory?Infinity:upperCutoff();
+const seasonalChoice=value=>Object.hasOwn(SERIES_TRANSFORMS.adjustments,value)?value:'published';
+function adjustmentInputs(ids,kind,catalog,adjustment){
+  return ids.map(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,seasonalChoice(adjustment))?.series).filter(Boolean);
+}
+function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjustment:requested}={}){
+  const adjustment=seasonalChoice(requested), explicit=adjustment!=='published';
+  const start=fullHistory?0:cutoff(), end=fullHistory?Infinity:upperCutoff();
   const options=new Map();
-  const canSetBase=baseDates&&ids.some(id=>boardBaseBounds(catalog.byId.get(id)?.series).first);
+  const canSetBase=baseDates&&adjustmentInputs(ids,'b100',catalog,adjustment).some(series=>boardBaseBounds(series).first);
+  const availableAdjustments=Object.keys(SERIES_TRANSFORMS.adjustments).filter(key=>key==='published'||
+    ids.some(id=>SERIES_TRANSFORMS.hasAdjustment(id,catalog,key)));
   for(const k of transformKinds){
     const alwaysShow=k==='mom'||k==='qoq';
     const rows=ids.map((id,index)=>{
       const base=catalog.byId.get(id)?.series;
-      const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN(),baseDates?.[id]);
+      const result=SERIES_TRANSFORMS.resolve(id,k,catalog,start,end,isEN(),baseDates?.[id],adjustment);
       if(alwaysShow&&result.series&&!result.series.data.some(([day])=>ts(day)>=start&&ts(day)<=end)){
         return {id,index,base,status:'unavailable',reason:isEN()?'No observations in this period.':'Sin observaciones en este periodo.'};
       }
       return {id,index,base,...result};
     });
-    if(k==='original'||alwaysShow||k==='b100'&&canSetBase||rows.some(row=>row.series)) options.set(k,rows);
+    if(k==='original'||alwaysShow||explicit&&k===kind||k==='b100'&&canSetBase||rows.some(row=>row.series)) options.set(k,rows);
   }
-  const selected=kind==='original'||kind==='b100'&&canSetBase||options.get(kind)?.some(row=>row.series)?kind:'original';
-  return {selected,options,rows:options.get(selected),canSetBase};
+  const selected=kind==='original'||explicit&&options.has(kind)||kind==='b100'&&canSetBase||options.get(kind)?.some(row=>row.series)?kind:'original';
+  return {selected,options,rows:options.get(selected),canSetBase,adjustment,availableAdjustments};
 }
 function transformationControls(id,plan){
   if(!plan.rows.length) return '';
   const en=isEN();
   const options=[...plan.options].map(([kind,rows])=>{
     const name=SERIES_TRANSFORMS.names(kind,en);
-    const unavailable=kind!=='original'&&!(kind==='b100'&&plan.canSetBase)&&!rows.some(row=>row.series);
+    const unavailable=kind!==plan.selected&&kind!=='original'&&!(kind==='b100'&&plan.canSetBase)&&!rows.some(row=>row.series);
     return `<option value="${kind}"${kind===plan.selected?' selected':''}${unavailable?' disabled':''}>${esc(name)}</option>`;
   });
   const notes=plan.rows.filter(r=>r.status!=='original').map(r=>{
@@ -2024,9 +2036,19 @@ function transformationControls(id,plan){
     const visibleReason=r.reason&&(r.status==='unavailable'||plan.selected==='b100')?' · '+r.reason:'';
     return `<span data-status="${r.status}" title="${esc(explanation)}"><b>${transformStatus(r.status)}</b> · ${esc(name+visibleReason)}</span>`;
   });
-  return `<div class="transform-control"><label class="picklab" for="${id}">${en?'Transformation':'Transformación'}</label>
+  const seasonal=Object.entries(SERIES_TRANSFORMS.adjustments).map(([key,names])=>{
+    const selected=key===plan.adjustment;
+    return `<option value="${key}"${selected?' selected':''}${!selected&&!plan.availableAdjustments.includes(key)?' disabled':''}>${esc(names[Number(en)])}</option>`;
+  });
+  return `<div class="transform-control"><div class="transform-field"><label class="picklab" for="${id}">${en?'Transformation':'Transformación'}</label>
     <select id="${id}" class="axsel">${options.join('')}</select></div>
+    <div class="transform-field"><label class="picklab" for="${id}-seasonal">${en?'Seasonal adjustment':'Ajuste estacional'}</label>
+    <select id="${id}-seasonal" class="axsel">${seasonal.join('')}</select></div></div>
     ${notes.length?`<div class="transform-sources" aria-live="polite">${notes.join('')}</div>`:''}`;
+}
+function bindTransformationControls(id,onTransformation,onAdjustment){
+  document.getElementById(id)?.addEventListener('change',event=>onTransformation(event.target.value));
+  document.getElementById(id+'-seasonal')?.addEventListener('change',event=>onAdjustment(event.target.value));
 }
 function registerPlotSeries(rows,prefix){
   return rows.filter(r=>r.series).map(r=>{
@@ -2038,7 +2060,7 @@ function registerPlotSeries(rows,prefix){
 
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
-const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', adjustment:'published', picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:['pib_yoy','afil_yoy','ipc'], axis:{}, baseDates:{}, ltab:'all', fit:'lin', listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
@@ -2055,27 +2077,41 @@ function bbCommon(plots){ const f=plots.map(({id})=>S()[id].freq).reduce((a,b)=>
   const mk=id=>{ const s=S()[id]; const k='__bb_'+id; DATA.series[k]={...s,block:'aux',freq:f,data:toFreq(s.data,s.freq,f).map(o=>[o[0],o[1],0])}; return k; };
   return {f, items:plots.map(({id,index})=>({id:mk(id),name:S()[id].label,color:COLORS[index%4]}))}; }
 const openCatalogGroups=new Set();
-function bbList(){
-  const full=bb.picks.length>=bbMax();
+function catalogDisclosure(id,listId,open,content,filters=''){
+  return `<details class="bbcatalog" id="${id}"${open?' open':''}>
+    <summary id="${id}-summary">${isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
+    ${filters}<div id="${listId}" class="bblist">${content}</div>
+  </details>`;
+}
+function seriesChecklist(tree,series,picks,limit,openGroups){
+  const full=picks.length>=limit;
   function catalog(node,path=[]){
-    let count=0, html='';
+    let html='';
     for(const {id} of node.items){
-      const s=S()[id], on=bb.picks.includes(id);
-      count++;
-      html+=`<label><input type="checkbox" data-bbp="${esc(id)}"${on?' checked':''}${!on&&full?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit)}</span></span></label>`;
+      const s=series[id], on=picks.includes(id);
+      html+=`<label><input type="checkbox" data-catalog-pick="${esc(id)}"${on?' checked':''}${!on&&full?' disabled':''}><span>${esc(s.label)}<span class="u">${esc(s.unit||'')}</span></span></label>`;
     }
     for(const group of node.groups){
       const childPath=[...path,group.label];
-      const child=catalog(group,childPath);
-      if(!child.count) continue;
-      count+=child.count;
       const key=childPath.join(' / ');
-      html+=`<details data-catalog-group="${esc(key)}"${openCatalogGroups.has(key)?' open':''}>
-        <summary class="bbh">${esc(L10(group.label))} (${child.count})</summary>${child.html}</details>`;
+      html+=`<details data-catalog-group="${esc(key)}"${openGroups.has(key)?' open':''}>
+        <summary class="bbh">${esc(L10(group.label))} (${group.count})</summary>${catalog(group,childPath)}</details>`;
     }
-    return {count,html};
+    return html;
   }
-  return catalog(explorerGroups()).html||'<p class="note">Ninguna serie coincide con la búsqueda.</p>';
+  return catalog(tree)||`<p class="note">${isEN()?'No series match your selection.':'No hay series que coincidan con la selección.'}</p>`;
+}
+function bindSeriesChecklist(list,openGroups,onChange){
+  list.addEventListener('change',e=>{
+    const id=e.target.dataset.catalogPick;
+    if(id) onChange(id,e.target.checked);
+  });
+  list.addEventListener('toggle',e=>{
+    const group=e.target.dataset.catalogGroup;
+    if(!group||!e.target.isConnected) return;
+    if(e.target.open) openGroups.add(group);
+    else openGroups.delete(group);
+  },true);
 }
 function boardBaseBounds(series){
   const today=rangeCoverage?.today||todayInMadrid();
@@ -2084,9 +2120,10 @@ function boardBaseBounds(series){
 }
 function boardBaseForm(plan,id){
   if(plan.selected!=='b100') return '';
-  const {first,last}=boardBaseBounds(S()[id]);
+  const row=plan.rows.find(item=>item.id===id);
+  const {first,last}=boardBaseBounds(row?.baseSeries);
   if(!first) return '';
-  const en=isEN(), saved=bb.baseDates[id], effective=plan.rows.find(row=>row.id===id)?.baseDate;
+  const en=isEN(), saved=bb.baseDates[id], effective=row.baseDate;
   const value=effective||saved||first, label=effective?fmtDate(effective,'D'):(en?'Choose base date':'Elegir fecha base');
   return `<details class="bb-base" data-bb-base="${esc(id)}"><summary>Base 100 · ${esc(label)}</summary>
     <form novalidate><label>${en?'Date with a positive value':'Fecha con dato positivo'}
@@ -2167,9 +2204,10 @@ function bindBoardOrder(rerender){
     if(moved) rerender();
   });
 }
-function bindBoardBaseDates(rerender){
+function bindBoardBaseDates(plan,rerender){
   panel.querySelectorAll('[data-bb-base]').forEach(details=>{
     const id=details.dataset.bbBase, form=details.querySelector('form');
+    const series=plan.rows.find(row=>row.id===id).baseSeries;
     const apply=()=>{
       rerender();
       panel.querySelector(`[data-bb-base="${CSS.escape(id)}"] summary`)?.focus({preventScroll:true});
@@ -2177,7 +2215,7 @@ function bindBoardBaseDates(rerender){
     form.addEventListener('submit',event=>{
       event.preventDefault();
       const input=form.elements.baseDate, date=input.value;
-      if(!validDay(date)||date<input.min||date>input.max||!S()[id].data.some(([day,value])=>day===date&&Number.isFinite(value)&&value>0)){
+      if(!validDay(date)||date<input.min||date>input.max||!series.data.some(([day,value])=>day===date&&Number.isFinite(value)&&value>0)){
         form.querySelector('[role="alert"]').textContent=isEN()?'Choose a date with a positive observation for this series.':'Elige una fecha con un dato positivo para esta serie.';
         return;
       }
@@ -2204,7 +2242,7 @@ function loadHeatExample(){
 }
 function viewBoard(){
   const searchFocused=document.activeElement?.id==='explorer-search';
-  const focusedSeries=document.activeElement?.dataset.bbp;
+  const focusedSeries=document.activeElement?.dataset.catalogPick;
   const catalogScroll=document.getElementById('bblist')?.scrollTop;
   const hadPicks=bb.picks.length>0;
   if(IS_USA&&!bb.picks.length&&exIds().length){
@@ -2223,15 +2261,15 @@ function viewBoard(){
     bb.picks=[...new Set([...bb.picks,...defaults,...exIds()])].filter(id=>S()[id]&&S()[id].block!=='aux').slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
-  const source=Object.entries(S()).filter(([id])=>!id.startsWith('__'));
-  useRangeCoverage(bb.picks.map(id=>S()[id]));
+  const catalog=SERIES_TRANSFORMS.catalogue(Object.entries(S()).filter(([id])=>!id.startsWith('__')),'board');
+  useRangeCoverage(adjustmentInputs(bb.picks,bb.tr,catalog,bb.adjustment));
   const start=cutoff();
-  const plan=transformationPlan(bb.picks,source,'board',bb.tr,bb.mode==='scatter',undefined,bb.baseDates);
+  const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates,adjustment:bb.adjustment});
   if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
   const plots=registerPlotSeries(plan.rows,'__plot_board_');
   const ids=plots.map(p=>p.id);
   const H=bbFigHead(ids), units=new Set(ids.map(id=>unitLabel(S()[id].unit)));
-  const transformFocused=document.activeElement?.id==='board-transform';
+  const transformFocused=document.activeElement?.id;
   panel.innerHTML=exHeader()+`
    <div class="bbwrap"><aside class="bbside" aria-label="Opciones de la pizarra">
      ${sectionSearch('explorer-search')}
@@ -2239,10 +2277,7 @@ function viewBoard(){
      <div class="bbgrp"><label class="picklab" for="bby">Eje vertical (Y)</label>${seriesPicker('bby',explorerGroups(),{selected:bb.picks[1],label:'Eje vertical (Y)'})}${boardBaseForm(plan,bb.picks[1])}</div>
      <button type="button" class="btn ghost" id="bbswap">Intercambiar ejes</button>`
      :`<div class="bbgrp"><span class="picklab">Series (${bb.picks.length}/${bbMax()})</span>
-       <details class="bbcatalog" id="bbcatalog"${bb.listOpen?' open':''}>
-         <summary>${isEN()?'Add or remove series':'Añadir o quitar series'}</summary>
-         <div id="bblist" class="bblist">${bbList()}</div>
-       </details>${bbSel(plan)}</div>`}
+       ${catalogDisclosure('bbcatalog','bblist',bb.listOpen,seriesChecklist(explorerGroups(),S(),bb.picks,bbMax(),openCatalogGroups))}${bbSel(plan)}</div>`}
      <div class="bbgrp"><span class="picklab">Modalidad de gráfico</span><div class="bbmodes">${BB_MODES.map(([k,l])=>`<button type="button" data-bbm="${k}" aria-pressed="${bb.mode===k}">${l}</button>`).join('')}</div></div>
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${bb.mode==='scatter'?`<div class="bbgrp"><span class="picklab">Ajuste</span><div class="bbtr">${[['lin','Lineal'],['quad','Cuadrático'],['lowess','No lineal']].map(([k,l])=>`<button type="button" data-bbf="${k}" aria-pressed="${bb.fit===k}">${l}</button>`).join('')}</div></div>`:''}
@@ -2255,29 +2290,21 @@ function viewBoard(){
   bindRange(); bindExplorerViews(); bindSeriesPickers(); bindExplorerSearch();
   const rerender=()=>{ saveBB(); viewBoard(); };
   bindBoardOrder(rerender);
-  bindBoardBaseDates(rerender);
-  const catalog=document.getElementById('bbcatalog'); if(catalog) catalog.addEventListener('toggle',()=>{bb.listOpen=catalog.open;if(IS_EXTERNAL_MONITOR)bb.catalogPreference=true;saveBB();});
+  bindBoardBaseDates(plan,rerender);
+  const catalogDisclosure=document.getElementById('bbcatalog');
+  catalogDisclosure?.addEventListener('toggle',()=>{bb.listOpen=catalogDisclosure.open;if(IS_EXTERNAL_MONITOR)bb.catalogPreference=true;saveBB();});
   const list=document.getElementById('bblist');
   if(list){
     if(catalogScroll!==undefined) list.scrollTop=catalogScroll;
-    list.addEventListener('change',e=>{
-      const input=e.target;
-      if(!input.matches('[data-bbp]')) return;
-      const id=input.dataset.bbp;
-      if(input.checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax()) bb.picks.push(id);
-      else if(!input.checked) bb.picks=bb.picks.filter(x=>x!==id);
+    bindSeriesChecklist(list,openCatalogGroups,(id,checked)=>{
+      if(checked&&!bb.picks.includes(id)&&bb.picks.length<bbMax()) bb.picks.push(id);
+      else if(!checked) bb.picks=bb.picks.filter(x=>x!==id);
       rerender();
     });
-    list.addEventListener('toggle',e=>{
-      const family=e.target.dataset.catalogGroup;
-      if(!family) return;
-      if(e.target.open) openCatalogGroups.add(family);
-      else openCatalogGroups.delete(family);
-    },true);
   }
   const example=document.getElementById('bb-example'); if(example) example.addEventListener('click',()=>{loadHeatExample(); render();});
   panel.querySelectorAll('[data-bbm]').forEach(b=>b.addEventListener('click',()=>{ bb.mode=b.dataset.bbm; rerender(); }));
-  document.getElementById('board-transform')?.addEventListener('change',e=>{bb.tr=e.target.value;rerender();});
+  bindTransformationControls('board-transform',value=>{bb.tr=value;rerender();},value=>{bb.adjustment=value;rerender();});
   panel.querySelectorAll('[data-bbf]').forEach(b=>b.addEventListener('click',()=>{ bb.fit=b.dataset.bbf; rerender(); }));
     panel.querySelectorAll('[data-bbrm]').forEach(b=>b.addEventListener('click',()=>{ bb.picks=bb.picks.filter(x=>x!==b.dataset.bbrm); rerender(); }));
   panel.querySelectorAll('[data-bbax]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.bbax; bb.axis[id]=bbAxis(id,bb.picks.indexOf(id))==='L'?'R':'L'; rerender(); }));
@@ -2286,8 +2313,8 @@ function viewBoard(){
   const draw=()=>drawBoard(registerPlotSeries(plan.rows,'__plot_board_'),start);
   draw(); observe(draw); tr(panel);
   if(searchFocused) document.getElementById('explorer-search')?.focus({preventScroll:true});
-  if(transformFocused) document.getElementById('board-transform')?.focus({preventScroll:true});
-  if(focusedSeries) list?.querySelector(`[data-bbp="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
+  if(['board-transform','board-transform-seasonal'].includes(transformFocused)) document.getElementById(transformFocused)?.focus({preventScroll:true});
+  if(focusedSeries) list?.querySelector(`[data-catalog-pick="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
 }
 function drawBoard(plots,start){
   const h=document.getElementById('bbchart'), lg=document.getElementById('bblg');
@@ -2362,8 +2389,9 @@ const bigState={
   view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
   requests:{},
   geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
-  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original'
+  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original',adjustment:'published'
 };
+const bigCatalogGroups=new Set();
 async function fetchBigData(path){
   let response = await fetch('drive_ingestion/snapshots/bigdata/'+path, { cache: 'no-store' });
   if(response.status===404) response = await fetch(path, { cache: 'no-store' });
@@ -2563,20 +2591,18 @@ function bigSearchEntries(){
 function bigSeriesField(entries){
   const {scope,geoGroup:group,geoAreas,compare,variant}=bigState;
   const territorial=scope==='territory', area=geoAreas[group], key=group+'|'+area;
-  if(territorial&&!area) return '';
+  if(territorial&&!area) return `<p class="note">${esc(L10('Seleccionar territorio…'))}</p>`;
+  if(territorial&&bigState.geoLoading[key]) return `<p class="note" role="status">${esc(L10('Cargando…'))}</p>`;
+  if(territorial&&bigState.geoErrors[key]) return `<p class="note" role="status">${isEN()?'Could not load series. Choose the territory again.':'No se pudieron cargar las series. Vuelve a elegir el territorio.'}</p>`;
   const reference=entries.find(s=>s.id===compare?.reference);
-  const inScope=entries.filter(s=>territorial?s.group===group&&s.area===area:!s.area);
-  let available=inScope.filter(s=>!bigState.selected.includes(s.id));
-  if(compare&&reference) available=available.filter(s=>bigMatch(s,reference,compare.kind));
-  else if(variant) available=available.filter(s=>bigVariant(s)===variant);
-  let placeholder='';
-  if(territorial&&bigState.geoLoading[key]) placeholder=isEN()?'Loading…':'Cargando…';
-  else if(territorial&&bigState.geoErrors[key]) placeholder=isEN()?'Could not load series. Choose the territory again.':'No se pudieron cargar las series. Vuelve a elegir el territorio.';
-  else if(!available.length) placeholder=isEN()?'No matching series':'No hay series que coincidan';
-  const byId=new Map(available.map(s=>[s.id,s]));
-  const tree=seriesTree(available,id=>compare?[]:bigPath(byId.get(id),territorial));
-  const id=compare?'big-add-comparison':territorial?'big-add-territory':'big-add-national';
-  return seriesPicker(id,tree,{placeholder,attrs:'data-big-add'});
+  const available=entries.filter(s=>{
+    if(territorial?s.group!==group||s.area!==area:s.area) return false;
+    if(compare&&reference) return !bigState.selected.includes(s.id)&&bigMatch(s,reference,compare.kind);
+    return !variant||bigVariant(s)===variant;
+  });
+  const byId=Object.fromEntries(available.map(s=>[s.id,s]));
+  const tree=seriesTree(available,id=>compare?[]:bigPath(byId[id],territorial));
+  return seriesChecklist(tree,byId,bigState.selected,4,bigCatalogGroups);
 }
 function bigCatalog(entries,reference){
   const full=bigState.selected.length>=4;
@@ -2587,8 +2613,6 @@ function bigCatalog(entries,reference){
     ${reference.area?`<button class="btn ghost" type="button" data-big-compare="territory">${isEN()?'Compare with another territory':'Comparar con otro territorio'}</button>`:''}
     ${canCompareCategory?`<button class="btn ghost" type="button" data-big-compare="category">${isEN()?'Compare with another category':'Comparar con otra categoría'}</button>`:''}
   </div>`:'';
-  const toggle=`<button type="button" class="btn ghost" id="big-catalog-toggle" aria-controls="big-catalog" aria-expanded="${bigState.catalogOpen}"${full?' disabled':''}>${isEN()?'Add series':'Añadir series'}</button>`;
-  if(!bigState.catalogOpen||full) return toggle+actions+'<div id="big-catalog" hidden></div>';
   const group=bigState.geoGroup, id=bigState.geoAreas[group]||'';
   const areas=(bigState.geoIndex?.[group]||[]).filter(a=>!showTerritory||a.id!==reference?.area);
   const areaPicker=territorial&&group&&(!compare||showTerritory)?`<select id="big-territory" class="axsel" aria-label="${esc(L10(BIG_TERRITORY_GROUPS[group]))}"${areas.length?'':' disabled'}>
@@ -2610,23 +2634,22 @@ function bigCatalog(entries,reference){
   </select>`:'';
   const comparison=compare&&reference?`<div class="big-compare-actions"><span class="note">${isEN()?'Comparing with':'Comparando con'} ${esc(L10(reference.label))}</span>
     <button type="button" class="btn ghost" id="big-compare-cancel">${isEN()?'Cancel comparison':'Cancelar comparación'}</button></div>`:'';
-  return `${toggle}${actions}<div class="bbgrp big-catalog" id="big-catalog">
-    ${comparison}${scope}${areaPicker}${filter}
-    <div id="big-series-field">${bigSeriesField(entries)}</div>
-  </div>`;
+  const filters=`<div class="bbgrp big-catalog-filters">${comparison}${scope}${areaPicker}${filter}</div>`;
+  return catalogDisclosure('big-catalog','big-series-field',bigState.catalogOpen,bigSeriesField(entries),filters)+actions;
 }
 function setBigPick(id,slot=null){
   if(!id||bigState.selected.includes(id)||(slot===null?bigState.selected.length>=4:!bigState.selected[slot])) return false;
   setSearchPick(bigState.selected,id,slot);
   bigState.reference=id;
   bigState.compare=null;
-  bigState.catalogOpen=false;
   return true;
 }
-function addBigSeries(id){
-  if(!setBigPick(id)) return false;
+function updateBigPick(id,checked){
+  if(checked){
+    if(!setBigPick(id)) return false;
+  }else bigState.selected=bigState.selected.filter(key=>key!==id);
   searchQueries.delete('big-search');
-  viewBigData('big-catalog-toggle');
+  viewBigData();
   return true;
 }
 function showBigTotal(id,totals,focus){
@@ -2675,13 +2698,9 @@ async function selectBigTerritory(id){
   if(compare?.kind==='territory'){
     const entries=bigEntries(), reference=entries.find(s=>s.id===compare.reference);
     const matches=reference?entries.filter(s=>s.area===id&&!bigState.selected.includes(s.id)&&bigMatch(s,reference,'territory')):[];
-    if(matches.length===1&&addBigSeries(matches[0].id)) return;
+    if(matches.length===1&&updateBigPick(matches[0].id,true)) return;
   }
   viewBigData('big-territory');
-}
-function bindBigField(){
-  bindSeriesPickers();
-  panel.querySelector('[data-big-add]')?.addEventListener('change',e=>addBigSeries(e.target.value));
 }
 function bigChartTitle(selected){
   if(bigState.view==='heat') return isEN()?'Spain: consumption indicators':'España: indicadores de consumo';
@@ -2745,6 +2764,8 @@ function downloadBigCsv(chosen,start){
 function viewBigData(focus=''){
  const previous=document.activeElement;
  const previousId=panel.contains(previous)?previous.id:'';
+ const focusedSeries=panel.contains(previous)?previous.dataset.catalogPick:'';
+ const catalogScroll=document.getElementById('big-series-field')?.scrollTop||0;
  const searchSelection=previousId==='big-search'?[previous.selectionStart,previous.selectionEnd]:null;
  loadBigNational();
  if(bigState.catalogOpen&&bigState.scope==='territory') loadGeoIndex();
@@ -2760,9 +2781,11 @@ function viewBigData(focus=''){
  const plotSelection=bigState.view==='scatter'?chosen.slice(0,2):chosen;
  const heatRows=bigState.heatTable?.rows||[];
  const heatDates=bigState.view==='heat'?[...bigHeatPeriods(heatRows,'monthly').map(m=>isoDay(monthEnd(m))),...bigHeatPeriods(heatRows,'weekly')].sort():[];
- useRangeCoverage(bigState.view==='heat'?[{data:heatDates.map(day=>[day,0])}]:plotSelection);
+ const catalog=bigState.view==='heat'?null:SERIES_TRANSFORMS.catalogue(entries.map(s=>[s.id,s]),'big');
+ const selectedIds=plotSelection.map(s=>s.id);
+ useRangeCoverage(catalog?adjustmentInputs(selectedIds,bigState.transform,catalog,bigState.adjustment):[{data:heatDates.map(day=>[day,0])}]);
  const start=cutoff();
- const plan=bigState.view==='heat'?null:transformationPlan(plotSelection.map(s=>s.id),entries.map(s=>[s.id,s]),'big',bigState.transform);
+ const plan=catalog?transformationPlan(selectedIds,catalog,bigState.transform,{adjustment:bigState.adjustment}):null;
  if(plan) bigState.transform=plan.selected;
  const plotted=plan?.rows.filter(r=>r.series).map(r=>({...r.series,percentScale:r.percentScale,index:r.index}))||[];
  const units=[...new Set(plotted.map(s=>s.percentScale?'%':L10(s.unit)))];
@@ -2776,9 +2799,12 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span><div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div>${controls}</aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span>${controls}<div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div></aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-chart-header"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
- bindBigField();
+ const catalogDisclosure=document.getElementById('big-catalog');
+ const list=document.getElementById('big-series-field');
+ list.scrollTop=catalogScroll;
+ bindSeriesChecklist(list,bigCatalogGroups,updateBigPick);
  const latestNational=BIGDATA.series.map(s=>s.data?.at(-1)?.[0]).filter(Boolean).sort().at(-1);
  if(latestNational){
    const stamp=isEN()?'Latest national observation':'Último dato nacional';
@@ -2786,10 +2812,14 @@ function viewBigData(focus=''){
  }
  bindBigSearch();
  panel.querySelectorAll('[data-big-total]').forEach(button=>button.addEventListener('click',()=>showBigTotal(button.dataset.bigTotal,totals,button.id)));
- document.getElementById('big-catalog-toggle').addEventListener('click',()=>{
-   bigState.catalogOpen=!bigState.catalogOpen;
-   if(!bigState.catalogOpen) bigState.compare=null;
-   viewBigData(bigState.catalogOpen?'big-scope':'big-catalog-toggle');
+ catalogDisclosure.addEventListener('toggle',()=>{
+   if(!catalogDisclosure.isConnected) return;
+   bigState.catalogOpen=catalogDisclosure.open;
+   if(bigState.catalogOpen&&bigState.scope==='territory') loadGeoIndex();
+   if(!bigState.catalogOpen&&bigState.compare){
+     bigState.compare=null;
+     viewBigData('big-catalog-summary');
+   }
  });
  document.getElementById('big-scope')?.addEventListener('change',e=>{
    bigState.scope=e.target.value;
@@ -2800,13 +2830,7 @@ function viewBigData(focus=''){
    viewBigData();
  });
  document.getElementById('big-territory')?.addEventListener('change',e=>selectBigTerritory(e.target.value));
- const updateField=()=>{
-   const field=document.getElementById('big-series-field');
-   field.innerHTML=bigSeriesField(bigEntries());
-   bindBigField();
-   tr(field);
- };
- document.getElementById('big-variant')?.addEventListener('change',e=>{bigState.variant=e.target.value;updateField();});
+ document.getElementById('big-variant')?.addEventListener('change',e=>{bigState.variant=e.target.value;viewBigData('big-variant');});
  panel.querySelectorAll('[data-big-compare]').forEach(b=>b.addEventListener('click',()=>{
    const kind=b.dataset.bigCompare;
    bigState.compare={kind,reference:reference.id};
@@ -2817,12 +2841,12 @@ function viewBigData(focus=''){
      bigState.geoGroup=reference.group;
      bigState.geoAreas[reference.group]=kind==='territory'?'':reference.area;
    }
-   viewBigData(kind==='territory'?'big-territory':'big-add-comparison');
+   viewBigData(kind==='territory'?'big-territory':'big-catalog-summary');
  }));
  document.getElementById('big-compare-cancel')?.addEventListener('click',()=>{
    bigState.compare=null;
    bigState.catalogOpen=false;
-   viewBigData('big-catalog-toggle');
+   viewBigData('big-catalog-summary');
  });
  panel.querySelectorAll('[data-big-reference]').forEach(b=>b.addEventListener('click',()=>{
    bigState.reference=b.dataset.bigReference;
@@ -2837,11 +2861,12 @@ function viewBigData(focus=''){
  panel.querySelectorAll('[data-big-view]').forEach(b=>b.addEventListener('click',()=>{bigState.view=b.dataset.bigView;viewBigData();}));
  panel.querySelectorAll('[data-big-remove]').forEach(b=>b.addEventListener('click',()=>{
    bigState.selected=bigState.selected.filter(id=>id!==b.dataset.bigRemove);
-   viewBigData('big-catalog-toggle');
+   viewBigData('big-catalog-summary');
  }));
  const csv=document.getElementById('big-csv');
  csv?.addEventListener('click',()=>downloadBigCsv(plotted,start));
- document.getElementById('big-transform')?.addEventListener('change',e=>{bigState.transform=e.target.value;viewBigData('big-transform');});
+ bindTransformationControls('big-transform',value=>{bigState.transform=value;viewBigData('big-transform');},
+   value=>{bigState.adjustment=value;viewBigData('big-transform-seasonal');});
  const draw=()=>{
    if(bigState.view==='heat'){drawBigHeat();return}
    if(bigState.view==='scatter'){
@@ -2862,7 +2887,9 @@ function viewBigData(focus=''){
    if(csv) csv.disabled=!chart.querySelector('svg');
  };
  draw();observe(draw);tr(panel);
- const next=document.getElementById(focus||previousId)||document.getElementById(previousId);
+ const seriesInput=focusedSeries&&list.querySelector(`[data-catalog-pick="${CSS.escape(focusedSeries)}"]`);
+ const next=document.getElementById(focus||previousId)||document.getElementById(previousId)||
+   (focusedSeries?(seriesInput||document.getElementById('big-catalog-summary')):null);
  next?.focus({preventScroll:true});
  if(searchSelection&&next?.id==='big-search') next.setSelectionRange(...searchSelection);
 }
