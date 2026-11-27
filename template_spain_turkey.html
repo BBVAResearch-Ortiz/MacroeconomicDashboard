@@ -1286,13 +1286,13 @@ function themeFigures(key,items){
 }
 function viewBlock(key){
   const groups=explorerGroups().groups;
-  const themes=THEME_TABS.filter(tab=>tab.k===key||groups.some(group=>group.label===tab.l));
+  const themes=THEME_TABS.filter(tab=>tab.k===key||groups.some(group=>group.label===tab.l&&group.count));
   const tab=themes.find(item=>item.k===key)||themes.find(item=>item.k===lastThemeKey)||themes[0];
   const title=tab?.l||INDICATORS_TAB.l;
   const switcher=themes.length>1?`<div class="indicator-themes" role="group" aria-label="${isEN()?'Indicator groups':'Grupos de indicadores'}">
     ${themes.map(item=>`<button type="button" class="btn${item===tab?'':' ghost'}" data-theme-tab="${item.k}" aria-pressed="${item===tab}">${esc(item.l)}</button>`).join('')}</div>`:'';
   const group=groups.find(item=>item.label===tab?.l);
-  if(!group){
+  if(!group?.count){
     useRangeCoverage([]);
     const message=spainDriveLoading||turkeyLoading?(isEN()?'Loading series…':'Cargando series…'):
       (isEN()?'No series available in this group.':'No hay series disponibles en este grupo.');
@@ -1492,12 +1492,6 @@ const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por 
   PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',BANKING:'Estadísticas bancarias',
   TREASURY_CASH:'Caja del Tesoro',CENTRAL_GOVERNMENT_BUDGET:'Presupuesto del Gobierno central',INFLATION:'Inflación',BALANCE_OF_PAYMENTS:'Balanza de pagos',
   EXTERNAL_TRADE:'Comercio exterior',INTEREST_RATES:'Tipos de interés',other:'Otras series'};
-const TURKEY_THEME_TABS=[{k:'actividad',l:'Actividad'},{k:'coyuntura',l:'Coyuntura'},{k:'empleo',l:'Empleo'},
-  {k:'precios',l:'Precios'},{k:'credito',l:'Créditos y depósitos'},{k:'publico',l:'Sector público'},
-  {k:'exterior',l:'Sector exterior'},{k:'financiero',l:'Financiero'}];
-const TURKEY_THEME_BY_BLOCK={GDP_EXPENDITURE:'actividad',GDP_PRODUCTION:'actividad',HIGH_FREQUENCY_ACTIVITY:'coyuntura',
-  PMI_CAPACITY:'coyuntura',CONFIDENCE:'coyuntura',LABOUR_MARKET:'empleo',INFLATION:'precios',BANKING:'credito',
-  TREASURY_CASH:'publico',CENTRAL_GOVERNMENT_BUDGET:'publico',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',INTEREST_RATES:'financiero'};
 const TURKEY_SOURCE_ALIASES={
   'Tesoro de Turquía (HMB) · Treasury Cash Realizations':'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro',
   'BDDK / BRSA · boletín semanal':'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal',
@@ -1558,10 +1552,30 @@ const DRIVE_FAMILIES={
   SERVICES_ACTIVITY:'Actividad de servicios (IASS)', TRADE_BALANCE:'Balanza comercial',
   LARGE_ENTERPRISES:'Grandes empresas'
 };
-const SPAIN_THEME_ALIASES={actividad:'actividad-empresarial',esi:'encuestas-opinion',pmi:'encuestas-opinion',
-  'produccion-industrial':'industria','actividad-servicios':'actividad-empresarial',
-  'balanza-comercial':'exterior','grandes-empresas':'actividad-empresarial'};
-const THEME_TABS=IS_TURKEY?TURKEY_THEME_TABS:IS_USA?[]:[...SPAIN_AREA_TABS,{k:'otras-series',l:'Otras series'}];
+const SPAIN_THEME_ALIASES={esi:'actividad',pmi:'actividad',industria:'actividad',
+  'encuestas-opinion':'actividad','actividad-empresarial':'actividad',
+  'produccion-industrial':'actividad','actividad-servicios':'actividad',
+  'balanza-comercial':'exterior','grandes-empresas':'actividad'};
+const MACRO_GROUPS={actividad:'Actividad',empleo:'Empleo',precios:'Precios',monetario:'Monetario',
+  financiero:'Financiero',fiscal:'Fiscal',exterior:'Exterior',vivienda:'Vivienda'};
+const MACRO_GROUP_BY_FAMILY={LABOUR_MARKET:'empleo',INFLATION:'precios',INTEREST_RATES:'monetario',
+  BANKING:'financiero',FINANCIAL:'financiero',TREASURY_CASH:'fiscal',CENTRAL_GOVERNMENT_BUDGET:'fiscal',
+  PUBLIC_SECTOR:'fiscal',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',
+  EXTERNAL_SECTOR:'exterior',TRADE_BALANCE:'exterior',HOUSING:'vivienda'};
+Object.assign(EN,{Actividad:'Activity',Empleo:'Employment',Precios:'Prices',Monetario:'Monetary',
+  Financiero:'Financial',Fiscal:'Fiscal',Exterior:'External',Vivienda:'Housing','Sin series todavía.':'No series yet.'});
+function macroGroup(s){
+  if(!IS_EXTERNAL_MONITOR){
+    const external=s.group==='exterior'||s.block==='exterior'||['sector_exterior','external_sector'].includes(s.areaLabel)
+      ||['TRADE_BALANCE','BAL_COM','EXTERNAL_SECTOR'].includes(s.family);
+    return external?'exterior':'actividad';
+  }
+  if(Object.hasOwn(MACRO_GROUPS,s.group)) return s.group;
+  if(Object.hasOwn(MACRO_GROUPS,s.block)) return s.block;
+  const family=s.family||s.block;
+  return Object.hasOwn(MACRO_GROUP_BY_FAMILY,family)?MACRO_GROUP_BY_FAMILY[family]:'actividad';
+}
+const THEME_TABS=Object.entries(MACRO_GROUPS).map(([k,l])=>({k,l}));
 const IPI_BRANCHES={
   GEN:'Índice general', CONS:'Bienes de consumo', DUR:'Consumo duradero', NODUR:'Consumo no duradero',
   ENE:'Energía', EQ:'Bienes de equipo', INT:'Bienes intermedios'
@@ -1595,14 +1609,15 @@ const SERIES_LABELS={
 };
 Object.assign(EN,SERIES_LABELS);
 function explorerPath(id){
+  const group=MACRO_GROUPS[macroGroup(S()[id])];
+  if(IS_USA) return [group];
+  const details=explorerDetails(id).filter(label=>label!==group);
+  return [group,...details];
+}
+function explorerDetails(id){
   const s=S()[id], block=BLOCKS[s.block]||s.block||'Otras series', code=s.code||'';
-  if(IS_USA){
-    const sub=s.areaLabel&&s.areaLabel!==block?s.areaLabel:'';
-    return sub?[block,sub]:[block];
-  }
   if(IS_TURKEY){
-    const theme=TURKEY_THEME_TABS.find(tab=>tab.k===TURKEY_THEME_BY_BLOCK[s.block]);
-    const path=theme?[theme.l,block]:[block];
+    const path=[block];
     if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [...path,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
     if(s.block==='BANKING') return [...path,s.freq==='W'?'Semanal':'Mensual'];
     return path;
@@ -1662,7 +1677,10 @@ function explorerGroups(exclude=[]){
   const items=exIds().filter(id=>!exclude.includes(id)).map(id=>({
     id,label:`${S()[id].label} (${S()[id].unit})`
   }));
-  return seriesTree(items,explorerPath);
+  const tree=seriesTree(items,explorerPath);
+  tree.groups=Object.values(MACRO_GROUPS).map(label=>
+    tree.groups.find(group=>group.label===label)||{label,count:0,items:[],groups:[]});
+  return tree;
 }
 const searchQueries=new Map();
 const normalizeSearch=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -2028,7 +2046,7 @@ function seriesChecklist(tree,series,picks,limit,openGroups,{radio='',excluded}=
       const childPath=[...path,group.label];
       const key=childPath.join(' / ');
       html+=`<details data-catalog-group="${esc(key)}"${openGroups.has(key)?' open':''}>
-        <summary class="bbh">${esc(L10(group.label))} (${group.count})</summary>${catalog(group,childPath)}</details>`;
+        <summary class="bbh">${esc(L10(group.label))} (${group.count})</summary>${group.count?catalog(group,childPath):'<p class="note">'+esc(L10('Sin series todavía.'))+'</p>'}</details>`;
     }
     return html;
   }
@@ -3162,6 +3180,7 @@ async function readDriveSnapshot(country,previousVersion){
       freq: frequency,
       block,
       family: rawBlock,
+      group: entry.grupo,
       areaLabel: typeof entry['área'] === 'string' ? entry['área'].trim() : '',
       source: IS_TURKEY&&Object.hasOwn(TURKEY_SOURCE_ALIASES,source)?TURKEY_SOURCE_ALIASES[source]:source,
       link: /^https:\/\//i.test(entry.source_url||'')?entry.source_url:null,

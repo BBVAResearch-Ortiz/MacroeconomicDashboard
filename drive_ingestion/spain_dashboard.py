@@ -9,16 +9,11 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+from group_workbooks import spain_group
+
 
 ROOT = Path(__file__).resolve().parent.parent
 FREQUENCIES = {'Diaria': 'D', 'Mensual': 'M', 'Trimestral': 'Q', 'D': 'D', 'M': 'M', 'Q': 'Q'}
-BLOCKS = {
-    'actividad_empresarial': 'coyuntura',
-    'industria': 'coyuntura',
-    'encuestas_opinión': 'coyuntura',
-    'consumo': 'coyuntura',
-    'sector_exterior': 'exterior',
-}
 SITE_FILES = (
     'index.html', 'pais.html', 'summary.html', 'usa.html', 'i18n.js', 'bbva-research-logo.png', 'series_transforms.js',
     'bigdata.json', 'bigdata_heatmap.json', 'forecasts.json', 'frbus_resultados.json',
@@ -42,7 +37,7 @@ def merge_series(base, imported):
             'label': entry['titulo_serie'],
             'unit': entry['unidad'],
             'freq': frequency,
-            'block': BLOCKS.get(entry['área'], 'actividad'),
+            'block': spain_group(entry.get('bloque'), entry.get('área')),
             'family': entry.get('bloque'),
             'areaLabel': entry['área'].strip(),
             'source': re.split(r' \| (?:Archivo interno|Internal file):',

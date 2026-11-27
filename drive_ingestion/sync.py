@@ -107,6 +107,8 @@ def parse_workbook(workbook_bytes):
             row['frecuencia'] = ENGLISH_FREQUENCIES.get(row['frecuencia'], row['frecuencia'])
             row['área'] = ENGLISH_AREAS.get(row['área'], row['área'])
             series[series_id] = {field: row[field] for field in METADATA_FIELDS}
+            if isinstance(row.get('grupo'), str) and row['grupo'].strip():
+                series[series_id]['grupo'] = row['grupo'].strip()
             if isinstance(source_url := row.get('source_url'), str) and source_url.lower().startswith('https://'):
                 series[series_id]['source_url'] = source_url
             series[series_id]['observaciones'] = {}

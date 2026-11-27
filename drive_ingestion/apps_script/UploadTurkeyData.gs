@@ -12,6 +12,13 @@ const TURKEY_PRODUCER = {
   xls: 'application/vnd.ms-excel'
 };
 
+const TURKEY_PRODUCER_GROUPS = {
+  BANKING: 'financiero',
+  TREASURY_CASH: 'fiscal',
+  CENTRAL_GOVERNMENT_BUDGET: 'fiscal',
+  EXTERNAL_TRADE: 'exterior'
+};
+
 const TURKEY_CASH_ITEMS = [
   ['CASH_REVENUE', 'Treasury cash revenue', 'Revenues'],
   ['CASH_EXPENDITURE', 'Treasury cash expenditure', 'Expenditures'],
@@ -715,14 +722,18 @@ function mergeTurkeyWorkbookRows_(dictionary, observations, updates, timezone) {
   const header = dictionary[0];
   const changed = { dictionary: new Set(), observations: new Set() };
   if (!header.includes('source_url')) { header.push('source_url'); changed.dictionary.add(0); }
+  if (!header.includes('grupo')) { header.push('grupo'); changed.dictionary.add(0); }
   const sourceUrl = header.indexOf('source_url');
+  const groupColumn = header.indexOf('grupo');
   const seriesRows = new Map(dictionary.slice(1).map((row, index) => [row[metadata.id_serie], index + 1]));
   const dataRows = new Map(observations.slice(1).map((row, index) =>
     [row[dates.id_serie] + '|' + dashboardDate_(row[dates.fecha], timezone), index + 1]));
   for (const { id, entry, data } of updates) {
     const rowIndex = seriesRows.get(id) ?? dictionary.length;
     const seriesRow = dictionary[rowIndex] || Array(header.length).fill('');
-    const columns = [[metadata.id_serie, id], [sourceUrl, entry.source_url], ...fields.map(field => [metadata[field], entry[field]])];
+    const columns = [[metadata.id_serie, id], [sourceUrl, entry.source_url],
+      [groupColumn, TURKEY_PRODUCER_GROUPS[entry.bloque] || 'actividad'],
+      ...fields.map(field => [metadata[field], entry[field]])];
     if (columns.some(([col, value]) => seriesRow[col] !== value)) {
       columns.forEach(([col, value]) => { seriesRow[col] = value; });
       dictionary[rowIndex] = seriesRow;

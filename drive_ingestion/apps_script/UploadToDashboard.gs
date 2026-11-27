@@ -298,6 +298,7 @@ function dashboardHash_(data) {
 function parseDashboardSheets_(dictionary, observations, timezone) {
   const fields = DASHBOARD_UPLOAD.metadata;
   const metadata = dashboardColumns_(dictionary, ['id_serie', ...fields], 'DICCIONARIO');
+  const groupColumn = dictionary[0].indexOf('grupo');
   const sourceUrl = dictionary[0].includes('source_url')
     ? dashboardColumns_(dictionary, ['source_url'], 'DICCIONARIO').source_url : -1;
   const values = dashboardColumns_(observations, ['id_serie', 'fecha', 'valor'], 'DATOS_LARGO');
@@ -318,6 +319,9 @@ function parseDashboardSheets_(dictionary, observations, timezone) {
     const entry = Object.fromEntries(fields.map(field => [field, row[metadata[field]]]));
     entry.fuente = String(entry.fuente || '').split(/ \| (?:Archivo interno|Internal file):/)[0];
     if (sourceUrl >= 0 && /^https:\/\//i.test(String(row[sourceUrl] || ''))) entry.source_url = String(row[sourceUrl]);
+    if (groupColumn >= 0 && typeof row[groupColumn] === 'string' && row[groupColumn].trim()) {
+      entry.grupo = row[groupColumn].trim();
+    }
     entry.frecuencia = DASHBOARD_ENGLISH_FREQUENCIES.get(entry.frecuencia) || entry.frecuencia;
     entry['área'] = DASHBOARD_ENGLISH_AREAS.get(entry['área']) || entry['área'];
     seriesMetadata[id] = entry;
