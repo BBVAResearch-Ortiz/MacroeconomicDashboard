@@ -2151,15 +2151,21 @@ function loadHeatExample(){
   bb.picks=exIds().filter(id=>S()[id].freq==='M').slice(0,8);
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
+function boardSeriesTitle(id){
+  const label=L10(S()[id].label);
+  const metadata=/\s*\((?:[^()]*(?:\bcvec?\b|seasonally adjusted|sin ajustar|desestacionaliz|year[- ]on[- ]year|year[- ]over[- ]year|month[- ]on[- ]month|var\.)[^()]*|brut[oa]|gross|raw|unadjusted|BBVA(?: Research)?|INE|HMB|BDDK|BRSA|TURKSTAT)\)\s*$/i;
+  return label.replace(metadata,'').replace(/(^|\s·\s)Gross (?=trade balance\b)/i,'$1').trim();
+}
 function boardFigureHeading(rows){
   const plotted=rows.filter(row=>row.series);
   if(!plotted.length) return null;
   const country=IS_USA?'USA':IS_TURKEY?(isEN()?'Türkiye':'Turquía'):(isEN()?'Spain':'España');
   const groups=[...new Set(plotted.map(({id})=>L10(MACRO_GROUPS[macroGroup(S()[id])])))];
-  const categories=groups.length<3?groups.join(' & '):groups.slice(0,-1).join(', ')+' & '+groups.at(-1);
+  const names=groups.length===1?[...new Set(plotted.map(({id})=>boardSeriesTitle(id)))]:groups;
+  const title=names.length<3?names.join(' & '):names.slice(0,-1).join(', ')+' & '+names.at(-1);
   const units=[...new Set(plotted.map(({series})=>L10(series.unit)).filter(Boolean))];
   return {
-    title:`${country}: ${categories}`,
+    title:`${country}: ${title}`,
     subtitle:bb.mode==='heat'?(isEN()?'Standard deviations':'Desviaciones típicas'):units.join(' · ')
   };
 }
