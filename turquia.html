@@ -1584,7 +1584,7 @@ function explorerPath(id){
   const group=MACRO_GROUPS[macroGroup(S()[id])];
   if(IS_USA) return [group];
   const details=explorerDetails(id).filter(label=>label!==group);
-  return [group,...details];
+  return [group,...details.slice(0,2)];
 }
 function explorerDetails(id){
   const s=S()[id], block=BLOCKS[s.block]||s.block||'Otras series', code=s.code||'';
