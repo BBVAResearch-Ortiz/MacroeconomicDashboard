@@ -10,13 +10,48 @@ const series = snapshot('turkey');
 
 test('the published Türkiye snapshot contains sourced observations and excludes workbook examples', () => {
   assert.ok(Object.keys(series).length > 0);
-  for (const entries of [series, snapshot('turkey-verified')]) {
+  for (const entries of [series, snapshot('turkey-verified'), snapshot('turkey-tuik')]) {
     for (const [id, entry] of Object.entries(entries)) {
       assert.doesNotMatch(entry.fuente, /Turkey_example_data\.xlsx/i, id);
       assert.equal(new URL(entry.source_url).protocol, 'https:', id);
       assert.ok(entry.observaciones.length > 0, id);
     }
   }
+});
+
+test('TÜİK publishes all requested report families under External with separate source IDs', () => {
+  const entries = snapshot('turkey-tuik');
+  for (const id of [
+    'TOTAL', 'CA_TOTAL', 'SCA_TOTAL', 'HS_71', 'SITC_3', 'SITC_9', 'SCA_SITC_3', 'SCA_SITC_9',
+    'CA_BEC_1', 'CA_BEC_2', 'CA_BEC_3', 'CA_BEC_4',
+    'SCA_BEC_1', 'SCA_BEC_2', 'SCA_BEC_3', 'SCA_BEC_4', 'PARTNER_11',
+  ]) {
+    for (const direction of ['EXPORTS', 'IMPORTS']) {
+      const key = 'TR_TUIK_M_' + id + '_' + direction;
+      const row = entries[key];
+      assert.ok(row, key);
+      assert.equal(row.grupo, 'exterior');
+      assert.equal(new URL(row.source_url).hostname, 'bi.tuik.gov.tr');
+      assert.ok(row.observaciones.every(([day, value]) => /^\d{4}-\d{2}-01$/.test(day) && Number.isFinite(value)));
+    }
+  }
+});
+
+test('BDDK uses the TRY total in the daily bulletin and rejects a future date', () => {
+  const script = readFileSync(path.join(root, 'drive_ingestion/apps_script/UploadTurkeyData.gs'), 'utf8');
+  const { read, labels } = vm.runInNewContext(script + '\n({read:readTurkeyDailyBank_, labels:TURKEY_DAILY_REPORTS})', {
+    dashboardDate_: value => /^\d{4}-\d{2}-\d{2}$/.test(value)
+  });
+  const rows = labels.map(([, , label]) =>
+    '<tr><td>&#8203;<b>' + label + '</b></td><td>100</td><td>200</td><td>1.234,25</td></tr>').join('');
+  const html = '<table id="excelExportTl"><tr><th>Daily Bulletin (Million TL, Date:24.11.2026)</th>' +
+    '<th>TRY</th><th>FX</th><th>TOTAL</th></tr>' + rows + '</table>';
+  const result = read(html, '2026-11-27');
+  assert.equal(result.length, 6);
+  assert.equal(result[0].data[0][0], '2026-11-24');
+  assert.equal(result[0].data[0][1], 1234.25);
+  assert.throws(() => read(html, '2026-11-23'), /fecha/);
+  assert.throws(() => read(html.replace('Million TL', 'Million USD'), '2026-11-27'), /millones de TRY/);
 });
 
 test('Apps Script strips examples before publishing a mixed workbook', () => {

@@ -14,6 +14,7 @@ TURKEY_GROUPS = {
     'PUBLIC_SECTOR': 'fiscal',
     'BALANCE_OF_PAYMENTS': 'exterior',
     'EXTERNAL_TRADE': 'exterior',
+    'TUIK_TRADE': 'exterior',
     'EXTERNAL_SECTOR': 'exterior',
     'TRADE_BALANCE': 'exterior',
     'HOUSING': 'vivienda',

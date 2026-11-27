@@ -1,0 +1,44 @@
+name: Update Türkiye foreign trade from TÜİK
+
+on:
+  schedule:
+    - cron: '20 10 1-3,26-31 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: turkey-tuik-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium
+        run: |
+          python -m pip install playwright==1.65.2
+          python -m playwright install --with-deps chromium --only-shell
+      - name: Collect official TÜİK reports
+        run: python -B drive_ingestion/fetch_turkey_tuik.py
+      - name: Publish changed observations
+        run: |
+          git add drive_ingestion/snapshots/turkey-tuik.json
+          if git diff --staged --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Update Türkiye foreign trade from TÜİK'
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1

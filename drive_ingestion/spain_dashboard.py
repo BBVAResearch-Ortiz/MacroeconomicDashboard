@@ -71,7 +71,7 @@ def build_site(snapshot, destination):
         subprocess.run([sys.executable, str(ROOT / 'build_page.py')], cwd=staging, check=True)
         for name in (*SITE_FILES, 'data.json', 'espana.html', 'artifact.html', 'turquia.html'):
             (staging / name).replace(destination / name)
-        for name in ('turkey.json', 'turkey-verified.json', 'usa.json'):
+        for name in ('turkey.json', 'turkey-verified.json', 'turkey-tuik.json', 'usa.json'):
             snapshot_path = Path('drive_ingestion/snapshots') / name
             if (ROOT / snapshot_path).is_file():
                 (destination / snapshot_path).parent.mkdir(parents=True, exist_ok=True)

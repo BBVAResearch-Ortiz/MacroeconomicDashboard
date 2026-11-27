@@ -6,6 +6,7 @@ on:
     paths:
       - 'drive_ingestion/snapshots/spain.json'
       - 'drive_ingestion/snapshots/turkey.json'
+      - 'drive_ingestion/snapshots/turkey-tuik.json'
       - 'drive_ingestion/snapshots/bigdata/**'
       - 'drive_ingestion/spain_dashboard.py'
       - 'template.html'

@@ -1443,7 +1443,7 @@ const TURKEY_BLOCKS={GDP_EXPENDITURE:'PIB por el gasto',GDP_PRODUCTION:'PIB por 
   HIGH_FREQUENCY_ACTIVITY:'Actividad de alta frecuencia',LABOUR_MARKET:'Mercado laboral',
   PMI_CAPACITY:'PMI y utilización de capacidad',CONFIDENCE:'Confianza',BANKING:'Estadísticas bancarias',
   TREASURY_CASH:'Caja del Tesoro',CENTRAL_GOVERNMENT_BUDGET:'Presupuesto del Gobierno central',INFLATION:'Inflación',BALANCE_OF_PAYMENTS:'Balanza de pagos',
-  EXTERNAL_TRADE:'Comercio exterior',INTEREST_RATES:'Tipos de interés',other:'Otras series'};
+  EXTERNAL_TRADE:'Comercio exterior',TUIK_TRADE:'Comercio exterior (TÜİK)',INTEREST_RATES:'Tipos de interés',other:'Otras series'};
 const TURKEY_SOURCE_ALIASES={
   'Tesoro de Turquía (HMB) · Treasury Cash Realizations':'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro',
   'BDDK / BRSA · boletín semanal':'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín semanal',
@@ -1495,8 +1495,8 @@ const MACRO_GROUPS={actividad:'Actividad',empleo:'Empleo',precios:'Precios',mone
 const MACRO_GROUP_BY_FAMILY={LABOUR_MARKET:'empleo',INFLATION:'precios',INTEREST_RATES:'monetario',
   BANKING:'financiero',FINANCIAL:'financiero',TREASURY_CASH:'fiscal',CENTRAL_GOVERNMENT_BUDGET:'fiscal',
   PUBLIC_SECTOR:'fiscal',BALANCE_OF_PAYMENTS:'exterior',EXTERNAL_TRADE:'exterior',
-  EXTERNAL_SECTOR:'exterior',TRADE_BALANCE:'exterior',HOUSING:'vivienda'};
-Object.assign(EN,{Actividad:'Activity',Empleo:'Employment',Precios:'Prices',Monetario:'Monetary',
+  TUIK_TRADE:'exterior',EXTERNAL_SECTOR:'exterior',TRADE_BALANCE:'exterior',HOUSING:'vivienda'};
+Object.assign(EN,{'Comercio exterior (TÜİK)':'Foreign trade (TÜİK)',Diaria:'Daily',Actividad:'Activity',Empleo:'Employment',Precios:'Prices',Monetario:'Monetary',
   Financiero:'Financial',Fiscal:'Fiscal',Exterior:'External',Vivienda:'Housing','Sin series todavía.':'No series yet.'});
 function macroGroup(s){
   if(!IS_EXTERNAL_MONITOR){
@@ -1570,12 +1570,27 @@ function explorerPath(id){
   const details=explorerDetails(id).filter(label=>label!==group);
   return [group,...details.slice(0,2)];
 }
+const TUIK_TRADE_GROUPS={
+  TOTAL:'Totales',CA_TOTAL:'Totales',SCA_TOTAL:'Totales',HS:'Capítulo 71',
+  SITC:'SITC Rev. 4',SCA_SITC:'SITC Rev. 4',CA_BEC:'BEC',SCA_BEC:'BEC'
+};
+Object.assign(EN,{'Comercio por país (TÜİK)':'Trade by partner (TÜİK)',Totales:'Totals','Capítulo 71':'HS chapter 71'});
+function tuikTradeDetails(series,block){
+  const code=series.code.replace(/^TR_TUIK_M_/,'');
+  if(code.startsWith('PARTNER_')){
+    const name=series.label.split(' · ').at(-1);
+    return ['Comercio por país (TÜİK)',name];
+  }
+  const kind=code.match(/^(?:CA_|SCA_)?(?:TOTAL|HS|SITC|BEC)(?=_)/)?.[0];
+  return kind?[block,TUIK_TRADE_GROUPS[kind]]:[block];
+}
 function explorerDetails(id){
   const s=S()[id], block=BLOCKS[s.block]||s.block||'Otras series', code=s.code||'';
   if(IS_TURKEY){
+    if(s.block==='TUIK_TRADE') return tuikTradeDetails(s,block);
     const path=[block];
     if(['GDP_EXPENDITURE','GDP_PRODUCTION'].includes(s.block)) return [...path,code.includes('_RAW_')?'Sin ajustar':'Ajustado'];
-    if(s.block==='BANKING') return [...path,s.freq==='W'?'Semanal':'Mensual'];
+    if(s.block==='BANKING') return [...path,({D:'Diaria',W:'Semanal',M:'Mensual'})[s.freq]||s.freq];
     return path;
   }
   const family=Object.hasOwn(DRIVE_FAMILIES,s.family)?DRIVE_FAMILIES[s.family]:null;
@@ -3024,7 +3039,7 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-lang-change',{detail:LANG})); }
 
 let driveData = { version: null, series: {} };
-let turkeyVerifiedSnapshot;
+const turkeySnapshots = new Map();
 let reloadSequence = 0;
 
 async function fetchDashboardBase(){
@@ -3036,7 +3051,12 @@ async function fetchDashboardBase(){
 }
 
 async function readDriveSnapshot(country,previousVersion){
-  const response = await fetch('drive_ingestion/snapshots/'+country+'.json', { cache: 'no-store' });
+  const path='drive_ingestion/snapshots/'+country+'.json';
+  const latestTuik=country==='turkey-tuik'&&location.hostname==='bbvaresearch-ortiz.github.io'
+    ? await fetch('https://raw.githubusercontent.com/BBVAResearch-Ortiz/MacroeconomicDashboard/main/'+path,
+      {cache:'no-store'}).catch(()=>null)
+    : null;
+  const response=latestTuik?.ok?latestTuik:await fetch(path,{cache:'no-store'});
   if(response.status === 404) return null;
   if(!response.ok) throw new Error('HTTP '+response.status);
   const etag = response.headers.get('etag');
@@ -3093,26 +3113,30 @@ async function readDriveSnapshot(country,previousVersion){
 async function fetchDriveSnapshot(previousVersion){
   const country=IS_TURKEY?'turkey':IS_USA?'usa':'spain';
   if(!IS_TURKEY) return readDriveSnapshot(country,previousVersion);
-  const current=await readDriveSnapshot(country,previousVersion).catch(error=>{
-    if(previousVersion) throw error;
-    return null;
+  const sources=['turkey-verified',country,'turkey-tuik'];
+  const replies=await Promise.allSettled(sources.map(key=>readDriveSnapshot(key,turkeySnapshots.get(key)?.version)));
+  let changed=false;
+  replies.forEach((reply,index)=>{
+    if(reply.status!=='fulfilled'||!reply.value) return;
+    turkeySnapshots.set(sources[index],reply.value);
+    changed=true;
   });
-  if(!current&&previousVersion) return null;
-  turkeyVerifiedSnapshot ||= readDriveSnapshot('turkey-verified',null).catch(()=>{
-    turkeyVerifiedSnapshot=null;
-    return null;
-  });
-  const verified=await turkeyVerifiedSnapshot;
-  if(!current||!verified) return current||verified;
-  const series={...verified.series,...current.series};
-  for(const [id,row] of Object.entries(current.series)){
-    const backup=verified.series[id];
-    if(!backup) continue;
-    const points=new Map(backup.data.map(point=>[point[0],point]));
-    row.data.forEach(point=>points.set(point[0],point));
-    series[id]={...row,data:[...points.values()].sort(([a],[b])=>a.localeCompare(b))};
+  if(!changed) return null;
+  const series={};
+  let latest='';
+  for(const key of sources){
+    const snapshot=turkeySnapshots.get(key);
+    if(!snapshot) continue;
+    if(snapshot.latest>latest) latest=snapshot.latest;
+    for(const [id,row] of Object.entries(snapshot.series)){
+      const older=series[id];
+      if(!older){series[id]=row;continue;}
+      const points=new Map([...older.data,...row.data].map(point=>[point[0],point]));
+      series[id]={...row,data:[...points.values()].sort(([a],[b])=>a.localeCompare(b))};
+    }
   }
-  return {...current,series,latest:[current.latest,verified.latest].sort().at(-1)};
+  const base=turkeySnapshots.get(country)||turkeySnapshots.get('turkey-verified')||turkeySnapshots.get('turkey-tuik');
+  return {...base,series,latest};
 }
 
 async function reload(manual){

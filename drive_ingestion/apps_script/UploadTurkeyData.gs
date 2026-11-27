@@ -4,11 +4,14 @@ const TURKEY_PRODUCER = {
   treasuryCatalogue: 'https://en.hmb.gov.tr/portal/v2/pages?slug=public-finance',
   budgetPage: 'https://muhasebat.hmb.gov.tr/merkezi-yonetim-butce-istatistikleri',
   budgetApi: 'https://muhasebat.hmb.gov.tr/portal/v2/',
+  daily: 'https://www.bddk.gov.tr/BultenGunluk/en',
   weekly: 'https://www.bddk.org.tr/BultenHaftalik',
   monthly: 'https://www.bddk.org.tr/BultenAylik/tr/',
   trade: 'https://ticaret.gov.tr/istatistikler/bakanlik-istatistikleri/dis-ticaret-istatistikleri/',
   tradeMirror: 'https://dabm.ticaret.gov.tr',
   verified: 'https://bbvaresearch-ortiz.github.io/MacroeconomicDashboard/drive_ingestion/snapshots/turkey-verified.json',
+  tuikSnapshot: 'https://raw.githubusercontent.com/BBVAResearch-Ortiz/MacroeconomicDashboard/main/drive_ingestion/snapshots/turkey-tuik.json',
+  tuikPortal: 'https://bi.tuik.gov.tr/extensions/tuik-mashup/index.html',
   xls: 'application/vnd.ms-excel'
 };
 
@@ -16,18 +19,52 @@ const TURKEY_PRODUCER_GROUPS = {
   BANKING: 'financiero',
   TREASURY_CASH: 'fiscal',
   CENTRAL_GOVERNMENT_BUDGET: 'fiscal',
+  TUIK_TRADE: 'exterior',
   EXTERNAL_TRADE: 'exterior'
 };
 
 const TURKEY_CASH_ITEMS = [
-  ['CASH_REVENUE', 'Treasury cash revenue', 'Revenues'],
-  ['CASH_EXPENDITURE', 'Treasury cash expenditure', 'Expenditures'],
-  ['CASH_BALANCE', 'Treasury cash balance', 'Cash balance']
+  ['CASH_REVENUE', 'Treasury cash revenue', 'Revenues', true],
+  ['CASH_EXPENDITURE', 'Treasury cash expenditure', 'Expenditures', true],
+  ['CASH_BALANCE', 'Treasury cash balance', 'Cash balance', true],
+  ['CASH_NON_INTEREST', 'Treasury non-interest expenditure', 'Non-interest expenditures'],
+  ['CASH_INTEREST', 'Treasury interest payments', 'Interest payments'],
+  ['CASH_PRIMARY_BALANCE', 'Treasury primary cash balance', 'Primary balance'],
+  ['CASH_PRIVATIZATION_FUNDS', 'Treasury privatization and funds income', 'Privatization and funds income'],
+  ['CASH_FINANCING', 'Treasury cash financing', 'Financing'],
+  ['CASH_NET_BORROWING', 'Treasury net borrowing', 'Borrowing (net)'],
+  ['CASH_NET_FOREIGN_BORROWING', 'Treasury net foreign borrowing', 'Foreign borrowing (net)'],
+  ['CASH_NET_DOMESTIC_BORROWING', 'Treasury net domestic borrowing', 'Domestic borrowing (net)'],
+  ['CASH_SDIF_TRANSFERS', 'Treasury transfers from SDIF', 'Transfers from SDIF'],
+  ['CASH_ONLENDING_RECEIPTS', 'Treasury receipts from onlending', 'Receipts from onlending'],
+  ['CASH_BANK_ACCOUNTS_CHANGE', 'Change in Treasury bank accounts', 'Change in bank accounts'],
+  ['CASH_FX_EFFECT', 'Exchange rate effect on Treasury bank accounts', 'Effect of change in exchange rate'],
+  ['CASH_BANK_ACCOUNTS_NET_CHANGE', 'Net change in Treasury bank accounts', 'Net change in bank accounts']
 ];
 const TURKEY_MONTH_NAMES = 'January February March April May June July August September October November December'.toLowerCase().split(' ');
+const TURKEY_DAILY_REPORTS = [
+  ['LOANS', 'Total bank loans', 'Loans (*)'],
+  ['DEPOSITS', 'Total bank deposits', 'Deposit (Participation Funds) (**)'],
+  ['NPL', 'Non-performing loans', 'Non-Performing Loans (NPLs)'],
+  ['SECURITIES', 'Bank securities', 'Securities'],
+  ['DEMAND_DEPOSITS', 'Demand deposits', '- Demand Deposit'],
+  ['TERM_DEPOSITS', 'Term deposits', '- Term Deposit']
+];
 const TURKEY_MONTHLY_REPORTS = [
   ['TR_BDDK_M_LOANS', 'Total bank loans', 3, 'Toplam Krediler'],
-  ['TR_BDDK_M_DEPOSITS', 'Total bank deposits', 9, 'Toplam Mevduat']
+  ['TR_BDDK_M_DEPOSITS', 'Total bank deposits', 9, 'Toplam Mevduat'],
+  ['TR_BDDK_M_ASSETS', 'Total bank assets', 1, 'TOPLAM AKTİFLER'],
+  ['TR_BDDK_M_NPL', 'Non-performing loans', 1, 'Takipteki Alacaklar'],
+  ['TR_BDDK_M_DEMAND_DEPOSITS', 'Demand deposits', 1, 'a) Vadesiz Mevduat'],
+  ['TR_BDDK_M_TERM_DEPOSITS', 'Term deposits', 1, 'b) Vadeli Mevduat'],
+  ['TR_BDDK_M_CONSUMER_LOANS', 'Consumer loans', 4, 'Tüketici Kredileri (2+3+4)'],
+  ['TR_BDDK_M_HOUSING_LOANS', 'Housing loans', 4, 'Tüketici Kredileri - Konut'],
+  ['TR_BDDK_M_VEHICLE_LOANS', 'Vehicle loans', 4, 'Tüketici Kredileri - Taşıt'],
+  ['TR_BDDK_M_PERSONAL_LOANS', 'Personal loans', 4, 'Tüketici Kredileri - İhtiyaç'],
+  ['TR_BDDK_M_PERSONAL_CREDIT_CARDS', 'Personal credit card balances', 4, 'Bireysel Kredi Kartları (10+11)'],
+  ['TR_BDDK_M_COMMERCIAL_INSTALLMENT', 'Commercial installment loans', 4, 'Taksitli Ticari Krediler (20+21+22)*'],
+  ['TR_BDDK_M_SME_LOANS', 'SME cash loans', 6, 'Toplam KOBİ Kredileri (2+3+4)', 'Toplam Nakdi Krediler'],
+  ['TR_BDDK_M_CAPITAL_ADEQUACY', 'Capital adequacy ratio', 12, 'Sermaye Yeterliliği Standart Rasyosu ((5/7)*100) (YÜZDE)', 'Toplam', '%']
 ];
 const TURKEY_WEEKLY_REPORTS = [
   ['LOANS', 'Total bank loans', '1.0.1', 'Toplam Krediler'],
@@ -141,9 +178,11 @@ function runTurkeyWorkbook_(publish, cleanupOnly = false) {
               (id, row) => id.startsWith('TR_HMB_BUDGET_M_') && row.source_url === TURKEY_PRODUCER.budgetPage);
           }
         }],
+        ['BDDK diario', () => fetchTurkeyDaily_(today)],
         ['BDDK semanal', () => fetchTurkeyWeekly_(today, previous.series)],
         ['BDDK mensual', () => fetchTurkeyMonthly_(today, previous.series)],
-        ['Comercio exterior · cifras principales', () => fetchTurkeyTrade_(today, previous.series)]
+        ['Comercio exterior · Ministerio de Comercio', () => fetchTurkeyTrade_(today, previous.series)],
+        ['Comercio exterior · TÜİK', () => fetchTurkeyTuik_(today, previous.series)]
       ];
       const errors = [];
       const updates = sources.flatMap(([name, fetch]) => {
@@ -424,14 +463,84 @@ function fetchTurkeyVerifiedSeries_(previous, live, today, topic, accepts) {
   return [...byId.values()];
 }
 
+function fetchTurkeyTuik_(today, previous) {
+  const config = TURKEY_PRODUCER;
+  const response = turkeyResponse_(UrlFetchApp.fetch(config.tuikSnapshot, { muteHttpExceptions: true }), 'TÜİK');
+  const records = JSON.parse(response.getContentText()).series;
+  if (!records || !Object.keys(records).length) throw new Error('TÜİK: falta la instantánea de comercio.');
+  return Object.entries(records).flatMap(([id, row]) => {
+    if (!/^TR_TUIK_M_[A-Z0-9_]+$/.test(id) || row.bloque !== 'TUIK_TRADE' ||
+        ![config.tuikPortal, config.tuikPortal + '?lang=en'].includes(row.source_url) ||
+        row.unidad !== 'Millones de USD' || row.frecuencia !== 'Mensual' || !Array.isArray(row.observaciones)) {
+      throw new Error('TÜİK: serie inesperada ' + id + '.');
+    }
+    const saved = new Map(previous[id]?.observaciones || []);
+    const dates = new Set();
+    const data = row.observaciones.filter(([day, value]) => {
+      if (!/^\d{4}-\d{2}-01$/.test(day) || !dashboardDate_(day, 'UTC') ||
+          dates.has(day) || !Number.isFinite(value)) throw new Error('TÜİK: dato inválido de ' + id + '.');
+      dates.add(day);
+      return day <= today && saved.get(day) !== value;
+    });
+    if (!data.length) return [];
+    const series = turkeySeries_(id, row.titulo_serie, row.subtitulo_descripcion, 'Monthly', row.bloque,
+      'external_sector', row.fuente, row.source_url, data, row.unidad);
+    series.entry.transformacion_y_calculo = row.transformacion_y_calculo;
+    return [series];
+  });
+}
+
+function turkeyTradeBulletin_(month) {
+  const slug = TURKEY_TRADE_MONTHS[month - 1] + '-ayi-dis-ticaret-istatistik';
+  return TURKEY_PRODUCER.trade + slug + 'leri/' + slug + '-tablolari';
+}
+
+function fillTurkeyTradeArchive_(live, previous, year, month, today) {
+  const details = live.filter(series => !TURKEY_TRADE_ITEMS.some(([key]) => series.id === 'TR_TRADE_M_' + key));
+  if (!details.length) return live;
+  const known = new Map(details.map(series => [series.id, new Set([
+    ...(previous[series.id]?.observaciones || []), ...series.data
+  ].map(([day]) => day))]));
+  // Check at most one archived month per run and rotate past unavailable bulletins.
+  const ordinal = Math.floor(Date.parse(today) / 86400000);
+  for (let step = 0; step < 11; step++) {
+    const offset = 1 + (ordinal + step) % 11;
+    const period = new Date(Date.UTC(year, month - 1 - offset, 1));
+    const y = period.getUTCFullYear(), m = period.getUTCMonth() + 1;
+    const monthDate = turkeyTradePoint_(y, m, 0)[0];
+    const missing = details.filter(series => !known.get(series.id).has(monthDate));
+    if (!missing.length) continue;
+    const bulletin = turkeyTradeBulletin_(m);
+    try {
+      const page = fetchTurkeyTradePage_(bulletin);
+      for (const file of TURKEY_TRADE_FILES.slice(1)) {
+        try {
+          const rows = fetchTurkeyTradeFile_(page, bulletin, file, y, m);
+          for (const archive of rows) {
+            const current = details.find(series => series.id === archive.id);
+            if (!current) continue;
+            current.data.push(...archive.data.filter(([day]) => !known.get(current.id).has(day)));
+            current.data.sort(([a], [b]) => a.localeCompare(b));
+          }
+        } catch (error) {
+          console.log('Comercio exterior · archivo ' + monthDate + ' · ' + file[0] + ': ' + error.message);
+        }
+      }
+    } catch (error) {
+      console.log('Comercio exterior · archivo ' + monthDate + ': ' + error.message);
+    }
+    break;
+  }
+  return live;
+}
+
 function fetchTurkeyTrade_(today, previous = {}) {
   const [year, month] = today.split('-').map(Number);
   const errors = [];
   for (let offset = 1; offset <= 3; offset++) {
     const period = new Date(Date.UTC(year, month - 1 - offset, 1));
     const reportYear = period.getUTCFullYear(), reportMonth = period.getUTCMonth() + 1;
-    const slug = TURKEY_TRADE_MONTHS[reportMonth - 1] + '-ayi-dis-ticaret-istatistik';
-    const bulletin = TURKEY_PRODUCER.trade + slug + 'leri/' + slug + '-tablolari';
+    const bulletin = turkeyTradeBulletin_(reportMonth);
     let live = [];
     try {
       const page = fetchTurkeyTradePage_(bulletin);
@@ -448,7 +557,9 @@ function fetchTurkeyTrade_(today, previous = {}) {
       } catch (error) {
         console.log('Comercio exterior · histórico: ' + error.message);
       }
-      if (live.length === TURKEY_TRADE_ITEMS.length * 3 + TURKEY_TRADE_BEC_GROUPS.length * 2) return live;
+      if (live.length === TURKEY_TRADE_ITEMS.length * 3 + TURKEY_TRADE_BEC_GROUPS.length * 2) {
+        return fillTurkeyTradeArchive_(live, previous, reportYear, reportMonth, today);
+      }
     } catch (error) {
       errors.push(reportYear + '-' + String(reportMonth).padStart(2, '0') + ': ' + error.message);
     }
@@ -559,9 +670,9 @@ function fetchTurkeyTreasury_(today) {
   return withDashboardSpreadsheet_(file, 'Treasury cash', workbook => {
     const years = workbook.getSheets().filter(sheet => /^20\d{2}$/.test(sheet.getName()));
     const data = readTurkeyTreasury_(years.map(sheet => [sheet.getName(), sheet.getDataRange().getValues()]), today);
-    return TURKEY_CASH_ITEMS.map(([key, title, row], i) => turkeySeries_('TR_HMB_M_' + key, title,
+    return TURKEY_CASH_ITEMS.flatMap(([key, title, row], i) => data[i].length ? [turkeySeries_('TR_HMB_M_' + key, title,
       'Treasury Cash Realizations · ' + row, 'Monthly', 'TREASURY_CASH', 'public_finances',
-      'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro', config.treasuryPage, data[i]));
+      'Ministerio de Tesoro y Finanzas de Türkiye (HMB) · Estadísticas de caja del Tesoro', config.treasuryPage, data[i])] : []);
   });
 }
 
@@ -573,10 +684,13 @@ function readTurkeyTreasury_(sheets, today) {
     const months = rows.find(row => row.some(cell => monthIndex(cell) === 0));
     if (!months) throw new Error('Tesoro ' + year + ': faltan los meses.');
     const columns = months.map(monthIndex);
-    TURKEY_CASH_ITEMS.forEach(([, , label], index) => {
-      const prefix = new RegExp('^\\s*\\d+\\.\\s*' + label + '\\s*(?:\\(|$)', 'i');
-      const row = rows.find(cells => cells.some(cell => typeof cell === 'string' && prefix.test(cell)));
-      if (!row) throw new Error('Tesoro ' + year + ': falta ' + label + '.');
+    TURKEY_CASH_ITEMS.forEach(([, , label, required], index) => {
+      const escaped = label.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&');
+      const prefix = new RegExp('^\\s*(?:\\d+\\.\\s*)?' + escaped + '\\s*(?:\\(|$)', 'i');
+      const matching = rows.filter(cells => cells.some(cell => typeof cell === 'string' && prefix.test(cell)));
+      if (!matching.length && !required) return;
+      if (matching.length !== 1) throw new Error('Tesoro ' + year + ': partida ausente o duplicada: ' + label + '.');
+      const row = matching[0];
       columns.forEach((month, col) => {
         if (month < 0 || row[col] === '' || row[col] == null) return;
         const day = year + '-' + String(month + 1).padStart(2, '0') + '-01';
@@ -592,6 +706,33 @@ function turkeyBankRequest_(url, payload) {
   return { url, method: 'post', contentType: 'application/x-www-form-urlencoded; charset=UTF-8', payload: form,
     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest',
       Origin: 'https://www.bddk.org.tr', Referer: url.split('/Home/')[0] + '/' }, muteHttpExceptions: true };
+}
+
+function readTurkeyDailyBank_(html, today) {
+  const table = html.match(/<table\b[^>]*\bid="excelExportTl"[^>]*>([\s\S]*?)<\/table>/i)?.[1] || '';
+  const date = /Daily Bulletin\s*\(Million TL,\s*Date:\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\)/i.exec(table);
+  if (!date) throw new Error('BDDK diario: no se encontró el boletín en millones de TRY.');
+  const day = date[3] + '-' + date[2].padStart(2, '0') + '-' + date[1].padStart(2, '0');
+  if (!dashboardDate_(day, 'UTC') || day > today) throw new Error('BDDK diario: fecha del boletín inválida.');
+  const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(([, row]) =>
+    [...row.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(([, cell]) =>
+      cell.replace(/<[^>]*>|&#8203;|\u200b/g, '').replace(/\s+/g, ' ').trim()));
+  if (rows[0]?.[3] !== 'TOTAL') throw new Error('BDDK diario: falta la columna de totales.');
+  return TURKEY_DAILY_REPORTS.map(([id, title, label]) => {
+    const matches = rows.filter(row => row[0] === label);
+    const value = matches[0]?.[3];
+    if (matches.length !== 1 || !/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/.test(value || '')) {
+      throw new Error('BDDK diario: no se pudo validar ' + label + '.');
+    }
+    return turkeySeries_('TR_BDDK_D_' + id, title, 'Banking sector · total · ' + label, 'Daily', 'BANKING', 'banking',
+      'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín diario', TURKEY_PRODUCER.daily,
+      [[day, Number(value.replace(/\./g, '').replace(',', '.'))]]);
+  });
+}
+
+function fetchTurkeyDaily_(today) {
+  const response = turkeyResponse_(UrlFetchApp.fetch(TURKEY_PRODUCER.daily, { muteHttpExceptions: true }), 'BDDK diario');
+  return readTurkeyDailyBank_(response.getContentText(), today);
 }
 
 function fetchTurkeyWeekly_(today, previous) {
@@ -664,10 +805,11 @@ function readTurkeyWeeklyBank_(report, today, label) {
 function fetchTurkeyMonthly_(today, previous) {
   const endpoint = TURKEY_PRODUCER.monthly + 'Home/BasitRaporGetir';
   const count = TURKEY_MONTHLY_REPORTS.every(([id]) => previous[id]) ? 3 : 12;
+  const tables = [...new Set(TURKEY_MONTHLY_REPORTS.map(([, , table]) => table))];
   const requests = Array.from({ length: count }, (_, i) => {
     const period = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - i - 2, 1));
     const day = period.toISOString().slice(0, 10);
-    return TURKEY_MONTHLY_REPORTS.map(([, , table], report) => ({ day, report, request: turkeyBankRequest_(endpoint,
+    return tables.map(table => ({ day, table, request: turkeyBankRequest_(endpoint,
       { tabloNo: table, yil: period.getUTCFullYear(), ay: period.getUTCMonth() + 1, paraBirimi: 'TL', taraf: '10001' }) }));
   }).flat();
   const data = TURKEY_MONTHLY_REPORTS.map(() => []);
@@ -679,35 +821,42 @@ function fetchTurkeyMonthly_(today, previous) {
     } catch (error) {
       console.log('BDDK mensual · lote fallido: se comprueban los meses por separado.');
     }
-    chunk.forEach(({ day, report, request }, index) => {
-      const [, , table, label] = TURKEY_MONTHLY_REPORTS[report];
+    chunk.forEach(({ day, table, request }, index) => {
       try {
         const { url, ...options } = request;
         const response = responses?.[index] || UrlFetchApp.fetch(url, options);
-        const value = readTurkeyMonthlyBank_(JSON.parse(turkeyResponse_(response, 'BDDK ' + day).getContentText()), label);
-        if (value !== null) data[report].push([day, value]);
+        const report = JSON.parse(turkeyResponse_(response, 'BDDK ' + day).getContentText());
+        TURKEY_MONTHLY_REPORTS.forEach(([id, , reportTable, label, column], i) => {
+          if (reportTable !== table) return;
+          try {
+            const value = readTurkeyMonthlyBank_(report, label, column);
+            if (value !== null) data[i].push([day, value]);
+          } catch (error) {
+            console.log('BDDK mensual · ' + day + ' · ' + id + ': ' + error.message);
+          }
+        });
       } catch (error) {
         console.log('BDDK mensual · ' + day + ' · tabla ' + table + ': ' + error.message);
       }
     });
   }
   if (!data.some(rows => rows.length)) throw new Error('Ningún periodo de crédito o depósitos pudo verificarse.');
-  return TURKEY_MONTHLY_REPORTS.flatMap(([id, title, table, label], i) => {
+  return TURKEY_MONTHLY_REPORTS.flatMap(([id, title, table, label, , unit], i) => {
     if (!data[i].length) {
       console.log('BDDK mensual · ' + id + ': se conserva cualquier histórico existente.');
       return [];
     }
     return [turkeySeries_(id, title, 'Banking sector · table ' + table + ' · ' + label, 'Monthly', 'BANKING', 'banking',
-      'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín mensual', TURKEY_PRODUCER.monthly, data[i])];
+      'Agencia de Regulación y Supervisión Bancaria (BDDK) · Boletín mensual', TURKEY_PRODUCER.monthly, data[i], unit)];
   });
 }
 
-function readTurkeyMonthlyBank_(report, label) {
+function readTurkeyMonthlyBank_(report, label, total = 'Toplam') {
   const table = report.Json;
   if (report.success === false && /^\d{4} yılının en son \d{1,2} ayına ait veri bulunmaktadır!?$/i.test(report.error || '')) return null;
   if (!report.success || !Array.isArray(table?.data?.rows)) throw new Error('BDDK mensual: respuesta inesperada.');
   if (!table.data.rows.length) return null;
-  const columns = (table.colNames || []).flatMap((name, col) => name === 'Toplam' ? [col] : []);
+  const columns = (table.colNames || []).flatMap((name, col) => name === total ? [col] : []);
   const matches = table.data.rows.filter(({ cell }) => cell[0] === 'Sektör' && cell[2] === label);
   if (columns.length !== 1 || matches.length !== 1 || !Number.isFinite(matches[0].cell[columns[0]])) {
     throw new Error('BDDK mensual: no se pudo validar el total sectorial de ' + label + '.');
