@@ -31,4 +31,14 @@ jobs:
           python -m pip install playwright==1.65.2
           python -m playwright install --with-deps chromium --only-shell
       - name: Run browser tests
-        run: python -B -m unittest discover -s tests -v
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/dashboard-browser-tests.log"
+          if python -B -m unittest discover -s tests -v 2>&1 | tee "$log"; then
+            exit 0
+          fi
+          awk '/^(FAIL|ERROR): |^AssertionError:|^playwright\..*Error:/ {
+            gsub(/%/, "%25")
+            print "::error::" $0
+          }' "$log"
+          exit 1
