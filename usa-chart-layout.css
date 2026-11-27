@@ -69,10 +69,15 @@
   border-radius: 6px;
 }
 
+.chart-csv-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .btn-download {
-  margin-left: auto;
-  padding: 7px 14px;
-  font-size: 0.85rem;
+  padding: 3px 6px;
+  font-size: 10px;
   font-weight: 500;
   color: #1e3a8a;
   background: #ffffff;

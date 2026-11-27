@@ -269,6 +269,11 @@ class DashboardBrowserTests(unittest.TestCase):
                 target.click()
                 expect(target).to_have_attribute('aria-selected', 'true')
                 expect(page.locator('#panel .chart svg').first).to_be_visible()
+                figure = page.locator('#panel figure.fig').first
+                csv = figure.locator(':scope > .figure-csv-footer .csv-action')
+                expect(csv).to_be_enabled()
+                expect(csv).to_have_css('font-size', '10px')
+                self.assertGreaterEqual(csv.bounding_box()['y'], figure.locator('figcaption').bounding_box()['y'])
                 expect(page).to_have_url(re.compile(f'#{second}$'))
                 page.reload()
                 expect(target).to_have_attribute('aria-selected', 'true')
@@ -349,8 +354,10 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('[data-status=calculated], [data-status=documented]')).to_have_count(0)
         expect(chart.locator('svg')).to_be_visible()
         expect(analysis.locator('.series-chart-sources summary')).to_have_text('Sources by series')
+        csv_button = page.locator('.board-figure > .figure-csv-footer .csv-action')
+        expect(analysis.locator('.csv-action')).to_have_count(0)
         with page.expect_download() as pending:
-            analysis.get_by_role('button', name='Download CSV').click()
+            csv_button.click()
         downloaded = pending.value.path().read_text(encoding='utf-8-sig')
         self.assertIn('Calculated here.', downloaded)
         self.assertIn('Source URL', downloaded)
@@ -569,11 +576,11 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#explorer-search-results')).to_contain_text('No matching series.')
         expect(page.locator('#tab-empleo')).to_be_visible()
 
-    def test_big_data_catalogue_and_csv_header(self):
+    def test_big_data_catalogue_and_csv_footer(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#bigdata')
         expect(page.locator('#big-chart svg').first).to_be_visible()
-        expect(page.locator('.figure-csv-header #big-csv')).to_be_enabled()
+        expect(page.locator('.figure-csv-footer #big-csv')).to_be_enabled()
         page.locator('#big-catalog-summary').click()
         expect(page.locator('#big-series-field')).to_be_visible()
         page.locator('#big-variant').select_option('Nominal')

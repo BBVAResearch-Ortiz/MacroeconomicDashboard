@@ -110,11 +110,9 @@ a.source-publisher{text-decoration:underline;text-underline-offset:2px}
 .series-chart-sources ul{list-style:none;padding:0;margin:7px 0 0;display:grid;gap:6px}
 .series-chart-sources li{padding-inline-start:8px;border-inline-start:2px solid var(--chart-grid);overflow-wrap:anywhere}
 .series-source-name{display:block;color:var(--chart-ink)}
-.figure-csv-header{display:flex;gap:8px 12px;align-items:flex-start;justify-content:flex-end}
-.figure-csv-header>.figure-csv-title{flex:1;min-width:0}
 .figure-csv-footer{order:4;display:flex;justify-content:flex-end}
 .figure-csv-footer:empty{display:none}
-.csv-action.btn{flex:none;font-size:12px;line-height:1.2;padding:6px 9px;white-space:nowrap}
+.csv-action.btn{flex:none;font-size:10px;line-height:1.2;padding:3px 6px;border-color:var(--rule);white-space:nowrap}
 .csv-action:disabled{opacity:.5;cursor:default}
 .chart-readings.is-hovering li time{display:none}
 .chart-readings p[data-cursor-date]{color:var(--chart-ink);font-weight:600}
@@ -338,7 +336,6 @@ table.fc td.f{font-weight:600}
 .scatter-analysis .fit-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
 .scatter-analysis .seg{flex-wrap:wrap}
 .scatter-analysis dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;margin:6px 0}
-.scatter-analysis .figure-csv-footer{justify-content:flex-start}
 #bb-scatter-sources:empty{display:none}
 .scatter-analysis dt{font-size:12px;color:var(--muted)}
 .scatter-analysis dd{margin:2px 0 0;color:var(--chart-ink);font-variant-numeric:tabular-nums;font-weight:600}
@@ -1355,16 +1352,11 @@ function downloadCsvRows(name,rows){
 function bindFigureCsv(figure,download,enabled=true){
   if(!figure) return;
   let controls=(figure.dataset.csvSlot&&document.getElementById(figure.dataset.csvSlot))
-    ||figure.querySelector(':scope > .figure-csv-footer, :scope > .figure-csv-header');
+    ||figure.querySelector(':scope > .figure-csv-footer');
   if(!controls){
-    const title=figure.firstElementChild;
     controls=document.createElement('div');
-    controls.className='figure-csv-header';
-    figure.prepend(controls);
-    if(title?.querySelector('h3')){
-      title.classList.add('figure-csv-title');
-      controls.append(title);
-    }
+    controls.className='figure-csv-footer';
+    figure.append(controls);
   }
   let button=controls.querySelector('.csv-action');
   if(!button){
@@ -1944,7 +1936,7 @@ function scatterControls(plan){
       ${SCATTER_FITS.map(([kind,label])=>`<button type="button" data-bbf="${kind}" aria-pressed="${bb.fit===kind}">${label}</button>`).join('')}
     </div><label class="chk"><input type="checkbox" id="bb-trail"${bb.trail?' checked':''}> Unir puntos en orden temporal</label></div>
     <div id="bb-fit-stats" aria-live="polite"></div>
-    <div id="bb-scatter-sources"></div><div class="figure-csv-footer" id="bb-scatter-csv"></div>
+    <div id="bb-scatter-sources"></div>
   </section>`;
 }
 function renderScatterStats(host,points,fit){
@@ -2243,13 +2235,12 @@ function viewBoard(){
      ${bb.mode==='heat'?`<div class="bbgrp"><button type="button" class="btn ghost" id="bb-example">${isEN()?'Business cycle example':'Ejemplo: cuadro de coyuntura'}</button><p class="note">${isEN()?'Eight monthly indicators · four years':'Ocho indicadores mensuales · cuatro años'}</p></div>`:''}
      ${scatter?scatterControls(plan):''}
    </aside>
-   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-csv-slot="bb-scatter-csv" data-sources-slot="bb-scatter-sources"':''}>
+   <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-sources-slot="bb-scatter-sources"':''}>
      ${heading?`<div class="figure-csv-title"><h3 class="board-chart-title">${esc(heading.title)}</h3><div class="sub">${esc(heading.subtitle)}</div></div>`:''}
      ${scatter?'':chartRangeCtl(false)}
      <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
      ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
      ${!IS_USA&&mixedFrequencies?`<p class="note board-chart-note">${isEN()?'Higher-frequency series are averaged to match the lowest frequency.':'Las series de mayor frecuencia se promedian a la menor.'}</p>`:''}
-     ${scatter?'':'<div class="figure-csv-footer"></div>'}
      ${IS_USA&&!scatter&&usaIds.length?`<figcaption class="src">Fuente: ${srcLine(usaIds)}${mixedUnits?`<br><span class="mixnote">Las series tienen unidades distintas: usa «Dos ejes» o la transformación «Estandarizado» para compararlas.</span>`:''}</figcaption>`:''}
    </figure></div>`;
   bindRange();
@@ -2854,7 +2845,7 @@ function viewBigData(focus=''){
      aria-pressed="${s.id===bigState.reference}" title="${isEN()?'Use as the comparison reference':'Usar como referencia para comparar'}">${esc(s.label)}</button>`:esc(s.label);
    return `<span class="pchip"><i aria-hidden="true" style="background:var(${COLORS[i%4]})"></i>${label}<button type="button" data-big-remove="${esc(s.id)}" aria-label="${isEN()?'Remove':'Quitar'} ${esc(s.label)}">×</button></span>`;
  }).join('');
- panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span>${controls}<div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div></aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="figure-csv-header"><div class="big-title figure-csv-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><button type="button" class="btn ghost csv-action" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
+ panel.innerHTML=`<div class="sechead"><h2>Big Data</h2>${bigState.view==='heat'?rangeCtl():''}</div><div class="bbwrap ${bigState.view==='heat'?'bigheat-layout':''}"><aside class="bbside" aria-label="${isEN()?'Select series':'Seleccionar series'}">${sectionSearch('big-search')}${bigTotalControls(totals)}<div class="bbgrp"><span class="picklab">${isEN()?'Selected series':'Series seleccionadas'} (${bigState.selected.length}/4)</span>${controls}<div class="chips">${selected||`<span class="note">${isEN()?'No series selected':'No hay series seleccionadas'}</span>`}</div></div></aside>${entries.length?`<figure class="fig" style="margin:0;min-width:0"><div class="big-title"><h3>${esc(title)}</h3><div class="sub">${bigState.view==='heat'?(isEN()?'The full consumption table is shown automatically.':'La tabla completa de consumo se muestra automáticamente.'):(units.length?esc((isEN()?'Units: ':'Unidades: ')+units.join(' · ')):'')}</div></div><div class="seg" role="group" aria-label="${isEN()?'View':'Vista'}"><button type="button" data-big-view="chart" aria-pressed="${bigState.view==='chart'}">${isEN()?'Line chart':'Gráfico de líneas'}</button><button type="button" data-big-view="scatter" aria-pressed="${bigState.view==='scatter'}">Scatterplot</button><button type="button" data-big-view="heat" aria-pressed="${bigState.view==='heat'}">${isEN()?'Heat map':'Mapa de calor'}</button></div>${plan?transformationControls('big-transform',plan)+chartRangeCtl():''}${bigState.view==='heat'?`<div id="big-heat"></div>`:bigState.view==='scatter'?`<div class="sub">${isEN()?'Select two series: first on X, second on Y.':'Selecciona dos series: la primera en X y la segunda en Y.'}</div><button type="button" class="btn ghost" id="big-swap">${isEN()?'Swap axes':'Intercambiar ejes'}</button><div class="chart" id="big-scatter"></div>`:`<div class="chart" id="big-chart"></div>`}<figcaption class="src">${bigState.view==='heat'?'Fuente: BBVA Research e INE':'Fuente: BBVA Research'}</figcaption><div class="figure-csv-footer"><button type="button" class="btn ghost csv-action" id="big-csv" disabled>${isEN()?'Download CSV':'Descargar CSV'}</button></div></figure>`:`<p class="note">${isEN()?'Data are not available yet.':'Datos pendientes de incorporación.'}</p>`}</div>`;
  bindRange();
  const catalogDisclosure=document.getElementById('big-catalog');
  const list=document.getElementById('big-series-field');
