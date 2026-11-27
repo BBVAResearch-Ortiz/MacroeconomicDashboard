@@ -9,6 +9,7 @@ on:
       - 'drive_ingestion/snapshots/bigdata/**'
       - 'drive_ingestion/spain_dashboard.py'
       - 'template.html'
+      - 'template_spain_turkey.html'
       - 'build_page.py'
       - 'turquia.html'
       - 'series_transforms.js'

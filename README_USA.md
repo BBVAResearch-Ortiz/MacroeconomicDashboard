@@ -15,3 +15,47 @@ python actualizar_frbus.py /ruta/resultados.json
 ```
 
 El actualizador valida la consistencia de la base y las diferencias y actualiza usa.html y frbus_resultados.json. Suba ambos archivos. GitHub Pages es estático: ejecutar PyFRB/US para un escenario arbitrario requiere un servicio de cálculo o una adaptación contrastada para navegador.
+
+## DSGE de la Fed de Nueva York
+
+La ficha «DSGE FRB-NY» de la sección Modelos muestra las previsiones que publica la Fed de Nueva York; aquí no se ejecuta el modelo.
+
+- `update_dsge_frbny.py` descarga los CSV que alimentan los gráficos interactivos oficiales (`newyorkfed.org/research/policy/dsge#/interactive`) y escribe `dsge_frbny.json`: tabla 4T/4T con banda del 68 %, abanicos trimestrales con bandas del 50 al 90 % y la revisión frente a la previsión anterior.
+- Cuando cambia la fecha de publicación, la tabla anterior se conserva como comparación.
+- El flujo `update-data.yml` lo ejecuta los días laborables; la página también relee `dsge_frbny.json` al abrirse y con «Actualizar datos».
+- La Fed publica una previsión por trimestre (marzo, junio, septiembre y diciembre).
+
+### Simulador de shocks
+
+- `dsge_irf.json` contiene las respuestas al impulso de Model1002 (especificación `ss10`, parámetros por defecto del paquete) calculadas con DSGE.jl, el paquete público de la Fed de Nueva York: PIB, inflación PCE subyacente, tipo de los fondos federales, diferencial de crédito y tipo natural real ante seis shocks de una desviación típica.
+- Como el modelo es lineal, la página escala y suma esas respuestas según los deslizadores y dibuja el escenario sobre la previsión publicada. El shock ocurre en el trimestre siguiente al de la publicación.
+- Es un cálculo propio, no un escenario de la Fed: los parámetros por defecto no tienen por qué coincidir con su estimación actual, y las bandas no se recalculan.
+- `dsge_irf.jl` regenera el archivo (instrucciones de instalación en su cabecera). Solo hace falta si cambian el modelo o los parámetros; no depende de los datos de cada trimestre.
+
+## CPI Nowcasting (Fed de Cleveland)
+
+La ficha «CPI Nowcasting» muestra el nowcast de inflación que publica la Fed de Cleveland (CPI y PCE, general y subyacente); aquí no se ejecuta el modelo.
+
+- `update_inflation_nowcast.py` descarga los tres archivos públicos de la Fed de Cleveland (mes, trimestre e interanual) y escribe `inflation_nowcast.json`: seis meses de referencia con la trayectoria diaria del nowcast, tres trimestres y el historial de 36 meses de nowcast final frente a dato publicado.
+- El workflow `update-data.yml` lo ejecuta cada día hábil. La página incrusta el último archivo y además lo vuelve a pedir al abrirse, así que basta con que el workflow actualice el JSON.
+- El error absoluto medio del historial se calcula en la página a partir de ese archivo.
+
+## Catálogo de series (FRED)
+
+`scripts/fetch_usa_apis.py` descarga 109 series de FRED. El campo `bloque` de cada serie decide su categoría en el desplegable del Blackboard, que solo muestra estas ocho, sin subcategorías:
+
+| Categoría | `bloque` | Series |
+|---|---|---|
+| Actividad | `actividad` | GDPC1, PCE, INDPRO, PCEC96, RSAFS, TCU, DGORDER, UMCSENT, CFNAI, GDP, PCECC96, GPDIC1, GCEC1, GDPPOT, DSPIC96, PSAVERT, RRSFS, IPMAN, TOTALSA, OPHNFB |
+| Empleo | `empleo` | UNRATE, PAYEMS, ICSA, CIVPART, U6RATE, JTSJOL, CES0500000003, CCSA, EMRATIO, LNS12300060, JTSQUR, AWHAETP, ECIALLCIV, ULCNFB |
+| Precios | `precios` | CPIAUCSL, CPILFESL, PCEPI, PCEPILFE, PPIFIS, MICH, T5YIE, DCOILWTICO, GDPDEF, CPIENGSL, CPIUFDSL, CUSR0000SAH1, PCETRIM12M159SFRBDAL, CORESTICKM159SFRBATL, IR, T10YIE, DCOILBRENTEU |
+| Monetario | `monetario` | FEDFUNDS, DGS2, DGS10, DFEDTARU, T10Y2Y, M2SL, WALCL, SOFR, DGS3MO, DGS5, DGS30, T10Y3M, DFII10 |
+| Financiero | `financiero` | SP500, VIXCLS, BAA10Y, NFCI, MORTGAGE30US, DTWEXBGS, BAMLH0A0HYM2, BAMLC0A0CM, NASDAQCOM, STLFSI4, TOTALSL, BUSLOANS, DRCCLACBS |
+| Fiscal | `fiscal` | MTSDS133FMS, GFDEBTN, GFDEGDQ188S, W006RC1Q027SBEA, FGEXPND, A091RC1Q027SBEA, MTSR133FMS, MTSO133FMS, FYGFGDQ188S, FDHBFIN |
+| Exterior | `exterior` | BOPGSTB, BOPTEXP, BOPTIMP, IEABC, DEXUSEU, EXPGSC1, IMPGSC1, DEXJPUS, DEXCHUS, DEXMXUS, DEXUSUK |
+| Vivienda | `vivienda` | HOUST, PERMIT, HSN1F, EXHOSLUSM495S, CSUSHPISA, MSPUS, MSACSR, TTLCONS, USSTHPI, CUSR0000SEHA, RHORUSQ156N |
+
+Para añadir una serie basta una entrada nueva en `SERIES_CONFIG` con su `fred_id`, frecuencia (`D`, `W`, `M` o `Q`; nunca anual) y `bloque`. El título debe acabar con la fuente entre paréntesis («Real GDP (BEA)»): los títulos de los gráficos la omiten. Las tres primeras entradas del catálogo son las series que se muestran por defecto.
+
+Los datos llegan cuando se ejecuta el flujo «Update USA Macro Data from APIs» (a diario, o a mano con *Run workflow*). Una serie cuyo identificador falle se omite con un aviso y no interrumpe el resto.
+

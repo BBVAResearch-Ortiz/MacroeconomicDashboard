@@ -20,9 +20,9 @@ BLOCKS = {
     'sector_exterior': 'exterior',
 }
 SITE_FILES = (
-    'index.html', 'pais.html', 'usa.html', 'i18n.js', 'bbva-research-logo.png', 'series_transforms.js',
+    'index.html', 'pais.html', 'summary.html', 'usa.html', 'i18n.js', 'bbva-research-logo.png', 'series_transforms.js',
     'bigdata.json', 'bigdata_heatmap.json', 'forecasts.json', 'frbus_resultados.json',
-    'gdpnow.json', 'gdpnow_tracking.json',
+    'gdpnow.json', 'gdpnow_tracking.json', 'dsge_frbny.json', 'dsge_irf.json', 'inflation_nowcast.json',
 )
 
 
@@ -67,7 +67,7 @@ def build_site(snapshot, destination):
     staging = destination / f'.build-{uuid4().hex}'
     staging.mkdir()
     try:
-        for name in (*SITE_FILES, 'template.html'):
+        for name in (*SITE_FILES, 'template.html', 'template_spain_turkey.html'):
             shutil.copyfile(ROOT / name, staging / name)
         (staging / 'data.json').write_text(
             json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(',', ':')),
@@ -76,10 +76,11 @@ def build_site(snapshot, destination):
         subprocess.run([sys.executable, str(ROOT / 'build_page.py')], cwd=staging, check=True)
         for name in (*SITE_FILES, 'data.json', 'espana.html', 'artifact.html', 'turquia.html'):
             (staging / name).replace(destination / name)
-        turkey_snapshot = Path('drive_ingestion/snapshots/turkey.json')
-        if (ROOT / turkey_snapshot).is_file():
-            (destination / turkey_snapshot).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT / turkey_snapshot, destination / turkey_snapshot)
+        for name in ('turkey.json', 'turkey-verified.json', 'usa.json'):
+            snapshot_path = Path('drive_ingestion/snapshots') / name
+            if (ROOT / snapshot_path).is_file():
+                (destination / snapshot_path).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / snapshot_path, destination / snapshot_path)
     finally:
         shutil.rmtree(staging)
 
