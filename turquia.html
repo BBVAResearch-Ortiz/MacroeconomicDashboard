@@ -1888,21 +1888,18 @@ const transformStatuses={
   kept:['Tal como se publicó','As published']
 };
 const transformStatus=key=>transformStatuses[key][Number(isEN())];
-function seasonalChoices(ids,kind,catalog,requested){
+function automaticAdjustment(ids,kind,catalog){
   const keys=Object.keys(SERIES_TRANSFORMS.adjustments);
   const counts=keys.map(key=>ids.filter(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,key)).length);
-  const available=keys.filter((_,i)=>counts[i]>0);
-  const explicit=available.includes(requested);
   const native=ids.map(id=>catalog.byId.get(id)?.p.adjustment).find(Boolean)||'raw';
-  const adjustment=explicit?requested:counts[0]===counts[1]?native:keys[counts[0]>counts[1]?0:1];
-  return {adjustment,explicit,available};
+  return counts[0]===counts[1]?native:keys[counts[0]>counts[1]?0:1];
 }
-function adjustmentInputs(ids,kind,catalog,adjustment){
-  const choice=seasonalChoices(ids,kind,catalog,adjustment).adjustment;
+function adjustmentInputs(ids,kind,catalog){
+  const choice=automaticAdjustment(ids,kind,catalog);
   return ids.map(id=>SERIES_TRANSFORMS.adjustedRow(id,kind,catalog,choice)?.series).filter(Boolean);
 }
-function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjustment:requested}={}){
-  const {adjustment,explicit,available:availableAdjustments}=seasonalChoices(ids,kind,catalog,requested);
+function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates}={}){
+  const adjustment=automaticAdjustment(ids,kind,catalog);
   const start=fullHistory?-Infinity:cutoff(), end=fullHistory?ts(todayInMadrid()):upperCutoff();
   const options=new Map();
   const canSetBase=baseDates&&ids.some(id=>boardBaseBounds(SERIES_TRANSFORMS.adjustedRow(id,'b100',catalog,adjustment)?.series).first);
@@ -1920,9 +1917,9 @@ function transformationPlan(ids,catalog,kind,{fullHistory=false,baseDates,adjust
   const usable=(key,rows)=>key==='original'||key==='b100'&&canSetBase||
     (rows.some(row=>row.series)&&(!fullHistory||rows.length===2&&rows.every(row=>row.series||row.publishedFallback)));
   const requestedRows=options.get(kind);
-  const selected=requestedRows&&(usable(kind,requestedRows)||explicit&&!fullHistory&&!requestedRows.some(row=>row.publishedFallback))?kind:'original';
+  const selected=requestedRows&&usable(kind,requestedRows)?kind:'original';
   const rows=options.get(selected).map(row=>row.publishedFallback?{...row,...row.publishedFallback}:row);
-  return {selected,options,rows,usable,adjustment,availableAdjustments};
+  return {selected,options,rows,usable,adjustment};
 }
 function transformationControls(id,plan,showDetails=true){
   if(!plan.rows.length) return '';
@@ -1938,20 +1935,13 @@ function transformationControls(id,plan,showDetails=true){
     const visibleReason=r.reason?' · '+r.reason:'';
     return `<span data-status="${r.status}" title="${esc(explanation)}"><b>${transformStatus(r.status)}</b> · ${esc(name+visibleReason)}</span>`;
   });
-  const seasonal=Object.entries(SERIES_TRANSFORMS.adjustments).map(([key,names])=>{
-    const selected=key===plan.adjustment;
-    return `<option value="${key}"${selected?' selected':''}${!selected&&!plan.availableAdjustments.includes(key)?' disabled':''}>${esc(names[Number(en)])}</option>`;
-  });
   const details=notes.length?`<div class="transform-sources" aria-live="polite">${notes.join('')}</div>`:'';
   return `<div class="transform-control"><div class="transform-field"><label class="picklab" for="${id}">${en?'Transformation':'Transformación'}</label>
-    <select id="${id}" class="axsel">${options.join('')}</select></div>
-    <div class="transform-field"><label class="picklab" for="${id}-seasonal">${en?'Seasonal adjustment':'Ajuste estacional'}</label>
-    <select id="${id}-seasonal" class="axsel">${seasonal.join('')}</select></div></div>
+    <select id="${id}" class="axsel">${options.join('')}</select></div></div>
     ${details}`;
 }
-function bindTransformationControls(id,onTransformation,onAdjustment){
+function bindTransformationControls(id,onTransformation){
   document.getElementById(id)?.addEventListener('change',event=>onTransformation(event.target.value));
-  document.getElementById(id+'-seasonal')?.addEventListener('change',event=>onAdjustment(event.target.value));
 }
 function registerPlotSeries(rows,prefix){
   return rows.filter(r=>r.series).map(r=>{
@@ -1964,11 +1954,12 @@ function registerPlotSeries(rows,prefix){
 /* ---- Pizarra de series */
 const boardKey=IS_TURKEY?'mme-bb-turkey':IS_USA?'mme-bb-usa':'mme-bb';
 const spainBoardDefaults=['drive_es_IPI_GEN_RAW','drive_es_IPI_ENE_RAW','drive_es_IASS_GEN_RAW'];
-const bb={mode:'lines', tr:'original', adjustment:null, picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:[...spainBoardDefaults], axis:{}, baseDates:{}, ltab:'all', fit:'lin', trail:false, listOpen:IS_USA};
+const bb={mode:'lines', tr:'original', picks:IS_TURKEY?turkeyCashIds():IS_USA?[]:[...spainBoardDefaults], axis:{}, baseDates:{}, ltab:'all', fit:'lin', trail:false, listOpen:IS_USA};
 try{
   const saved=JSON.parse(localStorage.getItem(boardKey)||'{}');
   if(IS_EXTERNAL_MONITOR&&!saved.catalogPreference) delete saved.listOpen;
   if(!saved.transformMenu&&saved.tr==='level') saved.tr='original';
+  delete saved.adjustment;
   Object.assign(bb,saved);
 }catch(e){}
 bb.axis=Object.fromEntries(Object.entries(bb.axis||{}).filter(([,axis])=>axis==='L'||axis==='R'));
@@ -2260,16 +2251,16 @@ function viewBoard(){
   const catalog=SERIES_TRANSFORMS.catalogue(available.map(id=>[id,S()[id]]),'board');
   if(bb.mode==='scatter'){
     if(openScatterLink){
-      chooseScatterPair(catalog,bb.tr,seasonalChoices(bb.picks,bb.tr,catalog,bb.adjustment).adjustment);
+      chooseScatterPair(catalog,bb.tr,automaticAdjustment(bb.picks,bb.tr,catalog));
       openScatterLink=false;
     }
     bb.picks=[...new Set([...bb.picks,...available])].slice(0,2);
   }
   if(bb.mode!=='scatter') bb.picks=bb.picks.slice(0,bbMax());
   if(bb.mode==='dual') assignBoardAxes();
-  useRangeCoverage(adjustmentInputs(bb.picks,bb.tr,catalog,bb.adjustment));
+  useRangeCoverage(adjustmentInputs(bb.picks,bb.tr,catalog));
   const start=cutoff();
-  const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates,adjustment:bb.adjustment});
+  const plan=transformationPlan(bb.picks,catalog,bb.tr,{fullHistory:bb.mode==='scatter',baseDates:bb.baseDates});
   if(bb.tr!==plan.selected){bb.tr=plan.selected;saveBB();}
   const series=plan.rows.flatMap(row=>row.series?[row.series]:[]);
   const units=new Set(series.map(s=>unitLabel(s.unit)));
@@ -2344,7 +2335,7 @@ function viewBoard(){
     bb.mode=mode;
     rerender();
   }));
-  bindTransformationControls('board-transform',value=>{bb.tr=value;rerender();},value=>{bb.adjustment=value;rerender();});
+  bindTransformationControls('board-transform',value=>{bb.tr=value;rerender();});
   panel.querySelectorAll('[data-bbf]').forEach(b=>b.addEventListener('click',()=>{
     bb.fit=b.dataset.bbf;
     rerender();
@@ -2371,7 +2362,7 @@ function viewBoard(){
     next?.focus({preventScroll:true});
     next?.setSelectionRange(searchInput.selectionStart,searchInput.selectionEnd);
   }
-  if(['board-transform','board-transform-seasonal','bbcatalog-summary','bbx-summary','bby-summary','bbswap'].includes(transformFocused)){
+  if(['board-transform','bbcatalog-summary','bbx-summary','bby-summary','bbswap'].includes(transformFocused)){
     document.getElementById(transformFocused)?.focus({preventScroll:true});
   }
   if(focusedSeries) document.getElementById(focusedList)?.querySelector(`[data-catalog-pick="${CSS.escape(focusedSeries)}"]`)?.focus({preventScroll:true});
@@ -2498,7 +2489,7 @@ const bigState={
   view:'chart',heatTable:null,heatRequested:false,nationalRequested:false,selected:[],
   requests:{},
   geoIndex:null,geoCache:{},geoAreas:{},geoLoading:{},geoErrors:{},indexRequested:false,
-  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original',adjustment:null
+  scope:'national',geoGroup:'',catalogOpen:false,variant:'',reference:'',compare:null,transform:'original'
 };
 const bigCatalogGroups=new Set();
 async function fetchBigData(path){
@@ -2892,9 +2883,9 @@ function viewBigData(focus=''){
  const heatDates=bigState.view==='heat'?[...bigHeatPeriods(heatRows,'monthly').map(m=>isoDay(monthEnd(m))),...bigHeatPeriods(heatRows,'weekly')].sort():[];
  const catalog=bigState.view==='heat'?null:SERIES_TRANSFORMS.catalogue(entries.map(s=>[s.id,s]),'big');
  const selectedIds=plotSelection.map(s=>s.id);
- useRangeCoverage(catalog?adjustmentInputs(selectedIds,bigState.transform,catalog,bigState.adjustment):[{data:heatDates.map(day=>[day,0])}]);
+ useRangeCoverage(catalog?adjustmentInputs(selectedIds,bigState.transform,catalog):[{data:heatDates.map(day=>[day,0])}]);
  const start=cutoff();
- const plan=catalog?transformationPlan(selectedIds,catalog,bigState.transform,{adjustment:bigState.adjustment}):null;
+ const plan=catalog?transformationPlan(selectedIds,catalog,bigState.transform):null;
  if(plan) bigState.transform=plan.selected;
  const plotted=plan?.rows.filter(r=>r.series).map(r=>({...r.series,percentScale:r.percentScale,index:r.index}))||[];
  const units=[...new Set(plotted.map(s=>s.percentScale?'%':L10(s.unit)))];
@@ -2974,8 +2965,7 @@ function viewBigData(focus=''){
  }));
  const csv=document.getElementById('big-csv');
  csv?.addEventListener('click',()=>downloadBigCsv(plotted,start));
- bindTransformationControls('big-transform',value=>{bigState.transform=value;viewBigData('big-transform');},
-   value=>{bigState.adjustment=value;viewBigData('big-transform-seasonal');});
+ bindTransformationControls('big-transform',value=>{bigState.transform=value;viewBigData('big-transform');});
  const draw=()=>{
    if(bigState.view==='heat'){drawBigHeat();return}
    if(bigState.view==='scatter'){
