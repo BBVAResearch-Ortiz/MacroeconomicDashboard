@@ -80,7 +80,7 @@ h3{font-family:var(--sans);font-weight:600;font-size:13.5px;margin:0;text-wrap:b
 .chart-range .seg{gap:4px;border:0;min-width:0;flex-wrap:wrap}
 .chart-range .seg button,.chart-date-range summary{border:0;border-radius:7px;background:#F3F5F6;color:var(--accent);padding:8px 10px;font-size:13px;font-weight:600;line-height:1}
 .chart-range .seg button[aria-pressed="true"],.chart-date-range[data-custom] summary{background:var(--accent);color:var(--on-accent)}
-.chart-date-range{flex:none;margin-inline-start:auto;max-inline-size:100%}
+.chart-date-range{flex:none;max-inline-size:100%}
 .chart-date-range summary{cursor:pointer;inline-size:max-content;max-inline-size:100%}
 .chart-date-range[open]{display:flex;align-items:center;gap:8px}
 .date-coverage{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.4;font-variant-numeric:tabular-nums}
@@ -245,7 +245,6 @@ table.fc td.f{font-weight:600}
 .bbfig .sub:not(:empty)::before{content:"("}
 .bbfig .sub:not(:empty)::after{content:")"}
 .bbfig>.chart-range{display:contents}
-.bbfig .chart-date-range{margin-inline-start:0}
 .bbfig #bbchart .chart-body{grid-template-columns:minmax(0,1fr)}
 .bbfig #bbchart .chart-readings{border-left:0;border-top:1px solid var(--chart-grid);padding:10px 0 0}
 .bbfig #bbchart .chart-readings{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px}
