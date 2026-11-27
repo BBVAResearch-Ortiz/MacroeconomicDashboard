@@ -2120,7 +2120,13 @@ function seriesChecklist(tree,series,picks,limit,openGroups,{radio='',excluded}=
 function bindSeriesChecklist(list,openGroups,onChange){
   list.addEventListener('change',e=>{
     const id=e.target.dataset.catalogPick;
-    if(id) onChange(id,e.target.checked);
+    if(!id) return;
+    // A selection can redraw the catalogue before the queued details toggle events run.
+    openGroups.clear();
+    for(const group of list.querySelectorAll('details[data-catalog-group][open]')){
+      openGroups.add(group.dataset.catalogGroup);
+    }
+    onChange(id,e.target.checked);
   });
   list.addEventListener('toggle',e=>{
     const group=e.target.dataset.catalogGroup;
