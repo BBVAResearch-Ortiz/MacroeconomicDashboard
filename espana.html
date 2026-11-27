@@ -1521,21 +1521,6 @@ const turkeyIds=(...ids)=>ids.map(id=>'drive_tr_TR_'+id);
 const turkeyCashIds=()=>turkeyIds('HMB_M_CASH_BALANCE','HMB_M_CASH_REVENUE','HMB_M_CASH_EXPENDITURE');
 const turkeyBankIds=()=>turkeyIds('BDDK_W_LOANS','BDDK_M_LOANS','BDDK_M_DEPOSITS');
 const exIds=()=>Object.keys(S()).filter(id=>S()[id].block!=='aux'&&(IS_EXTERNAL_MONITOR||id.startsWith('drive_es_')));
-const SPAIN_AREA_TABS=[
-  {k:'actividad-empresarial',l:'Actividad empresarial'},
-  {k:'industria',l:'Industria'},
-  {k:'encuestas-opinion',l:'Encuestas de opinión'},
-  {k:'exterior',l:'Sector exterior'}
-];
-const SPAIN_AREAS={
-  actividad_empresarial:'actividad-empresarial', actividad:'actividad-empresarial',
-  consumo:'actividad-empresarial', industria:'industria', 'encuestas_opinión':'encuestas-opinion',
-  sector_exterior:'exterior'
-};
-const SPAIN_FAMILY_AREAS={
-  ESI:'encuestas-opinion', PMI:'encuestas-opinion', INDUSTRIAL_PRODUCTION:'industria',
-  SERVICES_ACTIVITY:'actividad-empresarial', TRADE_BALANCE:'exterior', LARGE_ENTERPRISES:'actividad-empresarial'
-};
 const SPAIN_FAMILY_ALIASES={IPI:'INDUSTRIAL_PRODUCTION',IASS:'SERVICES_ACTIVITY',BAL_COM:'TRADE_BALANCE',GGEE:'LARGE_ENTERPRISES'};
 const DRIVE_FAMILIES={
   ESI:'ESI', PMI:'PMI', INDUSTRIAL_PRODUCTION:'Producción industrial (IPI)',
@@ -1613,12 +1598,8 @@ function explorerDetails(id){
     return path;
   }
   const kind=Object.hasOwn(SPAIN_FAMILY_ALIASES,s.family)?SPAIN_FAMILY_ALIASES[s.family]:s.family;
-  const areaCode=s.areaLabel?.toLowerCase();
-  const areaKey=Object.hasOwn(SPAIN_AREAS,areaCode)?SPAIN_AREAS[areaCode]:
-    Object.hasOwn(SPAIN_FAMILY_AREAS,kind)?SPAIN_FAMILY_AREAS[kind]:null;
-  const area=SPAIN_AREA_TABS.find(tab=>tab.k===areaKey)?.l||'Otras series';
   const family=Object.hasOwn(DRIVE_FAMILIES,kind)?DRIVE_FAMILIES[kind]:s.family;
-  const path=family?[area,family]:[area];
+  const path=family?[family]:[];
   if(kind==='ESI'){
     const branch=/^ESI_(CC_|CONF_CONS)/.test(code)?'Encuesta a hogares':
       code.endsWith('_EA')?'Encuesta a empresas · Zona euro':'Encuesta a empresas · España';
@@ -1629,12 +1610,11 @@ function explorerDetails(id){
   }
   if(kind==='LARGE_ENTERPRISES'){
     const topic=code.startsWith('GE_EXP_')?'Exportaciones':code.startsWith('GE_IMP_')?'Importaciones':'Ventas y demanda';
-    const variant={AA:'Variación interanual',MM:'Variación mensual',TRIM:'Trimestral',NIV:'Nivel'}[code.split('_').at(-1)]||'Otras series';
-    return [...path,topic,variant];
+    return [...path,topic];
   }
   if(kind==='TRADE_BALANCE'){
     const topic=code.startsWith('BC_EXP_')?'Exportaciones':code.startsWith('BC_IMP_')?'Importaciones':'Saldo';
-    return [...path,topic,code.endsWith('_BRUTO')?'Sin ajustar':'Ajustado'];
+    return [...path,topic];
   }
   if(kind==='SERVICES_ACTIVITY') return [...path,code.endsWith('_RAW')?'Sin ajustar':'Ajustado'];
   return path;
