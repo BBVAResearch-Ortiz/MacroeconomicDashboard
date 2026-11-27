@@ -231,7 +231,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#bbcatalog summary').first.tap()
         expect(page.locator('#bblist')).to_be_visible()
 
-    def test_spain_header_is_compact_and_tabs_use_two_rows(self):
+    def test_spain_header_is_compact_and_tabs_wrap_only_when_needed(self):
         page = self.start_page(viewport={'width': 1440, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
@@ -240,18 +240,28 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLessEqual(page.locator('.mast #liveMsg').bounding_box()['height'], 1)
         tabs = page.get_by_role('tablist')
         expect(tabs.get_by_role('tab')).to_have_count(14)
+        row_counts = []
         for width in (1440, 390):
             with self.subTest(width=width):
                 page.set_viewport_size({'width': width, 'height': 900})
-                positions = tabs.get_by_role('tab').evaluate_all(
-                    'buttons => buttons.map(button => button.getBoundingClientRect().top)'
-                )
-                self.assertEqual(len(set(positions)), 2)
-                overflows = tabs.evaluate('bar => bar.scrollWidth > bar.clientWidth')
-                self.assertEqual(overflows, width == 390)
+                layout = tabs.evaluate("""bar => {
+                    const style = getComputedStyle(bar);
+                    const right = bar.getBoundingClientRect().right - parseFloat(style.paddingRight);
+                    const gap = parseFloat(style.columnGap);
+                    const buttons = [...bar.querySelectorAll('[role=tab]')].map(tab => tab.getBoundingClientRect());
+                    return {
+                        rows: new Set(buttons.map(box => box.top)).size,
+                        overflow: bar.scrollWidth > bar.clientWidth,
+                        wrappedEarly: buttons.some((box, i) => i && box.top > buttons[i-1].top
+                            && buttons[i-1].right + gap + box.width < right - 1)
+                    };
+                }""")
+                row_counts.append(layout['rows'])
+                self.assertFalse(layout['wrappedEarly'])
+                self.assertFalse(layout['overflow'])
+        self.assertGreater(row_counts[1], row_counts[0])
         page.locator('#tab-resumen').press('ArrowLeft')
         expect(page.locator('#tab-fuentes')).to_be_focused()
-        self.assertGreater(tabs.evaluate('bar => bar.scrollLeft'), 0)
 
     def test_category_tabs_preserve_direct_links(self):
         for country, first, second in (
