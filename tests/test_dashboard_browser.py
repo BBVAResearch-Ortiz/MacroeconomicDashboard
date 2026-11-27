@@ -83,15 +83,17 @@ class DashboardBrowserTests(unittest.TestCase):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=es#pizarra')
         self.assert_blackboard(page, 'es')
-        expect(page.locator('.board-head [data-bbm]')).to_have_count(7)
+        expect(page.locator('.board-head [data-bbm]')).to_have_count(8)
         expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
-        for mode in ('dual', 'bars', 'stack', 'scatter', 'heat', 'multiples', 'lines'):
+        for mode in ('dual', 'bars', 'stack', 'scatter', 'heat', 'multiples', 'bands', 'lines'):
             with self.subTest(mode=mode):
                 button = page.locator(f'[data-bbm="{mode}"]')
                 button.click()
                 expect(button).to_have_attribute('aria-pressed', 'true')
                 chart = '#bbchart table' if mode == 'heat' else '#bbchart svg'
                 expect(page.locator(chart).first).to_be_visible()
+                if mode == 'bands':
+                    expect(page.locator('#bbchart .chart-bands').first).to_be_visible()
                 self.assert_language(page, 'es')
 
     def test_blackboard_axis_assignments_survive_toggle_reorder_and_removal(self):
@@ -162,6 +164,11 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertLess(float(right_ticks[-1]), 0.05)
         self.assertGreater(len(right_ticks), 2)
         self.assertEqual(len(right_ticks), len(set(right_ticks)))
+        left_y = chart.locator('[data-axis-tick=left]').evaluate_all("(ticks) => ticks.map(tick => Number(tick.getAttribute('y')))")
+        right_y = chart.locator('[data-axis-tick=right]').evaluate_all("(ticks) => ticks.map(tick => Number(tick.getAttribute('y')))")
+        self.assertEqual(len(left_y), len(right_y))
+        for left, right in zip(left_y, right_y):
+            self.assertAlmostEqual(left, right)
         svg.press('ArrowLeft')
         expect(svg.locator('#dots circle')).to_have_count(2)
         page.locator('.chart-range [data-r="1m"]').click()
@@ -169,6 +176,29 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
         expect(chart.locator('path[data-axis=right]')).to_have_count(1)
         expect(page.locator('[data-bbax=drive_es_test_left]')).to_have_text('Left axis')
+
+    def test_heat_map_keeps_months_when_quarterly_series_are_selected(self):
+        page = self.start_page()
+        page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
+        self.assert_blackboard(page, 'en')
+        page.evaluate("""() => {
+            const monthly = 'drive_es_heat_monthly', quarterly = 'drive_es_heat_quarterly';
+            S()[monthly]={label:'Monthly sample',block:'actividad',freq:'M',unit:'%',
+                data:[['2025-02-01',5],['2025-03-01',6],['2025-06-01',7]]};
+            S()[quarterly]={label:'Quarterly sample',block:'actividad',freq:'Q',unit:'%',
+                data:[['2025-01-01',10],['2025-04-01',20]]};
+            Object.assign(bb,{picks:[monthly,quarterly],mode:'heat',tr:'original',heatExampleLoaded:true});
+            state.range='todo';
+            render();
+        }""")
+        heat = page.locator('#bbchart .bbheat')
+        expect(heat.locator('thead th[title]')).to_have_count(6)
+        quarter = heat.get_by_role('row').filter(has_text='Quarterly sample')
+        titles = quarter.locator('td').evaluate_all('(cells) => cells.map(cell => cell.title)')
+        self.assertIn('2025-02-01', titles[1])
+        self.assertTrue(all(title.endswith('z=-0.71') for title in titles[:3]))
+        self.assertTrue(all(title.endswith('z=0.71') for title in titles[3:]))
+        expect(page.locator('#bbchart')).to_contain_text('Quarterly values repeated in each month')
 
     def test_blackboard_discards_a_pending_redraw_after_switching_axes(self):
         page = self.start_page()
@@ -209,7 +239,7 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('.mast #stamp')).to_be_hidden()
         self.assertLessEqual(page.locator('.mast #liveMsg').bounding_box()['height'], 1)
         tabs = page.get_by_role('tablist')
-        expect(tabs.get_by_role('tab')).to_have_count(10)
+        expect(tabs.get_by_role('tab')).to_have_count(7)
         for width in (1440, 390):
             with self.subTest(width=width):
                 page.set_viewport_size({'width': width, 'height': 900})
@@ -222,6 +252,26 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#tab-resumen').press('ArrowLeft')
         expect(page.locator('#tab-fuentes')).to_be_focused()
         self.assertGreater(tabs.evaluate('bar => bar.scrollLeft'), 0)
+
+    def test_indicator_tab_groups_areas_and_preserves_direct_links(self):
+        for country, first, second in (
+            ('espana', 'industria', 'actividad-empresarial'),
+            ('turquia', 'exterior', 'publico'),
+        ):
+            with self.subTest(country=country):
+                page = self.start_page()
+                page.goto(f'{ORIGIN}/{country}.html?lang=es#{first}')
+                tab = page.locator('#tab-indicadores')
+                expect(tab).to_have_attribute('aria-selected', 'true')
+                expect(page.locator('#panel')).to_have_attribute('aria-labelledby', 'tab-indicadores')
+                expect(page.locator(f'[data-theme-tab="{first}"]')).to_have_attribute('aria-pressed', 'true')
+                target = page.locator(f'[data-theme-tab="{second}"]')
+                target.click()
+                expect(target).to_have_attribute('aria-pressed', 'true')
+                expect(page.locator('#panel .chart svg').first).to_be_visible()
+                expect(page).to_have_url(re.compile(f'#{second}$'))
+                page.reload()
+                expect(target).to_have_attribute('aria-pressed', 'true')
 
     def test_custom_dates_open_to_the_right_and_apply_on_change(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
@@ -282,7 +332,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.goto(f'{ORIGIN}/espana.html?lang=en#dispersion')
         self.assert_blackboard(page, 'en')
         expect(page.locator('.subnav')).to_have_count(0)
-        expect(page.locator('[data-bbm]')).to_have_count(7)
+        expect(page.locator('[data-bbm]')).to_have_count(8)
         chart = page.locator('#bbchart')
         analysis = page.get_by_role('region', name='Scatterplot analysis')
         self.assertEqual(page.locator('.bbside .scatter-analysis').count(), 1)
@@ -406,26 +456,13 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.evaluate("(ids) => {bb.picks=ids.map(id=>'drive_es_'+id); viewBoard();}", picks)
                 expect(title).to_have_text(expected)
 
-    def test_blackboard_downloads_a_png_from_chart_and_heat_map(self):
+    def test_blackboard_chart_keeps_its_expanded_height(self):
         page = self.start_page(viewport={'width': 1440, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
-        marker = page.locator('.chart-date-range summary')
-        download_button = page.get_by_role('button', name='Download PNG')
-        self.assertGreaterEqual(download_button.bounding_box()['x'], marker.bounding_box()['x'] + marker.bounding_box()['width'])
-        expect(page.get_by_role('button', name='Copy image')).to_have_count(0)
+        expect(page.get_by_role('button', name='Download PNG')).to_have_count(0)
+        expect(page.get_by_role('button', name='Download CSV')).to_be_enabled()
         self.assertGreater(page.locator('#bbchart svg').bounding_box()['height'], 500)
-
-        for mode in ('lines', 'heat'):
-            with self.subTest(mode=mode):
-                page.locator(f'[data-bbm={mode}]').click()
-                with page.expect_download() as pending:
-                    download_button.click()
-                self.assertEqual(pending.value.suggested_filename, 'blackboard.png')
-                png = pending.value.path().read_bytes()
-                self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
-                self.assertGreater(int.from_bytes(png[16:20], 'big'), 0)
-                self.assertGreater(int.from_bytes(png[20:24], 'big'), 0)
 
     def test_overview_card_headings_stay_on_one_line(self):
         page = self.start_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
@@ -549,12 +586,11 @@ class DashboardBrowserTests(unittest.TestCase):
                 page.goto(f'{ORIGIN}/{country}.html?lang=en')
                 page.locator('#tab-explorador').click()
                 self.assert_blackboard(page, 'en')
-                expect(page.locator('.board-head [data-bbm]')).to_have_count(8 if country == 'usa' else 7)
+                expect(page.locator('.board-head [data-bbm]')).to_have_count(8)
                 expect(page.locator('.bbside [data-bbm]')).to_have_count(0)
-                if country == 'usa':
-                    page.locator('[data-bbm=bands]').click()
-                    expect(page.locator('#bbchart .chart-bands').first).to_be_visible()
-                    expect(page.locator('#bbchart .band-key [data-band-z]').first).to_contain_text('Latest')
+                page.locator('[data-bbm=bands]').click()
+                expect(page.locator('#bbchart .chart-bands').first).to_be_visible()
+                expect(page.locator('#bbchart .band-key [data-band-z]').first).to_contain_text('Latest')
 
     def test_turkiye_keeps_verified_data_when_the_workbook_contains_only_examples(self):
         page = self.start_page()
