@@ -214,7 +214,8 @@ table.fc td.f{font-weight:600}
 }
 @media(max-width:900px){.board-layout>.bbside{position:static}}
 .board-figure{margin:0;min-width:0}
-.board-figure .board-chart-title{margin:0;font:600 16px/1.25 var(--sans);color:var(--chart-ink);text-transform:none;letter-spacing:normal;overflow-wrap:anywhere}
+.board-figure .board-chart-title{margin:0;font:700 clamp(17px,1.65vw,23px)/1.18 var(--serif);color:var(--chart-ink);letter-spacing:normal;text-transform:none;text-wrap:pretty;overflow-wrap:anywhere}
+.board-figure>.figure-csv-title .sub{font-size:13px;color:var(--muted);margin-top:4px}
 .bbgallery>.board-chart-title{margin-bottom:6px}
 .bbmini h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .board-layout .board-figure.fig{gap:6px;padding:clamp(8px,1vw,14px)}
@@ -2170,38 +2171,17 @@ function loadHeatExample(){
   bb.picks=exIds().filter(id=>S()[id].freq==='M').slice(0,8);
   bb.heatExampleLoaded=true; state.range='4a'; try{localStorage.setItem('mme-range',state.range)}catch(e){} saveBB();
 }
-function boardComparisonTitle(rows,catalog){
-  const ids=rows.filter(row=>row.series).map(row=>row.id);
-  if(!ids.length) return '';
-  const names=ids.map(id=>L10(S()[id].label).replace(/\s*\((?=[^()]*(?:\bcvec\b|\bbruto\b|\bgross\b|\braw\b|sin ajustar|unadjusted|seasonally adjusted))[^()]*\)\s*$/i,''));
-  const firstName=normalizeSearch(names[0]);
-  const family=catalog.byId.get(ids[0])?.p.family;
-  if(names.every(name=>normalizeSearch(name)===firstName)||family&&ids.every(id=>catalog.byId.get(id)?.p.family===family)){
-    return names[0];
-  }
-  const groups=ids.map(id=>explorerPath(id).slice(0,2));
-  const [area,block]=groups[0];
-  if(groups.every(path=>path[0]===area)){
-    return L10(block&&groups.every(path=>path[1]===block)?block:area);
-  }
-  const areas=[...new Set(groups.map(([area])=>L10(area)))];
-  const comparison=areas.slice(0,2).join(' vs. ');
-  return areas.length>2?`${comparison} + ${areas.length-2}`:comparison;
-}
-function usaBoardFigureTitle(series,mixedFrequencies,comparisonTitle){
-  if(!series.length) return bb.picks.length
-    ? {title:isEN()?'No compatible series':'No hay series compatibles',subtitle:''}
-    : {title:'Pizarra vacía',subtitle:'Elige series en el panel de la izquierda'};
-  const [x,y]=series;
-  if(bb.mode==='scatter') return y
-    ? {title:comparisonTitle,subtitle:`X: ${unitLabel(x.unit)} · Y: ${unitLabel(y.unit)} · ${isEN()?'Full history':'Historia completa'}`}
-    : {title:comparisonTitle,subtitle:'Dispersión: elige una segunda serie para el eje Y'};
-  if(bb.mode==='heat') return {title:comparisonTitle,subtitle:'Valores estandarizados por serie en el periodo seleccionado; las series de mayor frecuencia se promedian. Gris: sin datos.'};
-  const mode=BB_MODES.find(([key])=>key===bb.mode)?.[1];
-  const units=[...new Set(series.map(s=>s.unit==='% PIB'?'% del PIB':s.unit))];
-  if(bb.mode==='dual') return {title:comparisonTitle,subtitle:units.join(' · ')};
-  const conversion=mixedFrequencies?' · las series de mayor frecuencia se promedian a la menor':'';
-  return {title:comparisonTitle,subtitle:`${mode} · ${units.join(' · ')}${conversion}`};
+function boardFigureHeading(rows){
+  const plotted=rows.filter(row=>row.series);
+  if(!plotted.length) return null;
+  const country=IS_USA?'USA':IS_TURKEY?(isEN()?'Türkiye':'Turquía'):(isEN()?'Spain':'España');
+  const groups=[...new Set(plotted.map(({id})=>L10(MACRO_GROUPS[macroGroup(S()[id])])))];
+  const categories=groups.length<3?groups.join(' & '):groups.slice(0,-1).join(', ')+' & '+groups.at(-1);
+  const units=[...new Set(plotted.map(({series})=>L10(series.unit)).filter(Boolean))];
+  return {
+    title:`${country}: ${categories}`,
+    subtitle:bb.mode==='heat'?(isEN()?'Standard deviations':'Desviaciones típicas'):units.join(' · ')
+  };
 }
 let openScatterLink=false;
 function chooseScatterPair(catalog,kind,adjustment){
@@ -2259,9 +2239,7 @@ function viewBoard(){
   const scatter=bb.mode==='scatter';
   const titleRows=IS_USA&&bb.mode==='dual'?
     [...plan.rows.filter(row=>bb.axis[row.id]==='L'),...plan.rows.filter(row=>bb.axis[row.id]!=='L')]:plan.rows;
-  const title=boardComparisonTitle(titleRows,catalog);
-  const comparisonTitle=IS_USA&&title?`USA: ${title}`:title;
-  const usaHeading=IS_USA&&!gallery?usaBoardFigureTitle(titleRows.flatMap(row=>row.series?[row.series]:[]),mixedFrequencies,comparisonTitle):null;
+  const heading=boardFigureHeading(titleRows);
   const usaIds=IS_USA&&!gallery?registerPlotSeries(plan.rows,'__plot_board_').map(({id})=>id):[];
   const transformFocused=document.activeElement?.id;
   const tree=explorerGroups();
@@ -2277,8 +2255,7 @@ function viewBoard(){
      ${scatter?scatterControls(plan):''}
    </aside>
    <figure class="board-figure ${gallery?'bbgallery':'fig'}${IS_USA?' bbfig':''}"${scatter?' data-csv-slot="bb-scatter-csv" data-sources-slot="bb-scatter-sources"':''}>
-     ${usaHeading?`<div class="figure-csv-title"><h3 class="board-chart-title">${esc(usaHeading.title)}</h3><div class="sub">${esc(usaHeading.subtitle)}</div></div>`:
-       comparisonTitle?`<h3 class="board-chart-title">${esc(comparisonTitle)}</h3>`:''}
+     ${heading?`<div class="figure-csv-title"><h3 class="board-chart-title">${esc(heading.title)}</h3><div class="sub">${esc(heading.subtitle)}</div></div>`:''}
      ${scatter?'':chartRangeCtl(false)}
      <div class="chart" id="bbchart"></div><div class="lg" id="bblg"></div>
      ${!IS_USA&&mixedUnits?`<p class="note board-chart-note">${isEN()?'Series use different units. Use dual axes or standardize the values to compare them.':'Las series tienen unidades distintas. Usa dos ejes o estandariza los valores para compararlas.'}</p>`:''}
