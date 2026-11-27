@@ -151,7 +151,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.evaluate("""() => {
             const series = (label, data) => ({label, data, unit:'%', block:'actividad', freq:'M'});
             S().drive_es_test_left=series('Large scale', [['2025-01-01',1000000],['2025-02-01',2000000]]);
-            S().drive_es_test_right=series('Narrow scale', [['2025-01-01',0.037],['2025-02-01',0.041],['2025-09-01',0.043]]);
+            S().drive_es_test_right=series('Narrow scale', [['2025-01-01',0.037],['2025-02-01',0.041],['2025-11-01',0.043]]);
             Object.assign(bb,{picks:['drive_es_test_left','drive_es_test_right'], mode:'dual', tr:'original', adjustment:'raw'});
             state.range='todo';
             render();
@@ -171,7 +171,7 @@ class DashboardBrowserTests(unittest.TestCase):
             self.assertAlmostEqual(left, right)
         svg.press('ArrowLeft')
         expect(svg.locator('#dots circle')).to_have_count(2)
-        page.locator('.chart-range [data-r="1m"]').click()
+        page.locator('.chart-range [data-r="6m"]').click()
         expect(chart.locator('[data-axis-label=left]')).to_have_count(0)
         expect(chart.locator('[data-axis-label=right]')).to_have_text('Right')
         expect(chart.locator('path[data-axis=right]')).to_have_count(1)
@@ -231,7 +231,7 @@ class DashboardBrowserTests(unittest.TestCase):
         page.locator('#bbcatalog summary').first.tap()
         expect(page.locator('#bblist')).to_be_visible()
 
-    def test_spain_header_is_compact_and_tabs_stay_in_one_row(self):
+    def test_spain_header_is_compact_and_tabs_use_two_rows(self):
         page = self.start_page(viewport={'width': 1440, 'height': 900})
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
@@ -239,39 +239,39 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('.mast #stamp')).to_be_hidden()
         self.assertLessEqual(page.locator('.mast #liveMsg').bounding_box()['height'], 1)
         tabs = page.get_by_role('tablist')
-        expect(tabs.get_by_role('tab')).to_have_count(7)
+        expect(tabs.get_by_role('tab')).to_have_count(14)
         for width in (1440, 390):
             with self.subTest(width=width):
                 page.set_viewport_size({'width': width, 'height': 900})
                 positions = tabs.get_by_role('tab').evaluate_all(
                     'buttons => buttons.map(button => button.getBoundingClientRect().top)'
                 )
-                self.assertEqual(len(set(positions)), 1)
+                self.assertEqual(len(set(positions)), 2)
                 overflows = tabs.evaluate('bar => bar.scrollWidth > bar.clientWidth')
                 self.assertEqual(overflows, width == 390)
         page.locator('#tab-resumen').press('ArrowLeft')
         expect(page.locator('#tab-fuentes')).to_be_focused()
         self.assertGreater(tabs.evaluate('bar => bar.scrollLeft'), 0)
 
-    def test_indicator_tab_groups_areas_and_preserves_direct_links(self):
+    def test_category_tabs_preserve_direct_links(self):
         for country, first, second in (
-            ('espana', 'industria', 'actividad-empresarial'),
-            ('turquia', 'exterior', 'publico'),
+            ('espana', 'actividad', 'exterior'),
+            ('turquia', 'exterior', 'fiscal'),
+            ('usa', 'actividad', 'empleo'),
         ):
             with self.subTest(country=country):
                 page = self.start_page()
                 page.goto(f'{ORIGIN}/{country}.html?lang=es#{first}')
-                tab = page.locator('#tab-indicadores')
-                expect(tab).to_have_attribute('aria-selected', 'true')
-                expect(page.locator('#panel')).to_have_attribute('aria-labelledby', 'tab-indicadores')
-                expect(page.locator(f'[data-theme-tab="{first}"]')).to_have_attribute('aria-pressed', 'true')
-                target = page.locator(f'[data-theme-tab="{second}"]')
+                expect(page.locator('#tab-indicadores')).to_have_count(0)
+                expect(page.locator(f'#tab-{first}')).to_have_attribute('aria-selected', 'true')
+                expect(page.locator('#panel')).to_have_attribute('aria-labelledby', f'tab-{first}')
+                target = page.locator(f'#tab-{second}')
                 target.click()
-                expect(target).to_have_attribute('aria-pressed', 'true')
+                expect(target).to_have_attribute('aria-selected', 'true')
                 expect(page.locator('#panel .chart svg').first).to_be_visible()
                 expect(page).to_have_url(re.compile(f'#{second}$'))
                 page.reload()
-                expect(target).to_have_attribute('aria-pressed', 'true')
+                expect(target).to_have_attribute('aria-selected', 'true')
 
     def test_custom_dates_open_to_the_right_and_apply_on_change(self):
         page = self.start_page(viewport={'width': 1180, 'height': 900})
@@ -447,9 +447,9 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assert_blackboard(page, 'en')
         title = page.locator('h3.board-chart-title')
         cases = [
-            (['IPI_GEN_RAW', 'IPI_GEN_CVEC_INE'], re.compile(r'IPI.*general index', re.I)),
-            (['IPI_GEN_RAW', 'IPI_ENE_RAW'], 'Industrial production (IPI)'),
-            (['IPI_GEN_RAW', 'IASS_GEN_RAW'], 'Industry vs. Business activity'),
+            (['IPI_GEN_RAW', 'IPI_GEN_CVEC_INE'], re.compile(r'^Spain: IPI.*general index$', re.I)),
+            (['IPI_GEN_RAW', 'IPI_ENE_RAW'], re.compile(r'^Spain: IPI.*general index & IPI.*energy$', re.I)),
+            (['IPI_GEN_RAW', 'BC_EXP_CAPITAL_BRUTO'], 'Spain: Activity & External'),
         ]
         for picks, expected in cases:
             with self.subTest(picks=picks):
@@ -475,20 +475,17 @@ class DashboardBrowserTests(unittest.TestCase):
                 && node.title === node.textContent;
         })'''))
 
-    def test_ipi_switch_and_csv_keep_the_source(self):
+    def test_ipi_csv_keeps_the_source_for_the_selected_series(self):
         page = self.start_page()
         page.goto(f'{ORIGIN}/espana.html?lang=en#explorador')
         self.assert_blackboard(page, 'en')
         page.wait_for_function("Boolean(S().drive_es_IPI_GEN_RAW)")
         page.evaluate("""localStorage.setItem('mme-bb', JSON.stringify({
-            picks:['drive_es_IPI_GEN_RAW'], tr:'original', adjustment:'published'
+            picks:['drive_es_IPI_GEN_CVEC_INE'], tr:'original', adjustment:'raw'
         }))""")
         page.reload()
         self.assert_blackboard(page, 'en')
-        choice = page.locator('#board-transform-seasonal')
-        expect(choice.locator('option')).to_have_count(2)
-        expect(choice).to_have_value('raw')
-        choice.select_option('adjusted')
+        expect(page.locator('#board-transform-seasonal')).to_have_count(0)
         page.locator('.board-figure > .series-chart-sources summary').click()
         expect(page.locator('.board-figure > .series-chart-sources .series-source-name')).to_contain_text('CVEC INE')
         with page.expect_download() as pending:
@@ -524,7 +521,7 @@ class DashboardBrowserTests(unittest.TestCase):
                     Object.is(csvSeriesValue({calculated:true}, -1e-14), -0)];
         }"""), [0.1, 1024.1 - 1024, False])
 
-    def test_transform_and_seasonality_are_stacked_in_the_sidebar(self):
+    def test_transform_fits_the_sidebar_without_a_seasonal_selector(self):
         page = self.start_page()
         for width in (1180, 390, 320):
             with self.subTest(width=width):
@@ -535,12 +532,10 @@ class DashboardBrowserTests(unittest.TestCase):
                     page.locator(f'[data-bbm={mode}]').click()
                     sidebar = page.locator('.board-layout > aside')
                     transform = sidebar.get_by_label('Transformation').bounding_box()
-                    seasonal = sidebar.get_by_label('Seasonal adjustment').bounding_box()
-                    self.assertAlmostEqual(transform['x'], seasonal['x'], delta=1)
-                    self.assertLess(transform['y'] + transform['height'], seasonal['y'])
-                    self.assertLessEqual(seasonal['x'] + seasonal['width'], width)
+                    expect(sidebar.get_by_label('Seasonal adjustment')).to_have_count(0)
+                    self.assertLessEqual(transform['x'] + transform['width'], width)
 
-    def test_spain_catalogue_contains_only_the_four_workbook_areas(self):
+    def test_spain_catalogue_groups_all_workbook_series_under_activity_and_external(self):
         page = self.start_page()
         page.add_init_script("""
             localStorage.setItem('mme-bb', JSON.stringify({picks:['ocup_epa','bono_de']}))
@@ -555,17 +550,24 @@ class DashboardBrowserTests(unittest.TestCase):
             ids:explorerSearchEntries().map(row=>row.id)
         })""")
         self.assertEqual(catalogue['groups'], {
-            'Business activity': {'Large enterprises': 53, 'Services activity (IASS)': 16},
-            'Industry': {'Industrial production (IPI)': 30},
-            'Opinion surveys': {'ESI': 21, 'PMI': 3},
-            'External sector': {'Trade balance': 22},
+            'Activity': {'Large enterprises': 53, 'Services activity (IASS)': 16,
+                         'Industrial production (IPI)': 30, 'ESI': 21, 'PMI': 3},
+            'Employment': {},
+            'Prices': {},
+            'Monetary': {},
+            'Financial': {},
+            'Fiscal': {},
+            'External': {'Trade balance': 22},
+            'Housing': {},
         })
+        depths = page.evaluate('exIds().map(id => explorerPath(id).length)')
+        self.assertLessEqual(max(depths), 3)
         self.assertEqual(len(catalogue['ids']), 145)
         self.assertTrue(all(key.startswith('drive_es_') for key in catalogue['ids']))
         self.assertTrue(catalogue['picks'] and all(key.startswith('drive_es_') for key in catalogue['picks']))
         page.locator('#explorer-search').fill('EPA387796')
         expect(page.locator('#explorer-search-results')).to_contain_text('No matching series.')
-        expect(page.locator('#tab-empleo')).to_have_count(0)
+        expect(page.locator('#tab-empleo')).to_be_visible()
 
     def test_big_data_catalogue_and_csv_header(self):
         page = self.start_page()
@@ -648,9 +650,10 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assertGreaterEqual(tiles['y'], subtitle['y'] + subtitle['height'])
         self.assertLess(chart['y'] - (tiles['y'] + tiles['height']), 24)
         self.assertLess(tiles['y'] - (subtitle['y'] + subtitle['height']), 24)
-        for selector in ('#board-transform', '#board-transform-seasonal'):
-            control = page.locator(selector).bounding_box()
-            self.assertLessEqual(control['x'] + control['width'], box['x'])
+        control = page.locator('#board-transform').bounding_box()
+        self.assertLessEqual(control['x'] + control['width'], box['x'])
+        expect(page.locator('#board-transform-seasonal')).to_have_count(0)
+        expect(figure.locator('.period-controls [data-r]')).to_have_text(['6m', '1a', '4a', 'Todo'])
         # The left panel does not list the "Documentada" status of each series.
         self.assertNotIn('Documentada', page.locator('.bbside').inner_text())
         expect(page.locator('.bbside [data-status=documented]').first).to_be_hidden()
@@ -703,10 +706,11 @@ class DashboardBrowserTests(unittest.TestCase):
         expect(page.locator('#bbchart [data-axis-label]')).to_have_count(0)
         self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Billions of USD · Index 2017=100')
         expect(page.locator('#bbchart .chart-reading-label').first).to_contain_text('(eje izq.)')
-        page.locator('[data-bbax]').nth(2).click()
+        expect(page.locator('[data-bbax]')).to_have_count(0)
+        page.locator('.bbsel .row').nth(2).locator('[data-bb-move="-1"]').click()
         self.assertEqual(figure.locator('.sub').text_content(), 'Chained 2017 USD · Index 2017=100 · Billions of USD')
         self.assertRegex(figure.locator('h3').text_content(), r'^USA: Real GDP, Industrial Production Index & Personal Consumption Expenditures$')
-        page.locator('[data-bbax]').nth(2).click()
+        page.locator('.bbsel .row').nth(1).locator('[data-bb-move="1"]').click()
         # The scatterplot keeps the menus in the left panel too.
         page.locator('[data-bbm=scatter]').click()
         expect(page.locator('.bbside #board-transform')).to_be_visible()
@@ -1094,10 +1098,15 @@ class DashboardBrowserTests(unittest.TestCase):
         self.assert_blackboard(page, 'es')
         page.locator('[data-bbm=dual]').click()
         for transformation in ('original', 'yoy'):
-            for period in ('1a', '4a', '10a'):
+            for period in ('1a', '4a', 'todo'):
                 with self.subTest(transformation=transformation, period=period):
                     page.locator('#board-transform').select_option(transformation)
-                    page.locator(f'figure.bbfig .seg button:text-is("{period}")').click()
+                    page.locator(f'figure.bbfig [data-r="{period}"]').click()
+                    if transformation == 'yoy':
+                        # The growth rates all share the same unit, so they use one axis.
+                        expect(page.locator('#bbchart [data-axis-tick=right]')).to_have_count(0)
+                        expect(page.locator('#bbchart path[data-axis=left]')).to_have_count(3)
+                        continue
                     expect(page.locator('#bbchart [data-axis-tick=right]').first).to_be_visible()
                     marks = page.locator('#bbchart svg').first.evaluate("""svg => ({
                         left: [...svg.querySelectorAll('[data-axis-tick=left]')].map(t => +t.getAttribute('y')),
