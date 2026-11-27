@@ -665,8 +665,7 @@ let DATA = { ...dashboardBase, series: { ...dashboardBase.series } };
 let SOURCE_NOTE = 'datos incrustados en la página';
 const S = () => DATA.series;
 const state = {tab:IS_EXTERNAL_MONITOR?'explorador':'resumen', range:'4a'};
-const SHORT_RANGES=['1m','3m','6m'];
-const RANGES=[...SHORT_RANGES,'1a','4a','10a','todo','custom'];
+const RANGES=['6m','1a','4a','todo'];
 const customRange={start:'',end:''};try{Object.assign(customRange,JSON.parse(localStorage.getItem('mme-custom-range')||'{}'))}catch(e){}
 let rangeCoverage;
 const MES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], MES_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1061,11 +1060,9 @@ const KPIS=[['pib_yoy',1,'actividad'],['pib_qoq',1,'actividad'],['paro_epa',-1,'
 const panel=document.getElementById('panel');
 function rangeButtons(selected,attribute,compact=false){
   const en=isEN();
-  const names={todo:en?'All':'Todo',
-    '1m':en?'1 month':'1 mes','3m':en?'3 months':'3 meses','6m':en?'6 months':'6 meses',
-    '1a':en?'1 year':'1 año','4a':en?'4 years':'4 años','10a':en?'10 years':'10 años'};
-  const ranges=RANGES.filter(r=>r!=='custom'&&(compact||!SHORT_RANGES.includes(r)||r===selected));
-  return `<div class="seg" role="group" aria-label="${en?'Period':'Periodo'}">${ranges.map(r=>{
+  const names={todo:en?'All':'Todo','6m':en?'6 months':'6 meses',
+    '1a':en?'1 year':'1 año','4a':en?'4 years':'4 años'};
+  return `<div class="seg" role="group" aria-label="${en?'Period':'Periodo'}">${RANGES.map(r=>{
     const label=compact&&r!=='todo'?(en?r.replace('a','y'):r):names[r];
     return `<button type="button" ${attribute}="${r}" aria-label="${names[r]}" aria-pressed="${selected===r}">${label}</button>`;
   }).join('')}</div>`;
@@ -3207,7 +3204,7 @@ async function reload(manual){
 }
 document.getElementById('refreshBtn').addEventListener('click',()=>reload(true));
 document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
-try{ const r=localStorage.getItem('mme-range'); if(RANGES.includes(r)) state.range=r; }catch(e){}
+try{ const r=localStorage.getItem('mme-range'); if(r==='custom'||RANGES.includes(r)) state.range=r; }catch(e){}
 const LEGACY_BOARD_MODES={galeria:'multiples',multiserie:'lines',dispersion:'scatter',apiladas:'stack'};
 function openLegacyBoard(hash){
   if(hash!=='pizarra'&&!Object.hasOwn(LEGACY_BOARD_MODES,hash)) return false;
