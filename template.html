@@ -1258,9 +1258,9 @@ function themeFigures(key,items){
 function viewBlock(key){
   const tab=THEME_TABS.find(t=>t.k===key);
   const group=explorerGroups().groups.find(group=>group.label===tab.l);
-  if(!group){
+  if(!group?.count){
     useRangeCoverage([]);
-    const message=spainDriveLoading?(isEN()?'Loading series…':'Cargando series…'):
+    const message=usaLoading||spainDriveLoading?(isEN()?'Loading series…':'Cargando series…'):
       (isEN()?'No series available in this group.':'No hay series disponibles en este grupo.');
     panel.innerHTML=`<div class="sechead"><h2>${esc(tab.l)}</h2></div><p class="note" role="status">${message}</p>`;
     return;
@@ -2942,14 +2942,11 @@ function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)r
   const sectionEnd=hasGap?spacer+`<td class="bigmap-section" colspan="${weeks.length}" aria-hidden="true"></td>`:'';
   const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${sectionWidth}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th>${sectionEnd}</tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${spacer}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th>${months.length?`<th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>`:''}${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}${weeks.length?`<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th>`:''}</tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
 function dashboardTabs(){
-  if(IS_USA) return [BLACKBOARD_TAB,{k:'modelos',l:'Modelos'}];
-  const groups=new Set(exIds().map(id=>explorerPath(id)[0]));
-  if(IS_TURKEY) return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,...THEME_TABS.filter(tab=>groups.has(tab.l)||tab.k===state.tab)];
-  return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,
-    ...THEME_TABS.filter(tab=>groups.has(tab.l)||tab.k===state.tab),...SPAIN_EXTRA_TABS];
+  if(IS_USA) return [BLACKBOARD_TAB,...THEME_TABS,{k:'modelos',l:'Modelos'}];
+  return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,...THEME_TABS,...(IS_TURKEY?[]:SPAIN_EXTRA_TABS)];
 }
 function isDashboardTab(key){
-  return dashboardTabs().some(tab=>tab.k===key)||THEME_TABS.some(tab=>tab.k===key);
+  return dashboardTabs().some(tab=>tab.k===key);
 }
 function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTabs(), split=tabs.length<=4?tabs.length:Math.ceil(tabs.length/2);
   const restoreFocus=t.contains(document.activeElement);
@@ -3005,7 +3002,8 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     }else{
       if(modelsHost) modelsHost.hidden=true;
       if(mainWrap) mainWrap.hidden=false;
-      if(DATA.meta.n_series) viewBoard();
+      if(state.tab!==BLACKBOARD_TAB.k) viewBlock(state.tab);
+      else if(DATA.meta.n_series) viewBoard();
       else panel.innerHTML=`<div class="sechead"><h2>Blackboard</h2></div><div class="fig"><p class="note">${usaLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'No USA Blackboard series loaded yet. Upload the USA master workbook to Google Drive (drive_ingestion/snapshots/usa.json) or switch to the Models tab to inspect GDPNow and FRB/US.':'Aún no hay series cargadas en el Blackboard de EE. UU. Sube el libro maestro de EE. UU. a Google Drive (drive_ingestion/snapshots/usa.json) o cambia a la pestaña Modelos para consultar GDPNow y FRB/US.')}</p></div>`;
     }
     const title=isEN()?'BBVA Research USA Macro Monitor':'BBVA Research Monitor Macro Estados Unidos';
@@ -3187,11 +3185,15 @@ function openLegacyBoard(hash){
   return true;
 }
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus','dsge','cpinow']);
-const h0=location.hash.slice(1);
+function tabFromHash(){
+  const key=location.hash.slice(1);
+  return key==='indicadores'?'actividad':key;
+}
+const h0=tabFromHash();
 if(IS_USA&&USA_MODEL_HASHES.has(h0)) state.tab='modelos';
 else if(!openLegacyBoard(h0)&&isDashboardTab(h0)) state.tab=h0;
 window.addEventListener('hashchange',()=>{
-  const k=location.hash.slice(1);
+  const k=tabFromHash();
   if(IS_USA&&USA_MODEL_HASHES.has(k)){if(state.tab!=='modelos'){state.tab='modelos';render();}return;}
   if(openLegacyBoard(k)){render();return;}
   if(isDashboardTab(k)&&k!==state.tab){state.tab=k;render();}

@@ -46,9 +46,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tabs button[aria-selected="true"]{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
 .tabs button:hover:not([aria-selected="true"]){color:var(--accent);border-color:var(--accent)}
 .theme-subgroup{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 16px}
-.indicator-themes{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:2px 2px 8px;margin:0 0 8px}
-.indicator-themes .btn{flex:none;white-space:nowrap}
-.indicator-themes .btn.ghost{border-color:var(--rule)}
 main .wrap{padding-block:24px 48px}
 html:not([data-monitor]) main .wrap{padding-top:16px}
 .sechead{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:baseline;justify-content:space-between;margin-bottom:16px}
@@ -1051,7 +1048,6 @@ const FIGS = {
   ],
 };
 const BLACKBOARD_TAB={k:'explorador',l:'Blackboard'};
-const INDICATORS_TAB={k:'indicadores',l:'Indicadores'};
 const SPAIN_EXTRA_TABS=[{k:'bigdata',l:'Big Data'},{k:'previsiones',l:'Previsiones BBVA Research'},
   {k:'tablas',l:'Tablas'},{k:'fuentes',l:'Fuentes y método'}];
 
@@ -1267,7 +1263,6 @@ function viewTurkeyOverview(){
   draw(); observe(draw);
 }
 const themeSelections=new Map();
-let lastThemeKey;
 function themeBranches(node,path=[]){
   const own=node.items.length?[{path,items:node.items}]:[];
   return [...own,...node.groups.flatMap(group=>themeBranches(group,[...path,group.label]))];
@@ -1285,33 +1280,26 @@ function themeFigures(key,items){
   })];
 }
 function viewBlock(key){
-  const groups=explorerGroups().groups;
-  const themes=THEME_TABS.filter(tab=>tab.k===key||groups.some(group=>group.label===tab.l&&group.count));
-  const tab=themes.find(item=>item.k===key)||themes.find(item=>item.k===lastThemeKey)||themes[0];
-  const title=tab?.l||INDICATORS_TAB.l;
-  const switcher=themes.length>1?`<div class="indicator-themes" role="group" aria-label="${isEN()?'Indicator groups':'Grupos de indicadores'}">
-    ${themes.map(item=>`<button type="button" class="btn${item===tab?'':' ghost'}" data-theme-tab="${item.k}" aria-pressed="${item===tab}">${esc(item.l)}</button>`).join('')}</div>`:'';
-  const group=groups.find(item=>item.label===tab?.l);
+  const tab=THEME_TABS.find(item=>item.k===key);
+  const group=explorerGroups().groups.find(item=>item.label===tab.l);
   if(!group?.count){
     useRangeCoverage([]);
-    const message=spainDriveLoading||turkeyLoading?(isEN()?'Loading series…':'Cargando series…'):
+    const message=usaLoading||spainDriveLoading||turkeyLoading?(isEN()?'Loading series…':'Cargando series…'):
       (isEN()?'No series available in this group.':'No hay series disponibles en este grupo.');
-    panel.innerHTML=`<div class="sechead"><h2>${esc(title)}</h2></div>${switcher}<p class="note" role="status">${message}</p>`;
+    panel.innerHTML=`<div class="sechead"><h2>${esc(tab.l)}</h2></div><p class="note" role="status">${message}</p>`;
     return;
   }
-  key=tab.k;
-  lastThemeKey=key;
   const branches=themeBranches(group);
   const branchKey=branch=>JSON.stringify(branch.path);
   const active=branches.find(branch=>branchKey(branch)===themeSelections.get(key))||branches[0];
   useRangeCoverage(active.items.map(({id})=>S()[id]));
-  const heading=`<div class="sechead"><h2>${esc(title)}</h2>${rangeCtl()}</div>`;
+  const heading=`<div class="sechead"><h2>${esc(tab.l)}</h2>${rangeCtl()}</div>`;
   const selector=branches.length>1?`<div class="theme-subgroup"><label class="picklab" for="theme-subgroup">${isEN()?'Subgroup':'Subgrupo'}</label>
     <select class="axsel" id="theme-subgroup">${branches.map(branch=>`<option value="${esc(branchKey(branch))}"${branch===active?' selected':''}>
       ${esc(branch.path.length?branch.path.map(L10).join(' · '):L10(group.label))} (${branch.items.length})</option>`).join('')}</select></div>`:'';
   const figures=themeFigures(key,active.items);
   const start=cutoff();
-  panel.innerHTML=heading+switcher+selector+`<div class="grid">${figures.map((f,i)=>`
+  panel.innerHTML=heading+selector+`<div class="grid">${figures.map((f,i)=>`
     <figure class="fig ${f.wide?'wide':''}" style="margin:0"><div><h3>${esc(f.t)}</h3><div class="sub">${esc(f.sub)}</div></div>
     <div class="lg" data-i="${i}"></div><div class="chart" data-i="${i}"></div>
     <figcaption class="src">Fuente: ${srcLine(figureIds(f))}</figcaption></figure>`).join('')}</div>`;
@@ -3025,18 +3013,15 @@ function drawBigHeat(){const host=document.getElementById('big-heat');if(!host)r
   const sectionEnd=hasGap?spacer+`<td class="bigmap-section" colspan="${weeks.length}" aria-hidden="true"></td>`:'';
   const monthLabel=m=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1));return MES[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(-2)};const weekLabel=w=>{const end=new Date(ts(w)),start=new Date(ts(w)-6*864e5);return start.getUTCDate()+' '+MES[start.getUTCMonth()]+'–'+end.getUTCDate()+' '+MES[end.getUTCMonth()]};const color=v=>{const a=Math.min(.72,.12+Math.min(1,Math.abs(v)/10)*.6);return 'rgba('+(v>=0?'93,180,112':'224,133,61')+','+a+')'};const cell=(v,source)=>v===undefined||v===null?'<td class="bigmissing">—</td>':`<td style="background:${source==='INE'?'#e6e8ec':color(v)};text-align:right;padding:5px 7px;white-space:nowrap">${fmtN(v,1)}%</td>`;let previous='';const body=rows.map(r=>{let divider='';if(r.group!==previous){previous=r.group;divider=`<tr><th class="bigmap-section" colspan="${sectionWidth}">${r.group==='nacional'?(isEN()?'NATIONAL':'NACIONAL'):(isEN()?'REGIONS / PROVINCES / CITIES':'CCAA / PROVINCIAS / CIUDADES')}</th>${sectionEnd}</tr>`}const style=r.group==='territorial'&&r.level===0?'background:#dce7f6;font-weight:700;':'';return divider+`<tr><th class="bigmap-label-cell" style="${style}padding-left:${8+Math.max(0,r.level)*13}px" title="${esc(r.label)}">${esc(r.label)}</th>${months.map(m=>cell((r.monthly||{})[m],r.source)).join('')}${spacer}${weeks.map(w=>cell((r.weekly||{})[w],r.source)).join('')}</tr>`}).join('');host.innerHTML=`<p class="note">${isEN()?'Real indicator; year-on-year change in the 28-day moving average (%). Month-end and week-end observations. INE indicators are shown in grey.':'Indicador real; variación interanual de la media móvil de 28 días (%). Último dato del mes y de la semana. Indicadores del INE en gris.'}</p><div class="bigmap-scroll"><table class="bigmap"><colgroup><col class="bigmap-label">${Array(months.length).fill('<col class="bigmap-value">').join('')}${hasGap?'<col class="bigmap-gap">':''}${Array(weeks.length).fill('<col class="bigmap-value">').join('')}</colgroup><thead><tr><th rowspan="2">${isEN()?'Indicator':'Indicador'}</th>${months.length?`<th colspan="${months.length}">${isEN()?'Monthly':'Mensual'}</th>`:''}${hasGap?'<th class="bigmap-spacer" rowspan="2" aria-hidden="true"></th>':''}${weeks.length?`<th colspan="${weeks.length}">${isEN()?'Weekly':'Semanal'}</th>`:''}</tr><tr>${months.map(m=>`<th>${esc(monthLabel(m))}</th>`).join('')}${weeks.map(w=>`<th>${esc(weekLabel(w))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><p class="note">${isEN()?'Source: BBVA Research and INE.':'Fuente: BBVA Research e INE.'}</p>`;tr(host);}
 function dashboardTabs(){
-  if(IS_USA) return [BLACKBOARD_TAB,{k:'modelos',l:'Modelos'}];
-  return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,INDICATORS_TAB,...(IS_TURKEY?[]:SPAIN_EXTRA_TABS)];
-}
-function activeDashboardTab(){
-  return THEME_TABS.some(tab=>tab.k===state.tab)?INDICATORS_TAB.k:state.tab;
+  if(IS_USA) return [BLACKBOARD_TAB,...THEME_TABS,{k:'modelos',l:'Modelos'}];
+  return [{k:'resumen',l:'Resumen'},BLACKBOARD_TAB,...THEME_TABS,...(IS_TURKEY?[]:SPAIN_EXTRA_TABS)];
 }
 function isDashboardTab(key){
-  return dashboardTabs().some(tab=>tab.k===key)||THEME_TABS.some(tab=>tab.k===key);
+  return dashboardTabs().some(tab=>tab.k===key);
 }
 function renderTabs(){ const t=document.getElementById('tabs'), tabs=dashboardTabs();
   const restoreFocus=t.contains(document.activeElement);
-  const active=activeDashboardTab();
+  const active=state.tab;
   t.innerHTML=tabs.map(x=>`<button type="button" role="tab" id="tab-${x.k}" aria-controls="panel" aria-selected="${x.k===active}" tabindex="${x.k===active?0:-1}" data-k="${x.k}">${esc(x.l)}</button>`).join('');
   t.querySelectorAll('button').forEach((b,i,all)=>{ b.addEventListener('click',()=>go(b.dataset.k)); b.addEventListener('keydown',e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; e.preventDefault(); const j=(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length; go(all[j].dataset.k); }); });
   const sel=t.querySelector('[aria-selected="true"]');
@@ -3054,7 +3039,7 @@ function applyDriveLocale(){
       original_name:text?.subtitulo_descripcion||original.original_name};
   }
 }
-function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-labelledby','tab-'+activeDashboardTab()); if(ro){ro.disconnect();ro=null;}
+function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-labelledby','tab-'+state.tab); if(ro){ro.disconnect();ro=null;}
   if(IS_TURKEY){
     if(DATA.meta.n_series){
       if(state.tab==='resumen') viewTurkeyOverview();
@@ -3088,7 +3073,8 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     }else{
       if(modelsHost) modelsHost.hidden=true;
       if(mainWrap) mainWrap.hidden=false;
-      if(DATA.meta.n_series) viewBoard();
+      if(state.tab!==BLACKBOARD_TAB.k) viewBlock(state.tab);
+      else if(DATA.meta.n_series) viewBoard();
       else panel.innerHTML=`<div class="sechead"><h2>Blackboard</h2></div><div class="fig"><p class="note">${usaLoading?(isEN()?'Loading data…':'Cargando datos…'):(isEN()?'No USA Blackboard series loaded yet. Upload the USA master workbook to Google Drive (drive_ingestion/snapshots/usa.json) or switch to the Models tab to inspect GDPNow and FRB/US.':'Aún no hay series cargadas en el Blackboard de EE. UU. Sube el libro maestro de EE. UU. a Google Drive (drive_ingestion/snapshots/usa.json) o cambia a la pestaña Modelos para consultar GDPNow y FRB/US.')}</p></div>`;
     }
     const title=isEN()?'BBVA Research USA Macro Monitor':'BBVA Research Monitor Macro Estados Unidos';
@@ -3109,11 +3095,6 @@ function render(){ applyDriveLocale(); renderTabs(); panel.setAttribute('aria-la
     document.title=isEN()?'BBVA Research Spain Macro Monitor':'BBVA Research Monitor Macro España';
   }
   document.documentElement.lang=LANG;
-  panel.querySelectorAll('[data-theme-tab]').forEach(button=>button.addEventListener('click',()=>{
-    const key=button.dataset.themeTab;
-    go(key);
-    panel.querySelector(`[data-theme-tab="${key}"]`)?.focus({preventScroll:true});
-  }));
   document.querySelectorAll('#langSeg [data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===LANG)));
   tr(document.body);
   if(IS_USA) window.dispatchEvent(new CustomEvent('mme-lang-change',{detail:LANG})); }
@@ -3276,6 +3257,7 @@ function openLegacyBoard(hash){
 const USA_MODEL_HASHES=new Set(['gdpnow','frbus']);
 const tabFromHash=()=>{
   const key=location.hash.slice(1);
+  if(key==='indicadores') return 'actividad';
   return !IS_EXTERNAL_MONITOR&&Object.hasOwn(SPAIN_THEME_ALIASES,key)?SPAIN_THEME_ALIASES[key]:key;
 };
 const h0=tabFromHash();
